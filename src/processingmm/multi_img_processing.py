@@ -158,7 +158,7 @@ def get_calibration_dates(calib_directory):
     return calib_directory_dates_num
 
 
-def get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, idx = -1):
+def get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, Flag = False, idx = -1):
     """
     get the calibration directory with the date closest to the folder given as in input
 
@@ -182,7 +182,7 @@ def get_calibration_directory(calib_directory_dates_num, path, calib_directory, 
     date_measurement = get_date_measurement(path, idx)
     
     # find the data that is the closest in the calibration directory
-    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, directories, calib_directory)
+    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, directories, calib_directory, Flag = Flag)
     directories_calib = os.listdir(calib_directory)
     calib_folder = []
     
@@ -244,7 +244,7 @@ def get_date_measurement(path, idx = -1):
     return date
 
 
-def find_closest_date(date_measurement, calib_dates, directories, calib_directory):
+def find_closest_date(date_measurement, calib_dates, directories, calib_directory, Flag = False):
     """
     finds the closest date in a list given a date as an input
 
@@ -307,13 +307,13 @@ def find_closest_date(date_measurement, calib_dates, directories, calib_director
     
     # if no calibration can be found for the same day, raise a warning
     if closest > 0:
-        incorrect_date(closest)
+        incorrect_date(closest, Flag = Flag)
     closest_date = date_calibration.strftime('%Y-%m-%d')
 
     return closest_date
 
 
-def incorrect_date(closest):
+def incorrect_date(closest, Flag = False):
     """
     raises a warning indicating that no calibration has been found for the exact date of the measurement
 
@@ -322,4 +322,7 @@ def incorrect_date(closest):
     closest : int
         the number of days separating the measurement and the calibration
     """
-    warnings.warn('No calibration was found for the exact date, the one used was {} day(s) ago.'.format(closest), UserWarning, stacklevel=2)
+    if Flag:   
+        warnings.warn('No calibration was found for the exact date, the one used was {} day(s) ago.'.format(closest), UserWarning, stacklevel=2)
+    else:
+        pass

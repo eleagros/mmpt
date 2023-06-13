@@ -9,8 +9,7 @@ from processingmm.multi_img_processing import remove_already_computed_directorie
 from processingmm.helpers import get_wavelength
 
 def compute_analysis_python(measurements_directory, calib_directory_dates_num, calib_directory, to_compute, remove_reflection = True,
-                            run_all = False,
-                           batch_processing = False):
+                            run_all = False, batch_processing = False, Flag = False):
     """
     run the script for all the measurement folders in the directory given as an input
 
@@ -43,13 +42,15 @@ def compute_analysis_python(measurements_directory, calib_directory_dates_num, c
     if not batch_processing:
         with tqdm(total = len(to_compute)) as pbar:
             for c in to_compute:
-                error, calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, to_compute, MuellerMatrices, treshold, c, remove_reflection = remove_reflection, pbar = pbar)
+                error, calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, 
+                                to_compute, MuellerMatrices, treshold, c, remove_reflection = remove_reflection, pbar = pbar, Flag = Flag)
                 calibration_directories[c] = calibration_directory_closest
                 if error:
                     to_check.append(c)
     else:
         for c in to_compute:
-            error, calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, to_compute, MuellerMatrices, treshold, c, remove_reflection = remove_reflection)
+            error, calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, to_compute, 
+                                                    MuellerMatrices, treshold, c, remove_reflection = remove_reflection, Flag = Flag)
             calibration_directories[c] = calibration_directory_closest
             if error:
                 to_check.append(c)
@@ -58,7 +59,7 @@ def compute_analysis_python(measurements_directory, calib_directory_dates_num, c
 
 
 def compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, to_compute, 
-                   MuellerMatrices, treshold, c, remove_reflection = True, pbar = None):
+                   MuellerMatrices, treshold, c, remove_reflection = True, pbar = None, Flag = False):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -94,7 +95,7 @@ def compute_one_MM(measurements_directory, calib_directory_dates_num, calib_dire
     error = False
     
     # get the corresponding calibration_directory
-    calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories)
+    calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, Flag = Flag)
     
     for d in directories:
                         

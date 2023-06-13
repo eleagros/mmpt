@@ -3,7 +3,7 @@ import os
 import shutil
 from tqdm import tqdm
 
-def move_raw_data_folders(directory, measurements_directory):
+def move_raw_data_folders(directory, measurements_directory, Flag = False):
     """
     moves the raw data folders into the newly created raw_data directory
 
@@ -58,7 +58,8 @@ def move_raw_data_folders(directory, measurements_directory):
             else:
                 print(e)
 
-    print('Raw data folders moved')
+    if Flag:
+        print('Raw data folders moved')
 
 def get_raw_data_folder(folders):
     """
@@ -85,7 +86,7 @@ def get_raw_data_folder(folders):
                 pass
     return raw_data
 
-def create_directories(measurements_directory, directory, directories_tbc, wavelenghts):
+def create_directories(measurements_directory, directory, directories_tbc, wavelenghts, Flag = False):
     """
     create the architecture for the folders copied from the IMP (polarimetry, 50x50_images, histology,...)
 
@@ -143,10 +144,11 @@ def create_directories(measurements_directory, directory, directories_tbc, wavel
                         else:
                             os.mkdir(os.path.join(path_directory, directory_tbc, wavelenght))
     
-    print('Directories created')
+    if Flag:
+        print('Directories created')
 
 
-def remove_old_computation(measurements_directory, directory):
+def remove_old_computation(measurements_directory, directory, Flag = False):
     polarimetry = os.path.join(measurements_directory, directory, 'polarimetry')
     for wl in os.listdir(polarimetry):
         folder = os.path.join(polarimetry, wl)
@@ -180,10 +182,11 @@ def remove_old_computation(measurements_directory, directory):
                     else:
                         os.remove(os.path.join(folder, file))
     
-    print('Old computations were removed')
+    if Flag:
+        print('Old computations were removed')
 
 
-def move_50x50_images(measurements_directory, directory):
+def move_50x50_images(measurements_directory, directory, Flag = False):
     """
     move the 50x50 images that were already computed in thw new 50x50_images folder
 
@@ -215,4 +218,5 @@ def move_50x50_images(measurements_directory, directory):
     except:
         pass
 
-    print('50x50 images were moved')
+    if Flag:
+        print('50x50 images were moved')
