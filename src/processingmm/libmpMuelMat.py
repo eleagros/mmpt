@@ -84,12 +84,10 @@ def _get_CLib_path():
     '''
 	# Function to retrieve the global (or local) path to the Compiled C Shared Library
 	'''
-
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.dll')
     # Clibs_pth = "./C-libs/libmpMuelMat.so"  # << Change the Global (or Local) path here if necessary!
-    Clibs_pth = "./C-libs/libmpMuelMat.dll" # << Uncomment and Change here for Windows OS
-
     return Clibs_pth
-
 
 def _loadClib():
     '''

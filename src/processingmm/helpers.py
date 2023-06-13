@@ -20,6 +20,13 @@ def get_wavelength(fname):
     wavelength = int(str.split(fname, '\\')[-1].split('nm')[0])
     return wavelength
 
+
+def load_filenames():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(dir_path, '../../data', 'filenames.pickle'), 'rb') as handle:
+        filenames = pickle.load(handle)
+    return filenames
+
 def load_parameter_maps():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(dir_path, '../../data', 'parameters_map.pickle'), 'rb') as handle:
@@ -76,3 +83,11 @@ def load_MM(path):
     """
     mat = np.load(path)
     return mat
+
+def add_path(row):
+    return row['folder name']
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
