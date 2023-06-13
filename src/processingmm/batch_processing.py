@@ -283,7 +283,10 @@ def batch_process(directories, calib_directory):
     processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
     to_process = df[~df['processed']]
-    to_process = list(set(list(to_process.reset_index(level=0).apply(add_path, axis = 1))))
+    if len(to_process) == 0:
+        to_process = []
+    else:
+        to_process = list(set(list(to_process.reset_index(level=0).apply(add_path, axis = 1))))
 
     try:
         os.mkdir('./temp_processing')
