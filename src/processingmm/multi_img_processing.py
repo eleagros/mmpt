@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import warnings
 
 def get_dir_to_compute(measurements_directory, treshold = 21, sanity = False, run_all = False):
     """
@@ -155,3 +156,170 @@ def get_calibration_dates(calib_directory):
     for c in calib_directory_dates:
         calib_directory_dates_num.append(datetime.strptime(c.split('_')[0], '%Y-%m-%d'))
     return calib_directory_dates_num
+
+
+def get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, idx = -1):
+    """
+    get the calibration directory with the date closest to the folder given as in input
+
+    Parameters
+    ----------
+    calib_directory_dates_num : list
+        a list containing the dates of the calibration
+    path : str
+        the path to the folder that is currently being processed
+    calib_directory : str
+        the path to the folder containing the calibration data
+    idx : int
+        should always be -1, except for quality check
+        
+    Returns
+    -------
+    cal_fol_rt : path
+        the path to the calibration directory with the date closest to the folder given as in input
+    """
+    # get the date of the measurement of the folder that is currently being processed
+    date_measurement = get_date_measurement(path, idx)
+    
+    # find the data that is the closest in the calibration directory
+    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, directories, calib_directory)
+    directories_calib = os.listdir(calib_directory)
+    calib_folder = []
+    
+    # iterate over the directories in the calibration folder
+    for directory in directories_calib:
+        
+        # add to the calib_folder list the folders with the date corresponding to the closest date
+        if closest_date in directory:
+            
+            all_wl = True
+            for d in directories:
+                path_A = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_B0.cod')
+                path_W = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_Bruit.cod')
+                if os.path.isfile(path_A) and os.path.isfile(path_W):
+                    pass
+                else:
+                    all_wl = False
+                
+            if all_wl:
+                calib_folder.append(os.path.join(calib_directory, directory))
+            
+    # check if there are actually calibration folders - if not, raise an error
+    if calib_folder:
+        
+        # select the last calibration of the day (i.e. if 'C_1', 'C_2' exists - select 'C_2')
+        highest = 0
+        cal_fol_rt = None
+        for cal_fol in calib_folder:
+            if int(cal_fol.split('_')[-1]) > highest:
+                highest = int(cal_fol.split('_')[-1])
+                cal_fol_rt = cal_fol
+        if cal_fol_rt:
+            return cal_fol_rt
+        else:
+            raise FileNotFoundError('No calibration was found. Check if calibration folders are present.')
+    else:
+        raise FileNotFoundError('No calibration was found. Check if calibration folders are present.')
+
+def get_date_measurement(path, idx = -1):
+    """
+    returns the data of the measured folder
+
+    Parameters
+    ----------
+    path : str
+        the folder name for which we want the date for
+    idx : int
+        parameter indicating where to split the path string
+
+    Returns
+    -------
+    date : datetime
+        the date corresponding to the folder given as an input
+    """
+    try:
+        date = datetime.strptime(path.split('\\')[idx].split('_')[0], '%Y-%m-%d')
+    except:
+        date = datetime.strptime(path.split('/')[idx].split('_')[0], '%Y-%m-%d')
+    return date
+
+
+def find_closest_date(date_measurement, calib_dates, directories, calib_directory):
+    """
+    finds the closest date in a list given a date as an input
+
+    Parameters
+    ----------
+    date_measurement : datetime
+        the date
+    calib_dates : list of datetime
+        a list of datetimes in which the closest one to date_measurement should be found
+
+    Returns
+    -------
+    closest_date : datetime
+        the closest date to date_measurement in calib_dates
+    """
+    directories_calib = os.listdir(calib_directory)
+    
+    found = False
+    while not found:
+        
+        closest = 1000
+        date_calibration = None
+        idx = None
+        
+        # iterate over the dates in the list
+        for idy, calib in enumerate(calib_dates):
+            duration = calib - date_measurement 
+
+            # get the number of days separating the calibration and measurement
+            days = abs(duration.days)
+            if days < closest:
+                date_calibration = calib
+                closest = days
+                idx = idy
+                
+        closest_date = date_calibration.strftime('%Y-%m-%d')
+        
+        # iterate over the directories in the calibration folder
+        for directory in directories_calib:
+
+            # add to the calib_folder list the folders with the date corresponding to the closest date
+            if closest_date in directory:
+
+                all_wl = True
+                for d in directories:
+                    path_A = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_B0.cod')
+                    path_W = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_Bruit.cod')
+                    if os.path.isfile(path_A) and os.path.isfile(path_W):
+                        pass
+                    else:
+                        all_wl = False
+             
+        if all_wl: 
+            found = True
+        else:
+            del calib_dates[idx]
+    
+    if date_calibration == None:
+        raise FileNotFoundError('No calibration was found for the closest 1000 days. Check if calibration folders are present.')
+    
+    # if no calibration can be found for the same day, raise a warning
+    if closest > 0:
+        incorrect_date(closest)
+    closest_date = date_calibration.strftime('%Y-%m-%d')
+
+    return closest_date
+
+
+def incorrect_date(closest):
+    """
+    raises a warning indicating that no calibration has been found for the exact date of the measurement
+
+    Parameters
+    ----------
+    closest : int
+        the number of days separating the measurement and the calibration
+    """
+    warnings.warn('No calibration was found for the exact date, the one used was {} day(s) ago.'.format(closest), UserWarning, stacklevel=2)

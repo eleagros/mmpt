@@ -9,8 +9,8 @@ for i in *.o; do
 done
 
 # Cleaning-up the folder from existing Shared Libraries (*.so, *.dll) 
-# rm *.so # << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
-rm *.dll # << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
+rm *.so # << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
+# rm *.dll # << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
 
 # Compiling the software
 # Set the gcc version (e.g. gcc-6 or gcc-10) correctly configured with OpenMP

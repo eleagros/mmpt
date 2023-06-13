@@ -5,7 +5,11 @@ import time  # for computational performance
 import matplotlib  # for plotting variables & results
 import matplotlib.pyplot as plt
 import scipy.io  # for matlab datasets
+import scipy.signal
+import scipy.ndimage
+import cv2
 from datetime import datetime
+from tqdm import tqdm
 
 __version__ = "1.0"
 
@@ -54,6 +58,10 @@ def list_Dependencies():
         print(' * scipy (', scipy.__version__, ')')
     except:
         print(' * scipy ( NOT FOUND )')
+    try:
+        print(' * OpenCV (', cv2.__version__, ')')
+    except:
+        print(' * OpenCV ( NOT FOUND )')
     print(' ')
     print(' C-libs shared library path:')
     if _chkFilePath(_get_CLib_path()):
@@ -95,6 +103,35 @@ def _loadClib():
             " <!> libmpMuelMat: Cannot Load Shared Library! -- Please check dependencies with: libmpMuelMat.list_Dependencies()")
 
     return Clib
+
+
+def _get_testDataMAT_path():
+    '''
+	# Function to retrieve the global (or local) path to test Data (MATLAB data format '.mat')
+	'''
+    testDataMAT_pth = './TestData/MAT/libmpMuelMat_TestData.mat'  # << Change here the path to the testing/validation data
+
+    return testDataMAT_pth
+
+
+def _get_test_calib_path():
+    '''
+	# Private Function to retrieve the testing calibration folder path
+	'''
+
+    test_calib_path = './TestData/Raw/Calibration/'  # << Change here the path to the test calibration folder
+
+    return test_calib_path
+
+
+def _get_test_scan_path():
+    '''
+	# Private Function to retrieve the testing Raw Intensities folder path
+	'''
+    test_scan_path = './TestData/Raw/Scan/'  # << Change here the path to the test scan folder
+
+    return test_scan_path
+
 
 def _chkFilePath(filePath):
     '''
@@ -283,7 +320,7 @@ def _get_validDataMAT():
 	# 'linR': linear phase shift (retardance)
 	# 'cirR': circular phase shift (retardance)
 	# 'oriR': orientation of linear phase shift (retardance)
-	# 'oriRfull': full orientation of linear phase shift (retardance)
+	# 'azimuth': full orientation of linear phase shift (retardance)
 	#
 	# 'totP': total depolarisation
 	#
@@ -310,7 +347,7 @@ def _get_validDataMAT():
                     'linR': mat.get('Image_linear_retardance'),
                     'cirR': mat.get('Image_circular_retardance'),
                     'oriR': mat.get('Image_orientation_linear_retardance'),
-                    'oriRfull': mat.get('Image_orientation_linear_retardance_full'),
+                    'azimuth': mat.get('Image_orientation_linear_retardance_full'),
                     'totP': mat.get('Image_total_depolarization')}
 
     return validDataMAT
@@ -342,7 +379,7 @@ def read_cod_data_X3D(input_cod_Filename, CamType=None, isRawFlag=0, VerboseFlag
     if (CamType == None):
         CamType = default_CamType()  # << default
 
-    shp2 = get_Cam_Params(CamType)[0]
+    shp2, _ = get_Cam_Params(CamType)
 
     ## Initial Time (Total Performance)
     t = time.time()
@@ -401,7 +438,7 @@ def write_cod_data_X3D(X3D, output_cod_Filename, VerboseFlag=1):
             'Input: "X3D" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
                 shp3[-1]))
 
-    with open(output_cod_Filename, "wb") as f:
+    with open(output_cod_Filename, 'wb') as f:
         X3D.astype(np.single).tofile(f)
         f.close()
 
@@ -434,7 +471,7 @@ def read_cod_data_X2D(input_cod_Filename, CamType=None, VerboseFlag=0):
     if (CamType == None):
         CamType = default_CamType()  # << default
 
-    shp2 = get_Cam_Params(CamType)[0]
+    shp2, _ = get_Cam_Params(CamType)
 
     ## Initial Time (Total Performance)
     t = time.time()
@@ -1095,7 +1132,7 @@ def compute_I_satMsk(I, CamType=None):
         CamType = default_CamType()
 
     # Defining the Gamma Dynamic Intensity Threshold for Saturation (Camera Property)
-    I_thr_GammaDynamic = get_Cam_Params(CamType)[1]
+    _, I_thr_GammaDynamic = get_Cam_Params(CamType)
 
     # Determining the Supra-Threshold Saturated Intensities (invalid pixels due to reflections)
     I_satMsk = np.all(I < I_thr_GammaDynamic, axis=-1)
@@ -1325,7 +1362,7 @@ def compute_MM_polarim_Params(MD, MR, Mdelta, idx=-1, VerboseFlag=0):
 	# 'linR': linear Phase Shift (Retardance) of shape [dim[0],dim[1]].
 	# 'cirR': circular Phase Shift (Retardance) of shape [dim[0],dim[1]].
 	# 'oriR': orientation of linear Phase Shift (Retardance) of shape [dim[0],dim[1]].
-	# 'oriRfull': orientation of linear Phase Shift (Retardance) Full of shape [dim[0],dim[1]].
+	# 'azimuth': orientation of linear Phase Shift (Retardance) Full of shape [dim[0],dim[1]].
 	#
 	# 'totP': total Depolarisation of shape [dim[0],dim[1]].
 	#
@@ -1395,14 +1432,14 @@ def compute_MM_polarim_Params(MD, MR, Mdelta, idx=-1, VerboseFlag=0):
     [linR, linR_ptr] = ini_Comp(shp2)
     [cirR, cirR_ptr] = ini_Comp(shp2)
     [oriR, oriR_ptr] = ini_Comp(shp2)
-    [oriRfull, oriRfull_ptr] = ini_Comp(shp2)
+    [azimuth, azimuth_ptr] = ini_Comp(shp2)
     # Depolarisation
     [totP, totP_ptr] = ini_Comp(shp2)
 
     # Determining the Polarimetric Parameters from the Lu-Chipman Decomposition of the Mueller Matrix
     # Calling the C-compiled function from the shared library
     mpMuelMatlibs.mp_comp_MM_polarim_Params(totD_ptr, linD_ptr, oriD_ptr, cirD_ptr,
-                                            totR_ptr, linR_ptr, cirR_ptr, oriR_ptr, oriRfull_ptr,
+                                            totR_ptr, linR_ptr, cirR_ptr, oriR_ptr, azimuth_ptr,
                                             totP_ptr,
                                             MD_ptr, MR_ptr, Mdelta_ptr,
                                             idx_ptr, numel_ptr)
@@ -1421,10 +1458,562 @@ def compute_MM_polarim_Params(MD, MR, Mdelta, idx=-1, VerboseFlag=0):
                  'linR': linR,
                  'cirR': cirR,
                  'oriR': oriR,
-                 'oriRfull': oriRfull,
+                 'azimuth': azimuth,
                  'totP': totP}
 
     return polParams
+
+
+def show_Montage(X3D, vmin=None, vmax=None, title=None):
+    '''# Function to display the 16 components (e.g. of Mueller Matrix) in a montage form (4x4)
+	# This function is based on matplotlib.
+	#
+	# Call: show_Montage( X3D )
+	#
+	# *Inputs*
+	# X3D: 3D stack of 2D Components of shape shp3.
+	# 	   The matrix X must have shape equal to [dim[0],dim[1],16].'''
+
+    shp3 = np.shape(X3D)
+    if (np.prod(np.shape(shp3)) != 3):
+        raise Exception(
+            'Input: "X3D" should have shape of a 3D image, e.g. (idx0, idx1, idx2). The shape value was found: {}'.format(
+                shp3))
+    if (shp3[-1] != 16):
+        raise Exception(
+            'Input: "X3D" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
+                shp3[-1]))
+
+    if vmin == None:
+        vmin = np.nanmin(X3D)
+    if vmax == None:
+        vmax = np.nanmax(X3D)
+
+    X_montage = np.concatenate((np.concatenate(
+        (X3D[:, :, 0].squeeze(), X3D[:, :, 1].squeeze(), X3D[:, :, 2].squeeze(), X3D[:, :, 3].squeeze()), axis=1),
+                                np.concatenate((X3D[:, :, 4].squeeze(), X3D[:, :, 5].squeeze(), X3D[:, :, 6].squeeze(),
+                                                X3D[:, :, 7].squeeze()), axis=1),
+                                np.concatenate((X3D[:, :, 8].squeeze(), X3D[:, :, 9].squeeze(), X3D[:, :, 10].squeeze(),
+                                                X3D[:, :, 11].squeeze()), axis=1),
+                                np.concatenate((X3D[:, :, 12].squeeze(), X3D[:, :, 13].squeeze(),
+                                                X3D[:, :, 14].squeeze(), X3D[:, :, 15].squeeze()), axis=1)), axis=0)
+    plt.figure(dpi=300)
+    plt.imshow(X_montage, vmin=vmin, vmax=vmax)
+    if title:
+        plt.title(title)
+    plt.colorbar(shrink=0.8)
+    plt.xticks([])
+    plt.yticks([])
+    plt.show()
+
+
+def show_REls(REls, vmin=None, vmax=None):
+    '''# Function to display the 4 Real EigenValues components of Mueller Matrix Eigen-Decomposition in a montage form (1x4)
+	# This function is based on matplotlib.
+	#
+	# Call: show_REls( REls )
+	#
+	# *Inputs*
+	# REls: 3D stack of 2D EigenValues Components of shape shp3 = [dim[0],dim[1],4].
+	#
+	# NB: The displayed Real EigenValues are sorted in a descending fashion: \lambda1 >= \lambda2 >= \lambda3 >= \lambda4'''
+
+    REls = sort_MM_REls(REls)
+
+    if vmin == None:
+        vmin = np.nanmin(REls)
+    if vmax == None:
+        vmax = np.nanmax(REls)
+
+    REls_montage = np.concatenate((REls[:, :, 0].squeeze(),
+                                   REls[:, :, 1].squeeze(),
+                                   REls[:, :, 2].squeeze(),
+                                   REls[:, :, 3].squeeze()), axis=1)
+    plt.figure(dpi=300)
+    plt.imshow(REls_montage, vmin=vmin, vmax=vmax)
+    plt.colorbar(orientation="horizontal", shrink=0.8)
+    plt.xticks([])
+    plt.yticks([])
+    plt.show()
+
+
+def show_Comp(X2D, vmin=None, vmax=None, title=None, bwperim=None):
+    '''# Function to display an individual 2D component (e.g. one component of the Mueller Matrix coeffs, or a Mask)
+	# This function is based on matplotlib.
+	#
+	# Call: show_Comp( X2D )
+	#
+	# *Inputs*
+	# X2D: 2D Image of shape shp2 = [dim[0],dim[1]].'''
+
+    if (np.prod(np.shape(np.shape(X2D))) != 2):
+        raise Exception(
+            'Input: "X2D" should have shape of a 2D image, e.g. (idx0, idx1). The shape value was found: {}'.format(
+                np.shape(X2D)))
+
+    if vmin == None:
+        vmin = np.nanmin(X2D)
+    if vmax == None:
+        vmax = np.nanmax(X2D)
+
+    plt.figure(dpi=300)
+    plt.imshow(X2D, vmin=vmin, vmax=vmax)
+    if title:
+        plt.title(title)
+    plt.colorbar(shrink=0.8)
+    if not np.all(bwperim==None):
+        plt.imshow(bwperim, interpolation='None', cmap='gray', alpha=bwperim.astype(np.double))
+    plt.xticks([])
+    plt.yticks([])
+    plt.show()
+
+
+def calib_System_AW(calib_Folderpath, wlen=None, CamType=None):
+    ''' # Function to determine the polarisation state variables after calibration of the polarimetric System
+	#
+	# Call: (A,W,condA,condW,condB0) = calib_System_AW(calib_Folderpath,[wlen],[CamType])
+	#
+	# *Inputs*
+	# calib_FolderPath: string with the global (or local) path to the calibration folder.
+	#   The calibration folder MUST contain the following .cod data files:
+	#	<wlen>_Bruit.cod
+	# 	<wlen>_B0.cod
+	#	<wlen>_P0.cod
+	#	<wlen>_P90.cod
+	#	<wlen>_L30.cod
+	#
+	# [wlen]: optional string indicating the wavelength used in the calibration process (default: '550' will be applied.)
+	#
+	# [CamType]: optional string with the Camera Device Name used during the acquisition (see: default_CamType()).
+	#
+	# *Outputs*
+	# A,W: polarisation state matrices for determining the Mueller Matrix
+	#      both A and W will have shape shp3 = [dim[0],dim[1],16].
+	#
+	# condA,condW,condB0: conditioning of the polarisation state matrices and B0
+	#                     all matrices have same shape shp3 = [dim[0],dim[1],16].'''
+
+    if not (calib_Folderpath[-1] == '/'):
+        calib_Folderpath = calib_Folderpath + '/'
+
+    if (wlen == None):
+        wlen = 550  # Default wavelength used in the polarimetric system
+    wlen_str = "{:d}".format(wlen)
+
+    if (CamType == None):
+        CamType = default_CamType()
+
+    if (CamType == 'TEST'):
+        isRawFlag = 0
+    else:
+        isRawFlag = 1  # << Flag for Raw Data from the Camera System
+
+    vrai_psi_Flag = 0  # << Flag set to False
+
+    if _chk_calib_cod_files(calib_Folderpath, wlen_str):
+
+        ## Loading Data and Computing System Calibration
+        print(' ')
+        print(' >> Running System Calibration @', wlen_str, 'nm: ...')
+        (B0, P0, P90, L30) = _load_calib_cod_data(calib_Folderpath, wlen_str, CamType, isRawFlag)
+        (OriP, OriL, tauP0, tauP90, tauL30, psiP0, psiP90, psiL30, dltL30, dBmin) = _compute_calib_System(B0, P0, P90,
+                                                                                                          L30,
+                                                                                                          vrai_psi_Flag)
+        print('    Done ')
+        print(' ')
+
+        ## Exporting System Calibration Logbook
+        print(' >> Exporting Calibration Logbook: ...')
+        calib_Output_Filename = _write_calibration(calib_Folderpath, CamType, wlen_str,
+                                                   OriP, OriL,
+                                                   tauP0, tauP90, tauL30,
+                                                   psiP0, psiP90, psiL30,
+                                                   dltL30, dBmin)
+        print('    Done ')
+        print('    Logbook Exported as:', calib_Output_Filename)
+        print(' ')
+
+        ## Computing Polarisation state Matrices and Conditioning
+        print(' >> Computing Polarisation State Matrices and Conditioning [this may take some time]: ...')
+        (A, W, condA, condW, condB0) = _compute_calib_System_AW_cond(B0, P0, P90, L30, OriP, OriL, vrai_psi_Flag)
+        print('    Done')
+        print(' ')
+
+        ## Exporting the results of the calibration: Polarisation State Matrices and Conditioning
+        print(' >> Exporting Polarisation State Matrices and Conditioning: ...')
+        A_calib_cod_Filename = calib_Folderpath + wlen_str + '_A.cod'
+        if _chkFilePath(A_calib_cod_Filename):
+            print('    [wrn]: Existing', wlen_str + '_A.cod', 'file -- overwriting!')
+        print(' >> A :', A_calib_cod_Filename)
+        write_cod_data_X3D(A, A_calib_cod_Filename, 0)  # << Disable automatic verbose
+
+        W_calib_cod_Filename = calib_Folderpath + wlen_str + '_W.cod'
+        if _chkFilePath(W_calib_cod_Filename):
+            print('    [wrn]: Existing', wlen_str + '_W.cod', 'file -- overwriting!')
+        print(' >> W :', W_calib_cod_Filename)
+        write_cod_data_X3D(W, W_calib_cod_Filename, 0)  # << Disable automatic verbose
+
+        condA_calib_cod_Filename = calib_Folderpath + wlen_str + '_cond_A.cod'
+        if _chkFilePath(condA_calib_cod_Filename):
+            print('    [wrn]: Existing', wlen_str + '_cond_A.cod', 'file -- overwriting!')
+        print(' >> cond_A :', condA_calib_cod_Filename)
+        write_cod_data_X2D(condA, condA_calib_cod_Filename, 0)
+
+        condW_calib_cod_Filename = calib_Folderpath + wlen_str + '_cond_W.cod'
+        if _chkFilePath(condW_calib_cod_Filename):
+            print('    [wrn]: Existing', wlen_str + '_cond_W.cod', 'file -- overwriting!')
+        print(' >> cond_W :', condW_calib_cod_Filename)
+        write_cod_data_X2D(condW, condW_calib_cod_Filename, 0)
+
+        print(' ')
+
+    else:
+        print(' ')
+        print(' <!> The parsed Folder does not contain all necessary calibration files! -- Abort')
+        print(' <!> Please check:', calib_Folderpath, '@', wlen_str, 'nm')
+        print(' ')
+        A = None
+        W = None
+        condA = None
+        condW = None
+        condB0 = None
+
+    return A, W, condA, condW, condB0
+
+
+def _get_calib_cod_filehandles():
+    '''
+	# These filename handles can be changed accordingly to your saved output from the polarimetric system
+	'''
+
+    N_filename = '_Bruit.cod'  # Background Noise
+    B0_filename = '_B0.cod'
+    P0_filename = '_P0.cod'
+    P90_filename = '_P90.cod'
+    L30_filename = '_L30.cod'
+
+    return N_filename, B0_filename, P0_filename, P90_filename, L30_filename
+
+
+def _chk_calib_cod_files(calib_Folderpath, wlen_str):
+    '''
+	# Private Function to check the existence of the complete set of files necessary for calibration
+	'''
+
+    (N_filename, B0_filename, P0_filename, P90_filename, L30_filename) = _get_calib_cod_filehandles()
+
+    return _chkFilePath(calib_Folderpath + wlen_str + N_filename) & \
+           _chkFilePath(calib_Folderpath + wlen_str + B0_filename) & \
+           _chkFilePath(calib_Folderpath + wlen_str + P0_filename) & \
+           _chkFilePath(calib_Folderpath + wlen_str + P90_filename) & \
+           _chkFilePath(calib_Folderpath + wlen_str + L30_filename)
+
+
+def _load_calib_cod_data(calib_Folderpath, wlen_str, CamType, isRawFlag):
+    '''
+	# Private Function to automatically load the calibration cod files
+	# This function returns the variable already normalised (noise subtracted)
+	'''
+
+    (N_filename, B0_filename, P0_filename, P90_filename, L30_filename) = _get_calib_cod_filehandles()
+
+    # Load all calibration files
+    N = read_cod_data_X3D(calib_Folderpath + wlen_str + N_filename, CamType, isRawFlag)
+    B0 = read_cod_data_X3D(calib_Folderpath + wlen_str + B0_filename, CamType, isRawFlag)
+    P0 = read_cod_data_X3D(calib_Folderpath + wlen_str + P0_filename, CamType, isRawFlag)
+    P90 = read_cod_data_X3D(calib_Folderpath + wlen_str + P90_filename, CamType, isRawFlag)
+    L30 = read_cod_data_X3D(calib_Folderpath + wlen_str + L30_filename, CamType, isRawFlag)
+
+    ## Processing Intensities
+    # Subtracting the Background Noise N
+    B0 = B0 - N
+    P0 = P0 - N
+    P90 = P90 - N
+    L30 = L30 - N
+
+    return B0, P0, P90, L30
+
+
+def _compute_calib_System(B0, P0, P90, L30, vrai_psi_Flag):
+    '''
+	# Private function to compute the first part of the system calibration
+	'''
+
+    cpt = [np.ceil(B0.shape[0] / 2), np.ceil(B0.shape[1] / 2)]  # central point of the 2D image
+    coff = 50  # offset of pixel per side
+
+    # Averaging values per Component in the centered ROI (100x100) and reshaping the resulting mean 16 components into 4x4 matrices
+    mB0 = np.transpose(np.reshape(
+        np.mean(B0[int(cpt[0] - coff):int(cpt[0] + coff), int(cpt[1] - coff):int(cpt[1] + coff), :], axis=(0, 1)),
+        [4, 4]))
+    mP0 = np.transpose(np.reshape(
+        np.mean(P0[int(cpt[0] - coff):int(cpt[0] + coff), int(cpt[1] - coff):int(cpt[1] + coff), :], axis=(0, 1)),
+        [4, 4]))
+    mP90 = np.transpose(np.reshape(
+        np.mean(P90[int(cpt[0] - coff):int(cpt[0] + coff), int(cpt[1] - coff):int(cpt[1] + coff), :], axis=(0, 1)),
+        [4, 4]))
+    mL30 = np.transpose(np.reshape(
+        np.mean(L30[int(cpt[0] - coff):int(cpt[0] + coff), int(cpt[1] - coff):int(cpt[1] + coff), :], axis=(0, 1)),
+        [4, 4]))
+
+    # Solving the Linear System
+    Celms = np.linalg.lstsq(mB0, np.concatenate((mP0, mP90, mL30), axis=1), rcond=None)[0]
+    CP0 = Celms[:, :4]
+    CP90 = Celms[:, 4:8]
+    CL30 = Celms[:, 8:]
+
+    ## Calibration: part 1
+    # Determining the EigenValues
+    D1 = np.abs(np.linalg.eigvals(CP0))  # real module of complex eigenvalues
+    D2 = np.abs(np.linalg.eigvals(CP90))  # real module of complex eigenvalues
+    D3 = np.linalg.eigvals(CL30)  # complex eigenvalues
+    D3 = D3[np.argsort(np.imag(D3))]  # sorting eigenvalues by magnitude of the imaginary part
+
+    tauP0 = 0.5 * (np.max(D1[D1 > 0]))
+    if vrai_psi_Flag:
+        psiP0 = np.arctan(np.sqrt(np.max(D1[D1 > 0]) / np.min(D1[D1 > 0]))) * 180 / np.pi
+    else:
+        psiP0 = np.array(90)
+
+    tauP90 = 0.5 * np.max(D2)
+    if vrai_psi_Flag:
+        psiP90 = np.arctan(np.sqrt(np.min(D2[D2 > 0]) / np.max(D2[D2 > 0]))) * 180 / np.pi
+    else:
+        psiP90 = np.array(0)
+
+    tauL30 = 0.5 * (np.real(D3[1]) + np.real(D3[2]))
+    psiL30 = np.arctan(np.real(np.sqrt(np.real(D3[1]) / np.real(D3[2])))) * 180 / np.pi
+    dltL30 = np.arctan2(np.imag(D3[3]), np.real(D3[3])) * 180 / np.pi
+
+    ## Calibration: part 2
+    oristp = 0.1  # orientations step
+    oriPini = -10  # min orientation polarisation
+    oriPfin = 10  # max orientation polarisation
+    oriLini = 20  # min orientation lame
+    oriLfin = 40  # max orientation lame
+    v_oriP = np.linspace(oriPini, oriPfin, int((oriPfin - oriPini) / oristp) + 1)  # vector of orientation polarisation
+    v_oriL = np.linspace(oriLini, oriLfin, int((oriLfin - oriLini) / oristp) + 1)  # vector of orientation lame
+
+    MpolP0 = _dephase_diattenuator(tauP0, psiP0, 0, 0)
+    H1 = np.kron(np.eye(4), MpolP0) - np.kron(np.transpose(CP0), np.eye(4))  # vectorisation
+    H1S = np.transpose(H1) @ H1
+
+    # Table of Optimised values
+    Topt = np.zeros([3, np.prod(v_oriP.shape) * np.prod(v_oriL.shape)])
+    idx = 0
+
+    for oP in v_oriP:  # for each orientation polarisation in the vector
+
+        MpolP90 = _dephase_diattenuator(tauP90, psiP90, 0, oP)
+        H2 = np.kron(np.eye(4), MpolP90) - np.kron(np.transpose(CP90), np.eye(4))
+        H2S = np.transpose(H2) @ H2
+
+        for oL in v_oriL:  # for each orientation lame in the vector
+
+            Mlam30 = _dephase_diattenuator(tauL30, psiL30, dltL30, oL)
+            H3 = np.kron(np.eye(4), Mlam30) - np.kron(np.transpose(CL30), np.eye(4))
+            H3S = np.transpose(H3) @ H3
+
+            K = H1S + H2S + H3S
+            S = np.linalg.svd(K)[1]  # compute only the singluar values
+
+            # Assign values
+            Topt[0][idx] = oP
+            Topt[1][idx] = oL
+            Topt[2][idx] = 10 * np.log10(S[-1] / S[-2])
+
+            idx = idx + 1  # increase the counter
+
+    Topt[0, :] = Topt[0, :] + 90
+    dBmin = np.min(Topt[2, :])
+    idx_min = np.argwhere(Topt[2, :] == dBmin)
+
+    OriP = Topt[0, idx_min]
+    OriL = Topt[1, idx_min]
+
+    return OriP, OriL, tauP0, tauP90, tauL30, psiP0, psiP90, psiL30, dltL30, dBmin
+
+
+def _write_calibration(calib_Folderpath, CamType, wlen_str, OriP, OriL, tauP0, tauP90, tauL30, psiP0, psiP90, psiL30,
+                       dltL30, dBmin):
+    '''
+	# Private Function to export and write the calibration parameters as a txt file
+	# The file will be exported in the same input folder with name 'Logbook_calibration.txt'
+	'''
+
+    dt = datetime.now()
+    dt_str = dt.strftime("%Y%m%d_%H%M%S")
+
+    shp2, _ = get_Cam_Params(CamType)
+
+    calib_Output_Filename = calib_Folderpath + 'Logbook_calibration_' + dt_str + '.txt'
+
+    header = ["# Calibration FolderPath: ", calib_Folderpath, "\n",
+              "# Camera: ", CamType, " - size: [{:d},{:d}]".format(shp2[0], shp2[1]), " @ ", wlen_str, " nm\n",
+              "# System Calibration with: libmpMuelMat.py on ", dt.strftime("%Y-%m-%d %H:%M:%S"), "\n\n"]
+
+    content = ["O_L30 (deg):\t", "{:.6f}".format(OriL.squeeze()), "\n",
+               "O_P90 (deg):\t", "{:.6f}".format(OriP.squeeze()), "\n",
+               "T_P0 (norm):\t", "{:.6f}".format(tauP0.squeeze()), "\n",
+               "T_P90 (norm):\t", "{:.6f}".format(tauP90.squeeze()), "\n",
+               "T_L30 (norm):\t", "{:.6f}".format(tauL30.squeeze()), "\n",
+               "Psi_P0 (deg):\t", "{:.6f}".format(psiP0.squeeze()), "\n",
+               "Psi_P90 (deg):\t", "{:.6f}".format(psiP90.squeeze()), "\n",
+               "Psi_L30 (deg):\t", "{:.6f}".format(psiL30.squeeze()), "\n",
+               "R_L30 (deg):\t", "{:.6f}".format(dltL30.squeeze()), "\n",
+               "Ratio VP (dB):\t", "{:.6f}".format(dBmin.squeeze()), "\n"]
+
+    with open(calib_Output_Filename, 'w') as f:
+        f.writelines(header)
+        f.writelines(content)
+        f.close()
+
+    return calib_Output_Filename
+
+
+def _compute_calib_System_AW_cond(B0, P0, P90, L30, OriP, OriL, vrai_psi_Flag):
+    '''
+	# >> Tested and Validated! (SLOW)
+	# Private Function to Compute the Calibration matrices A,W as Polarisation State
+	#
+	# NB: this function should be run *only* ONCE per acquisition, prior to Mueller Matrix piepeline execution.
+	#
+	# *Inputs*
+	# B0,P0,P90,L30: De-noised (subtracted) intensities at different calibration states
+	# OriP,OriL: optimised orientation of polarisation and lame from the calibration pre-processing
+	# vrai_psi_Flag: boolean scalar for vrai_psi
+	#
+	# *Outputs*
+	#
+	# A,W: polarisation state matrices
+	# condA,condW,condB0: conditioning of the polarisation state matrices and B0
+	'''
+
+    shp3 = B0.shape
+    shp2 = [shp3[0], shp3[1]]
+
+    A = ini_MM(shp2)[0]
+    W = ini_MM(shp2)[0]
+    condB0 = ini_Comp(shp2)[0]
+    condA = ini_Comp(shp2)[0]
+    condW = ini_Comp(shp2)[0]
+
+    for ii in range(0, shp3[0]):
+
+        for jj in range(0, shp3[1]):
+
+            mB0 = np.transpose(B0[ii, jj, :].reshape([4, 4]))
+            mP0 = np.transpose(P0[ii, jj, :].reshape([4, 4]))
+            mP90 = np.transpose(P90[ii, jj, :].reshape([4, 4]))
+            mL30 = np.transpose(L30[ii, jj, :].reshape([4, 4]))
+
+            # Solving the Linear System
+            Celms = np.linalg.lstsq(mB0, np.concatenate((mP0, mP90, mL30), axis=1), rcond=None)[0]
+            CP0 = Celms[:, :4]
+            CP90 = Celms[:, 4:8]
+            CL30 = Celms[:, 8:]
+
+            if not np.all(np.isfinite(Celms)):  # degenerate case (default values)
+                W[ii, jj, :] = np.reshape(np.eye(4), [1, 1, 16])
+                A[ii, jj, :] = np.reshape(np.eye(4), [1, 1, 16])
+                condB0[ii, jj] = 0
+                condW[ii, jj] = 0
+                condA[ii, jj] = 0
+            else:
+                # Determining the EigenValues
+                D1 = np.abs(np.linalg.eigvals(CP0))  # real module of complex eigenvalues
+                D2 = np.abs(np.linalg.eigvals(CP90))  # real module of complex eigenvalues
+                D3 = np.linalg.eigvals(CL30)  # complex eigenvalues
+                D3 = D3[np.argsort(np.imag(D3))]  # sorting eigenvalues by magnitude of the imaginary part
+
+                if np.all(D1 == 0):
+                    tauP0 = np.array(0.3)
+                    psiP0 = np.array(90)
+                else:
+                    tauP0 = 0.5 * (np.max(D1[D1 > 0]))
+                    if vrai_psi_Flag:
+                        psiP0 = np.arctan(np.sqrt(np.max(D1[D1 > 0]) / np.min(D1[D1 > 0]))) * 180 / np.pi
+                    else:
+                        psiP0 = np.array(90)
+
+                if np.all(D2 == 0):
+                    tauP90 = np.array(0.3)
+                    psiP90 = np.array(0)
+                else:
+                    tauP90 = 0.5 * np.max(D2)
+                    if vrai_psi_Flag:
+                        psiP90 = np.arctan(np.sqrt(np.min(D2[D2 > 0]) / np.max(D2[D2 > 0]))) * 180 / np.pi
+                    else:
+                        psiP90 = np.array(0)
+
+                tauL30 = 0.5 * (np.real(D3[1]) + np.real(D3[2]))
+                psiL30 = np.arctan(np.real(np.sqrt(np.real(D3[1]) / np.real(D3[2])))) * 180 / np.pi
+                dltL30 = np.arctan2(np.imag(D3[3]), np.real(D3[3])) * 180 / np.pi
+
+                MpolP0 = _dephase_diattenuator(tauP0.squeeze(), psiP0.squeeze(), 0, 0)
+                MpolP90 = _dephase_diattenuator(tauP90.squeeze(), psiP90.squeeze(), 0, OriP.squeeze() - 90)
+                Mlam30 = _dephase_diattenuator(tauL30.squeeze(), psiL30.squeeze(), dltL30.squeeze(), OriL.squeeze())
+
+                H1 = np.kron(np.eye(4), MpolP0) - np.kron(np.transpose(CP0), np.eye(4))
+                H2 = np.kron(np.eye(4), MpolP90) - np.kron(np.transpose(CP90), np.eye(4))
+                H3 = np.kron(np.eye(4), Mlam30) - np.kron(np.transpose(CL30), np.eye(4))
+
+                H1S = np.transpose(H1) @ H1
+                H2S = np.transpose(H2) @ H2
+                H3S = np.transpose(H3) @ H3
+
+                K = H1S + H2S + H3S
+
+                V = np.linalg.svd(K)[2]
+
+                Wtemp = np.transpose(np.reshape(V[-1, :], [4, 4]))  # OK
+                Atemp = np.dot(mB0, np.linalg.pinv(Wtemp))  # OK
+
+                Wtemp = np.divide(Wtemp, Wtemp[0, 0])
+                Atemp = np.divide(Atemp, Atemp[0, 0])
+
+                if (not np.all(np.isfinite(Wtemp))) | (not np.all(np.isfinite(Atemp))):
+                    condB0[ii, jj] = 0
+                    condW[ii, jj] = 0
+                    condA[ii, jj] = 0
+                else:
+                    condB0[ii, jj] = 1 / np.linalg.cond(mB0)
+                    condW[ii, jj] = 1 / np.linalg.cond(Wtemp)
+                    condA[ii, jj] = 1 / np.linalg.cond(Atemp)
+
+                W[ii, jj, :] = np.reshape(np.transpose(Wtemp), [1, 1, 16])
+                A[ii, jj, :] = np.reshape(np.transpose(Atemp), [1, 1, 16])
+
+    return A, W, condA, condW, condB0
+
+
+def _dephase_diattenuator(tau, psi, delta, theta):
+    # Private Function - belonging to calibration: part 2
+
+    psi = psi * np.pi / 180
+    delta = delta * np.pi / 180
+
+    T = np.array([[1, -np.cos(2 * psi), 0, 0],
+                  [-np.cos(2 * psi), 1, 0, 0],
+                  [0, 0, np.sin(2 * psi) * np.cos(delta), np.sin(2 * psi) * np.sin(delta)],
+                  [0, 0, -np.sin(2 * psi) * np.sin(delta), np.sin(2 * psi) * np.cos(delta)]])
+
+    M = tau * _rota(theta) @ T @ _rota(-theta)
+
+    return M
+
+
+def _rota(theta):
+    # Private Function - belonging to calibration: part 2
+
+    w = theta * np.pi / 180
+
+    R = np.array([[1, 0, 0, 0],
+                  [0, np.cos(2 * w), -np.sin(2 * w), 0],
+                  [0, np.sin(2 * w), np.cos(2 * w), 0],
+                  [0, 0, 0, 1]])
+
+    return R
 
 
 def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
@@ -1478,7 +2067,7 @@ def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
 	# 'linR': linear Phase Shift (Retardance) of shape [dim[0],dim[1]].
 	# 'cirR': circular Phase Shift (Retardance) of shape [dim[0],dim[1]].
 	# 'oriR': orientation of linear Phase Shift (Retardance) of shape [dim[0],dim[1]].
-	# 'oriRfull': orientation of linear Phase Shift (Retardance) Full of shape [dim[0],dim[1]].
+	# 'azimuth': orientation of linear Phase Shift (Retardance) Full of shape [dim[0],dim[1]].
 	#
 	# 'totP': total Depolarisation of shape [dim[0],dim[1]].
 	'''
@@ -1508,14 +2097,16 @@ def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
             'Input: "W" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
                 W.shape[-1]))
     if (np.prod(np.shape(IN.shape)) != 3):
-        raise Exception(
-            'Input: "IN" should have shape of a 3D image, e.g. (idx0, idx1, idx2). The shape value was found: {}'.format(
-                IN.shape))
+        if not(IN.dtype == 'bool'):
+            raise Exception(
+                'Input: "IN" should have shape of a 3D image, e.g. (idx0, idx1, idx2). The shape value was found: {}'.format(
+                    IN.shape))
     if (IN.shape[-1] != 16):
-        raise Exception(
-            'Input: "IN" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
-                IN.shape[-1]))
-    if not ((A.shape == I.shape) & (I.shape == W.shape) & (W.shape == IN.shape)):
+        if not (IN.dtype == 'bool'):
+            raise Exception(
+                'Input: "IN" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
+                    IN.shape[-1]))
+    if not ((A.shape == I.shape) & (I.shape == W.shape)):
         raise Exception('Inputs MUST All have the same shape!')
 
     if (CamType == None):
@@ -1530,11 +2121,14 @@ def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
 
     M11 = M[:, :, 0].squeeze()
 
-    Mdetmsk = compute_MM_det(nM, idx, VerboseFlag)[1]
+    _, Mdetmsk = compute_MM_det(nM, idx, VerboseFlag)
 
     Els, Elsmsk = compute_MM_eig_REls(nM, idx, VerboseFlag)
 
-    Isatmsk = compute_I_satMsk(IN, CamType)
+    if IN.dtype == 'bool':
+        Isatmsk = IN # Intensity Saturation Mask from Reflection Removal
+    else:
+        Isatmsk = compute_I_satMsk(IN, CamType)
 
     Msk = Mdetmsk & Elsmsk & Isatmsk
 
@@ -1550,7 +2144,8 @@ def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
         print(
             ' >> process_MM_pipeline Performance [{:d},{:d}]: Elapsed time = {:.3f} s'.format(shp3[0], shp3[1], telaps))
 
-    MMParams = {'nM': nM,
+    MMParams = {'Intensity': I,
+                'nM': nM,
                 'M11': M11,
                 'Mdetmsk': Mdetmsk,
                 'Mphymsk': Elsmsk,
@@ -1661,7 +2256,7 @@ def validate_libmpMuelMat_testDataMAT():
     oriR_err = np.abs(MMParams['oriR'] - refMAT['oriR'])
 
     # Orientation of Linear Retardance Full
-    oriRfull_err = np.abs(MMParams['oriRfull'] - refMAT['oriRfull'])
+    azimuth_err = np.abs(MMParams['azimuth'] - refMAT['azimuth'])
 
     # Total Depolarisation
     totP_err = np.abs(MMParams['totP'] - refMAT['totP'])
@@ -1701,8 +2296,8 @@ def validate_libmpMuelMat_testDataMAT():
                                                    np.std(cirR_err)))
     print(' oriR\t{:e}\t{:e}\t{:e}\t{:e}\n'.format(np.min(oriR_err), np.max(oriR_err), np.mean(oriR_err),
                                                    np.std(oriR_err)))
-    print(' oriRf\t{:e}\t{:e}\t{:e}\t{:e}\n'.format(np.min(oriRfull_err), np.max(oriRfull_err), np.mean(oriRfull_err),
-                                                    np.std(oriRfull_err)))
+    print(' oriRf\t{:e}\t{:e}\t{:e}\t{:e}\n'.format(np.min(azimuth_err), np.max(azimuth_err), np.mean(azimuth_err),
+                                                    np.std(azimuth_err)))
     print(' totP\t{:e}\t{:e}\t{:e}\t{:e}\n'.format(np.min(totP_err), np.max(totP_err), np.mean(totP_err),
                                                    np.std(totP_err)))
     print('-------------------------------------------------------------------------')
@@ -1756,7 +2351,28 @@ def test_OpenMP():
         ' If the ORDER CHANGES every time and it is NOT SEQUENTIAL, the parallel-computing (openMP) libraries are correctly linked!')
 
 
-def test_process_MM_pipeline(): # TO BE MODIFIED!!!
+def test_calib_System_AW():
+    '''# Function to Test the calibration algorithms for the provided testing raw data.
+	# This testing data is evaluated for wavelength = 550nm.
+	#
+	# Call: (A,W) = test_calib_System_AW()
+	'''
+
+    test_calib_path = _get_test_calib_path()
+
+    print(' ')
+    print(' >> Test Calibration path:', test_calib_path)
+    wlen = 550
+    CamType = default_CamType(-1)
+    (A, W) = calib_System_AW(test_calib_path, wlen, CamType)[0:2]
+
+    print(' ')
+    print(' >> This function returns the Calibrated Polarsation State Matrices: A,W')
+
+    return A, W
+
+
+def test_process_MM_pipeline():
     '''# Function to Test the end-to-end Mueller Matrix processing pipeline for the provided testing raw data.
 	# This testing data is evaluated for wavelength = 550nm.
 	# NB: it is required to have run the test calibration first!
@@ -1769,10 +2385,25 @@ def test_process_MM_pipeline(): # TO BE MODIFIED!!!
     wlen_str = "{:d}".format(wlen)
     CamType = default_CamType(-1)
 
-    shp2 = get_Cam_Params(CamType)[0]
+    # Checking for existing Calibration and Loading A,W, otherwise perform calibration first
+    test_calib_path = _get_test_calib_path()
+    A_cod_Filename = test_calib_path + wlen_str + '_A.cod'
+    W_cod_Filename = test_calib_path + wlen_str + '_W.cod'
+    isRawFlag = 0  # << ONLY for TEST DATA!
 
-    # Generate Synthetic State/Acquisition Matrices (this can be replaced by a system calibration step)
-    (A, W) = gen_AW(shp2, wlen)
+    if (_chkFilePath(A_cod_Filename) & _chkFilePath(W_cod_Filename)):
+        print(' ')
+        print(' >> Loading Polarisation State Matrices from Test Calibration: ...')
+        # Loading A,W:
+        A = read_cod_data_X3D(A_cod_Filename, CamType, isRawFlag)
+        W = read_cod_data_X3D(W_cod_Filename, CamType, isRawFlag)
+        print('    Done')
+        print(' ')
+
+    else:
+        print(' ')
+        print('    [wrn] Test Calibration: Missing! - Running Test Calibration NOW')
+        (A, W) = test_calib_System_AW()
 
     # After loading A,W, or after performing the test calibration
     if not ((A == None).any() | (W == None).any()):  # If successful
@@ -1819,82 +2450,596 @@ def test_process_MM_pipeline(): # TO BE MODIFIED!!!
     return MMParams
 
 
-def show_Montage(X3D):
-    '''# Function to display the 16 components (e.g. of Mueller Matrix) in a montage form (4x4)
-	# This function is based on matplotlib.
+def estim_SNR_X3D(X3D, X3Dgt, X3Droi=None):
+    '''# Function to Estimate the Signal-to-Noise Ratio (SNR) of a 3D Image as stack of 2D Components
+	# The SNR is defined as:
+	# SNR = 10 * -log10( max(X3Dgt[X3Droi])^2 / sum(X3Dgt[X3Droi] - X3D[X3Droi])^2 )
 	#
-	# Call: show_Montage( X3D )
+	# Call: (avgSNR, stdSNR, minSNR, maxSNR) = estim_SNR_X3D(X3D,X3Dgt,X3Droi)
 	#
 	# *Inputs*
+	# X3D: 3D stack
+of 2D Components of shape shp3.
+	# 	   The matrix X3D is expected to have shape equal to [dim[0],dim[1],16]
+	#
+	# X3Dgt: Ground-Truth (or Reference) 3D stack of 2D Components of shape shp3.
+	#		 The matrix X3D is expected to have shape equal to [dim[0],dim[1],16]
+	#
+	# X3Droi: binary mask indicating the Region-Of-Interest (ROI)
+	#		  the mask is expected to have same shape as X3D --
+	#		  check the function tile_Img2DtoImg3D for original annotations in 2D (per component)
+	#
+	# *Outputs*
+	#
+	# avgSNR, stdSNR, minSNR, maxSNR: real scalars respectively for the average, st. deviation,
+	                                  min and max of the SNRs evaluated for each 2D component.
+	#
+	'''
+
+    if (X3D.shape != X3Dgt.shape):
+        raise Exception(
+            'Inputs: "X3D" and "X3Dgt" MUST have SAME shape of a 3D image, e.g. (idx0, idx1, idx2). The shape value of X3D was found: {}'.format(
+                X3D.shape))
+    if np.any(X3Droi == None):
+        X3Droi = np.tile(True, X3D.shape)
+    else:
+        if (X3D.shape != X3Droi.shape):
+            raise Exception(
+                'Inputs: "X3D" and "X3DhsROI" MUST have SAME shape of a 3D image, e.g. (idx0, idx1, idx2). The shape value of X3D was found: {}'.format(
+                    X3D.shape))
+
+    SNRs = []
+    for i in range(0, X3D.shape[-1]):
+        SNRs.append(estim_SNR_X2D(np.squeeze(X3D[:, :, i]), np.squeeze(X3Dgt[:, :, i]), np.squeeze(X3Droi[:, :, i])))
+
+    avgSNR = np.nanmean(SNRs)
+    stdSNR = np.nanstd(SNRs)
+    maxSNR = np.nanmax(SNRs)
+    minSNR = np.nanmin(SNRs)
+
+    return avgSNR, stdSNR, minSNR, maxSNR
+
+
+def estim_SNR_X2D(X2D, X2Dgt, X2Droi=None):
+    '''# Function to Estimate the Signal-to-Noise Ratio (SNR) of a 2D image (or stack-component)
+	# The SNR is defined as:
+	# SNR = 10 * -log10( max(X2Dgt[X2Droi])^2 / sum(X2Dgt[X2Droi] - X2D[X2Droi])^2 )
+	#
+	# Call: SNR = estim_SNR_X2D(X2D,X2Dgt,X2Droi)
+	#
+	# *Inputs*
+	# X2D: 2D Component of shape shp: [dim[0],dim[1]]
+	#
+	# X2Dgt: Ground-Truth (or Reference) 2D Component of shape shp: [dim[0],dim[1]]
+	#
+	# X2Droi: binary mask indicating the Region-Of-Interest (ROI)
+	#		  the mask is expected to have same shape as X2D
+	#
+	# *Outputs*
+	#
+	# SNR: real scalar of the Signal-to-Noise Ratio in dB evaluated for the 2D image.
+	#
+	'''
+
+    if (X2D.shape != X2Dgt.shape):
+        raise Exception(
+            'Inputs: "X2D" and "X2Dgt" MUST have SAME shape of a 2D image, e.g. (idx0, idx1). The shape value of X2D was found: {}'.format(
+                X2D.shape))
+    if np.any(X2Droi == None):
+        X2Droi = np.tile(True, X2D.shape)
+    else:
+        if (X2D.shape != X2Droi.shape):
+            raise Exception(
+                'Inputs: "X2D" and "X2DhsROI" MUST have SAME shape of a 2D image, e.g. (idx0, idx1). The shape value of X2D was found: {}'.format(
+                    X2D.shape))
+
+    alpha = 1
+
+    X2DgtSEL = X2Dgt[X2Droi]
+    X2DiiSEL = X2D[X2Droi]
+
+    d = np.max(X2DgtSEL)
+
+    SNRbase = 10 * np.log10(d ** 2 / alpha ** 2 * np.nansum(X2DgtSEL ** 2))
+    SNRdiff = 10 * np.log10(d ** 2 / alpha ** 2 * np.nansum((X2DgtSEL - X2DiiSEL) ** 2))
+    if np.isfinite(SNRdiff):
+        SNR = SNRbase - SNRdiff # makes sense...
+    else:
+        SNR = np.nan
+
+    # Original
+    # SNR = -10 * np.log10(d ** 2 / alpha ** 2 * np.sum((X2Dgt[X2Droi] - X2D[X2Droi]) ** 2))
+    return SNR
+
+
+def estim_RMSE(X, Xgt, Xroi=None):
+    '''# Function to Estimate the Root Mean Square Error (RMSE) of an array
+	# The RMSE is defined as:
+	# RMSE = sqrt(mean((Xgt[Xroi] - X[Xroi])**2))
+	#
+	# Call: RMSE = estim_RMSE(X,Xgt,Xroi)
+	#
+	# *Inputs*
+	# X: Array of arbitrary shape
+	#
+	# Xgt: Ground-Truth (or Reference) Array of same shape as X
+	#
+	# Xroi: binary mask indicating the Region-Of-Interest (ROI)
+	#		the mask is expected to have same shape as X
+	#
+	# *Outputs*
+	#
+	# RMSE: real scalar of the Root Mean Square Error for the input arrays.
+	#
+	'''
+
+    if X.shape != Xgt.shape:
+        raise Exception('Inputs: "X" and "Xgt" MUST have SAME shape. The shape value of X was found: {}'.format(
+            X.shape))
+
+    if np.any(Xroi == None):
+        Xroi = np.tile(True, X.shape)
+
+    return np.sqrt(np.nanmean((Xgt[Xroi] - X[Xroi]) ** 2))
+
+
+def estim_SSIM(X, Xgt, Xroi=None):
+    '''# Function to Estimate the Structural Similarity Index (SSIM) of an array
+	# The SSIM is defined as:
+	# SSIM = ( 2*mean(Xgt[Xroi])*mean(X[Xroi]) * 2*cov(Xgt[Xroi],X[Xroi]) ) / ...
+	# 		 ( (mean(Xgt[Xroi])^2 + mean(X[Xroi])^2 ) * ( var(Xgt[Xroi]) + var(X[Xroi]) ) )
+	#
+	# Call: SSIM = estim_SSIM(X,Xgt,Xroi)
+	#
+	# *Inputs*
+	# X: Array of arbitrary shape
+	#
+	# Xgt: Ground-Truth (or Reference) Array of same shape as X
+	#
+	# Xroi: binary mask indicating the Region-Of-Interest (ROI)
+	#		the mask is expected to have same shape as X
+	#
+	# *Outputs*
+	#
+	# SSIM: real scalar of the Structural Similarity Index for the input arrays.
+	#
+	'''
+
+    if X.shape != Xgt.shape:
+        raise Exception('Inputs: "X" and "Xgt" MUST have SAME shape. The shape value of X was found: {}'.format(
+            X.shape))
+
+    if np.any(Xroi == None):
+        Xroi = np.tile(True, X.shape)
+
+    from statistics import covariance
+    C1 = 1e-36
+    C2 = 1e-36
+
+    SSIM = ((2 * np.nanmean(Xgt[Xroi]) * np.nanmean(X[Xroi]) + C1) * (2 * covariance(Xgt[Xroi], X[Xroi]) + C2)) \
+           / ((np.nanmean(Xgt[Xroi]) ** 2 + np.nanmean(X[Xroi]) ** 2 + C1) * (np.nanvar(Xgt[Xroi]) + np.nanvar(X[Xroi]) + C2))
+
+    return SSIM
+
+
+def tile_Img2DtoImg3D(X2D, dim2=16):
+    '''# Function to Replicate (tile) a 2D Image Component along the 3rd dimension, resulting into a 3D stack.
+	#
+	# Call: X3D = tile_Img2DtoImg3D(X2D,[dim2])
+	#
+	# *Inputs*
+	# X2D: 2D Component of shape shp: [dim[0],dim[1]]
+	#
+	# [dim2]: optional integer scalar indicating the repetitions in the 3rd dimension
+	#
+	# *Outputs*
 	# X3D: 3D stack of 2D Components of shape shp3.
-	# 	   The matrix X must have shape equal to [dim[0],dim[1],16].'''
-
-    shp3 = np.shape(X3D)
-    if (np.prod(np.shape(shp3)) != 3):
-        raise Exception(
-            'Input: "X3D" should have shape of a 3D image, e.g. (idx0, idx1, idx2). The shape value was found: {}'.format(
-                shp3))
-    if (shp3[-1] != 16):
-        raise Exception(
-            'Input: "X3D" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
-                shp3[-1]))
-
-    X_montage = np.concatenate((np.concatenate(
-        (X3D[:, :, 0].squeeze(), X3D[:, :, 1].squeeze(), X3D[:, :, 2].squeeze(), X3D[:, :, 3].squeeze()), axis=1),
-                                np.concatenate((X3D[:, :, 4].squeeze(), X3D[:, :, 5].squeeze(), X3D[:, :, 6].squeeze(),
-                                                X3D[:, :, 7].squeeze()), axis=1),
-                                np.concatenate((X3D[:, :, 8].squeeze(), X3D[:, :, 9].squeeze(), X3D[:, :, 10].squeeze(),
-                                                X3D[:, :, 11].squeeze()), axis=1),
-                                np.concatenate((X3D[:, :, 12].squeeze(), X3D[:, :, 13].squeeze(),
-                                                X3D[:, :, 14].squeeze(), X3D[:, :, 15].squeeze()), axis=1)), axis=0)
-    plt.imshow(X_montage)
-    plt.colorbar(shrink=0.8)
-    plt.xticks([])
-    plt.yticks([])
-    plt.show()
-
-
-def show_REls(REls):
-    '''# Function to display the 4 Real EigenValues components of Mueller Matrix Eigen-Decomposition in a montage form (1x4)
-	# This function is based on matplotlib.
+	# 	   The matrix X3D will have shape equal to [dim[0],dim[1],[dim2=16]] by default.
 	#
-	# Call: show_REls( REls )
+	'''
+
+    X3D = np.tile(X2D.reshape([X2D.shape[0], X2D.shape[1], 1]), [1, 1, int(dim2)])
+
+    return X3D
+
+
+def _isNumStable(X):
+    '''# Function to Check the validity (finite-values) of an Array
+	#
+	# Call: bool = _isNumStable(X)
 	#
 	# *Inputs*
-	# REls: 3D stack of 2D EigenValues Components of shape shp3 = [dim[0],dim[1],4].
+	# X: Array of arbitrary shape
 	#
-	# NB: The displayed Real EigenValues are sorted in a descending fashion: \lambda1 >= \lambda2 >= \lambda3 >= \lambda4'''
-
-    REls = sort_MM_REls(REls)
-
-    REls_montage = np.concatenate((REls[:, :, 0].squeeze(),
-                                   REls[:, :, 1].squeeze(),
-                                   REls[:, :, 2].squeeze(),
-                                   REls[:, :, 3].squeeze()), axis=1)
-
-    plt.imshow(REls_montage)
-    plt.colorbar(orientation="horizontal", shrink=0.8)
-    plt.xticks([])
-    plt.yticks([])
-    plt.show()
-
-
-def show_Comp(X2D):
-    '''# Function to display an individual 2D component (e.g. one component of the Mueller Matrix coeffs, or a Mask)
-	# This function is based on matplotlib.
+	# *Outputs*
+	# bool: True (all elements of X are finite-values) or False (exist at least one NaN or +/-Inf).
 	#
-	# Call: show_Comp( X2D )
+	'''
+    return np.all(np.isfinite(X))
+
+
+def eval_ProcessMskValidity(msk2Before, msk2After, msk2ROI=None):
+    '''# Function to Compare the Pixel Validity as result of an Image-based Process, by evaluating associated logical Masks.
+	# This is used to evaluate the consistency of different image-processing approaches.
+	# Among possible approaches for Mueller Matrix applications, Intensity Averaging and De-Noising aim at restoring the SNR.
+	# However, associated Mueller Matrices obtained with different processes may exhibit different validity masks.
+	#
+	# Call: ( ConsistencyScore,
+	#		  RecoveringScore,
+	#		  DegradationScore,
+	#		  CorrectionRate,
+	#		  ChangedRatio,
+	#		  ImprovementScore ) = eval_ProcessMskValidity( msk2Before , msk2After )
 	#
 	# *Inputs*
-	# X2D: 2D Image of shape shp2 = [dim[0],dim[1]].'''
+	# msk2Before: binary mask indicating the Valid pixels (True) obtained PRIOR the Image-Processing.
+	#			  E.g. msk2Before can be associated to a NOISY, pre-processed acquisition
+	#
+	# msk2After: binary mask indicating the Valid pixels (True) obtained AFTER the Image-Processing.
+	#			 E.g. msk2After can be associated to a DE-NOISED, or AVERAGED acquisition
+	#
+	# *Outputs*
+	# ConsistencyScore: resulting ratio of Valid Pixels AFTER Processing [0,1]
+	#
+	# RecoveringScore: ratio of pixels that changed from INVALID to VALID over the total of changed pixels [0,1]
+	#
+	# DegradationScore: ratio of pixels that changed from VALID to INVALID over the total of changed pixels [0,1]
+	#
+	# CorrectionRate: overall correction rate of the processing system [-1,1]
+	#
+	# ChangedRatio: ratio of pixels that changed over the total of pixels [0,1]
+	#
+	# ImprovementScore: resulting ratio of Validity Improvement (Before->After) [-1,1]
+	#
+	#
+	# NB: The scores are computed as below:
+	#
+	# ConsistencyScore = (B+D)/(A+B+C+D)            [0,1]
+	# RecoveringScore  = B/(B+C)                    [0,1]
+	# DegradationScore = C/(B+C)                    [0,1]
+	# CorrectionRate  = (B-C)/(B+C)                 [-1,1]
+	# ChangedRatio = (B+C)/(A+B+C+D)                [0,1]
+	# ImprovementScore = ((B+D)/(C+D))-1            [-1,inf]
+	#
+	# 	Where (confusion matrix):
+	#												with, Process: e.g. AVERAGING, DE-NOISING,....
+	# 						 	 AFTER 																			 Before -> After
+	#					  invalid	  valid 		A: INVALID pixels that remained INVALID after Processing   	(INVALID->INVALID)
+	#		  	invalid		 A	   |     B    		B: INVALID pixels that changed into VALID after Processing 	(INVALID->VALID)
+	#	BEFORE 			-----------|---------- 		C: VALID pixels that became INVALID after Processing 	   	(VALID->INVALID)
+	#			valid 		 C	   |     D 			D: VALID pixels that remained VALID after Processing 		(VALID->VALID)
+	#
+	# NB: Valid = True
+	#     Invalid = False
+	#
+	# 	  Note that: A+B+C+D MUST Equal the total number of pixels in msk2Before, as well as in msk2After
+	#     Also:
+	#            Tot_True_Before = D + C 			Tot_True_After = B + D
+	#			 Tot_False_Before = A + B 			Tot_False_After = A + C
+	'''
 
-    if (np.prod(np.shape(np.shape(X2D))) != 2):
+    if (msk2Before.shape != msk2After.shape):
         raise Exception(
-            'Input: "X2D" should have shape of a 2D image, e.g. (idx0, idx1). The shape value was found: {}'.format(
-                np.shape(X2D)))
+            'Inputs: "msk2Before" and "msk2After" MUST have SAME shape of a 2D image, e.g. (idx0, idx1). The shape value of msk2Before was found: {}'.format(
+                msk2Before.shape))
+    if np.any(msk2ROI == None):
+        msk2ROI = np.tile(True, msk2Before.shape)
+    else:
+        if msk2Before.shape != msk2ROI.shape:
+            raise Exception(
+                'Inputs: "mskROI" and "msk2Before" MUST have SAME shape of a 2D image, e.g. (idx0, idx1). The shape value of msk2ROI was found: {}'.format(
+                    msk2ROI.shape))
 
-    plt.imshow(X2D)
-    plt.colorbar(shrink=0.8)
-    plt.xticks([])
-    plt.yticks([])
-    plt.show()
+    msk2Before = np.bitwise_and(msk2Before, msk2ROI)
+    msk2After = np.bitwise_and(msk2After, msk2ROI)
+
+    A = np.sum(msk2After[msk2Before == False] == False) - np.sum(~msk2ROI)  # Remained Invalid
+    B = np.sum(msk2After[msk2Before == False] == True)  # From Invalid to Valid (RESTORED)
+    C = np.sum(msk2After[msk2Before == True] == False)  # From Valid to Invalid (DEGRADED)
+    D = np.sum(msk2After[msk2Before == True] == True)  # Remained Valid
+    # print(A,B,C,D,np.sum(msk2ROI))
+
+    if (A + B + C + D) != np.sum(msk2ROI):
+        raise Exception(
+            ' <!> eval_ProcessMskValidity: BUG -- The sum of elements (A+B+C+D) does NOT equal the Total Number of Pixels!')
+
+    ConsistencyScore = (B + D) / (A + B + C + D)
+    RecoveringScore = B / (B + C)
+    DegradationScore = C / (B + C)
+    CorrectionRate = (B - C) / (B + C)
+    ChangedRatio = (B + C) / (A + B + C + D)
+    ImprovementScore = ((B + D) / (C + D)) - 1
+
+    return ConsistencyScore, RecoveringScore, DegradationScore, CorrectionRate, ChangedRatio, ImprovementScore
+
+
+def removeReflections3D(I3D, maxThr=65530, SE=None, SErad=4):
+    '''# Function to Remove Intensity-based supra-threshold specular reflections acquired with the polarimetric camera.
+    # This is used to replace invalid pixels, whose intensity is saturated, in order to avoid spurious reflections.
+    # This function is meant for Intensity polarimetric scans, assuming the input data is a 3D stack of Components.
+    # this function embeds also a windowing filtering for integrating the replaced Intensity values in a smooth manner.
+    #
+    # Call: I3Drr = removeReflections3D( I3D , [maxThr], [SE], [SErad] )
+    #
+    # *Inputs*
+	# I3D: 3D stack of Intensity Components of shape shp3 = [dim[0],dim[1],16]. These may have saturated pixels.
+	#
+	# [maxThr]: optional real value with the Camera max value for saturation (default: 65530).
+	#
+	# [SE]: structuring element for morphological operations (dilation of invalid pixels) (default: None -> Circular)
+	#
+	# [SErad]: radius in pixels for the automatic circular structuring element (default: 4)
+	#
+	# NB: the structuring element SE can be parsed as user-defined variable. It must be: logical 2D
+	#
+	# * Outputs *
+	# I3Drr: 3D stack of Intensity Components with Removed Reflections.
+	'''
+
+    Isatmsk = np.any(I3D >= maxThr,axis=-1)
+
+    if SE == None:
+        SE = _getCircStrEl(SErad) # Create a circular structuring element for Dilation
+
+    Isatmskdil = cv2.dilate(Isatmsk.astype(np.uint8), SE.astype(np.uint8)).astype(np.bool_)
+    h2 = _getGaussWin2D(2 * SErad + 1)
+    Iweight = cv2.filter2D((~Isatmskdil).astype(np.double), -1, h2)
+
+    I3Dnan = np.array(I3D)
+    I3Dnan[tile_Img2DtoImg3D(Isatmskdil)] = np.nan
+    I3Dfix = fixNaNs3D(I3Dnan, verboseFlag=0)
+
+    I3Drr = (I3D * np.sqrt(np.abs(tile_Img2DtoImg3D(Iweight)))) + \
+            (I3Dfix * (1-np.sqrt(np.abs(tile_Img2DtoImg3D(Iweight)))))
+
+    return I3Drr, ~Isatmskdil
+
+
+def removeReflections2D(I2D, maxThr=65530, SE=None, SErad=4):
+    '''# Function to Remove Intensity-based supra-threshold specular reflections acquired with the polarimetric camera.
+    # This is used to replace invalid pixels, whose intensity is saturated, in order to avoid spurious reflections.
+    # This function is meant for 2D Intensity polarimetric scans, assuming the input as a 2D individual image.
+    # this function embeds also a windowing filtering for integrating the replaced Intensity values in a smooth manner.
+    #
+    # Call: I2Drr = removeReflections3D( I2D , [maxThr], [SE], [SErad] )
+    #
+    # *Inputs*
+    # I2D: 2D image of an Intensity Component of shape shp2 = [dim[0],dim[1]]. These may have saturated pixels.
+    #
+    # [maxThr]: optional real value with the Camera max value for saturation (default: 65530).
+    #
+    # [SE]: structuring element for morphological operations (dilation of invalid pixels) (default: None -> Circular)
+    #
+    # [SErad]: radius in pixels for the automatic circular structuring element (default: 4)
+    #
+    # NB: the structuring element SE can be parsed as user-defined variable. It must be: logical 2D
+    #
+    # * Outputs *
+    # I2Drr: 2D image of an Intensity Component with Removed Reflections.
+    '''
+
+    Isatmsk = I2D >= maxThr
+
+    if SE == None:
+        SE = _getCircStrEl(SErad) # Create a circular structuring element for Dilation
+
+    Isatmskdil = cv2.dilate(Isatmsk.astype(np.uint8), SE.astype(np.uint8)).astype(np.bool_)
+    h2 = _getGaussWin2D(2*SErad+1)
+    Iweight = cv2.filter2D((~Isatmskdil).astype(np.double), -1, h2)
+
+    I2Dnan = np.array(I2D)
+    I2Dnan[Isatmskdil] = np.nan
+    I2Dfix = fixNaNs2D(I2Dnan, verboseFlag=False)
+
+    I2Drr = (I2D * np.sqrt(np.abs(Iweight))) + \
+            (I2Dfix * (1 - np.sqrt(np.abs(Iweight))))
+
+    return I2Drr, ~Isatmskdil
+
+
+def _getCircStrEl(SErad=4):
+    '''# Function to determine a 2D logical structuring element for morphological operations.
+    # This function generates automatically a circular structuring element.
+    #
+    # Call: SE = _getCircStrEl( SErad )
+    #
+    # *Inputs*
+    # [SErad]: radius in pixels for the automatic circular structuring element (default: 4)
+    #
+    # * Outputs *
+    # SE: 2D logical circular structuring element.
+    '''
+
+    # Create a Circular Structuring Element for Morphological Operations
+    xG, yG = np.meshgrid(
+        np.linspace(-SErad, SErad, 2 * SErad + 1),
+        np.linspace(-SErad, SErad, 2 * SErad + 1), indexing='ij')
+    SE = np.sqrt(xG ** 2 + yG ** 2) <= SErad
+
+    return SE
+
+
+def _getGaussWin1D(wlen):
+    '''# 1D Gaussian filter of shape [1, wlen], with Gain = 1.
+    '''
+
+    g1D = scipy.signal.windows.gaussian(wlen, 1).reshape((1, wlen))
+    g1D = g1D / np.sum(g1D)
+    return g1D
+
+
+def _getGaussWin2D(wlen):
+    '''# 2D Gaussian filter of shape [wlen, wlen], with Gain = 1.
+    '''
+    g1D = _getGaussWin1D(wlen)
+    g2D = np.kron(g1D, np.transpose(g1D))
+    g2D = g2D / np.sum(g2D)
+    return g2D
+
+
+def fixNaNs2D(X2Dnan, verboseFlag=True):
+    '''# Function to fix (correct) and replace NaN values in a 2D array (image).
+    # This is used to fix invalid pixels, whose value is set to NaN, in order to fill missing data.
+    # This function is a wrapper for a C-compiled code, and builds on a filling scheme based on the Euclidean distance
+    # from a binary mask determined by the NaN values.
+    # Although the Euclidean distance filling scheme is not optimal, such scheme allows for real-time performance
+    # even with large patches of missing data (NaNs).
+    # The function works for any real-valued 2D input data containing NaNs.
+    #
+    # Call: X2Dfix = fixNaNs2D( X2Dnan, [verboseFlag] )
+    #
+    # *Inputs*
+    # X2Dnan: 2D array (image) of real-values (double) of shape shp2 = [dim[0],dim[1]]. These may have NaN values.
+    #
+    # [verboseFlag]: scalar logical flag to enable verbose performance evaluation (default: 1)
+    #
+    # * Outputs *
+    # X2Dfix: 2D array (image) of real-values (double) of shape shp2 = [dim[0],dim[1]], with new real-values
+    #         in the correspondence of NaNs.
+    #
+    # NB: if all X2Dnan is NaN, no correction will be performed.
+    '''
+
+    mpMuelMatlibs = _loadClib()
+
+    if np.all(np.isnan(X2Dnan)):
+        X2Dfix = X2Dnan
+    else:
+        X2DRnan = X2Dnan.ravel(order='C').reshape(X2Dnan.shape)
+
+        dims2 = np.array(np.shape(X2DRnan)).astype(np.double)
+        X2DnanMsk = np.isnan(X2DRnan)
+        X2Dfix = np.array(X2DRnan).astype(np.double)
+        X2Dweight = scipy.ndimage.morphology.distance_transform_edt(X2DnanMsk)
+
+        subR, subC = np.where(X2DnanMsk)
+        idxList = np.ravel_multi_index([subR, subC], dims2.astype(np.int32)).astype(np.double)
+        lenList = np.array(np.sum(X2DnanMsk)).astype(np.int32)
+
+        X2Dfix_ptr = _ptr_X(X2Dfix)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        X2Dweight_ptr = _ptr_X(X2Dweight)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        dims2_ptr = _ptr_X(dims2)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        idxList_ptr = _ptr_X(idxList)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        lenList_ptr = lenList.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+
+        if verboseFlag:
+            t = time.time()
+            mpMuelMatlibs.fixVals_restoreValues2D(X2Dfix_ptr, X2Dweight_ptr, dims2_ptr, idxList_ptr, lenList_ptr[0])
+            telaps = time.time() - t
+            print(' >> fixNaNs: Elapsed time = {:.3f} s'.format(telaps))
+        else:
+            mpMuelMatlibs.fixVals_restoreValues2D(X2Dfix_ptr, X2Dweight_ptr, dims2_ptr, idxList_ptr, lenList_ptr[0])
+
+    return X2Dfix
+
+
+def fixNaNs3D(X3Dnan, verboseFlag=True):
+    '''# Function to fix (correct) and replace NaN values in a 3D array (image as stack of 2D components).
+     # This is used to fix invalid pixels, whose value is set to NaN, in order to fill missing data.
+    # This function is a wrapper for a C-compiled code, and builds on a filling scheme based on the Euclidean distance
+    # from a binary mask determined by the NaN values.
+    # Although the Euclidean distance filling scheme is not optimal, such scheme allows for real-time performance
+    # even with large patches of missing data (NaNs).
+    # The function works for any real-valued 3D input data containing NaNs
+    # NB: the location of NaNs must be consistent along the last dimension!.
+    #
+    # Call: X3Dfix = fixNaNs3D( X3Dnan, [verboseFlag] )
+    #
+    # *Inputs*
+    # X3Dnan: 3D array (image as stack of 2D components) of real-values (double) of shape shp2 = [dim[0],dim[1],dim[2]].
+    #         These may have NaN values, consistently along the last dimension.
+    #         i.e.  if X3Dnan[x,y,0] == NaN     ->      it is assumed that:  X3Dnan[x,y,z] = NaN
+    #
+    # [verboseFlag]: scalar logical flag to enable verbose performance evaluation (default: 1)
+    #
+    # * Outputs *
+    # X3Dfix: 3D array (image as stack of 2D components) of real-values (double) of shape shp2 = [dim[0],dim[1]],
+    #         with new real-values in the correspondence of NaNs.
+    #
+    # NB: if all X3Dnan is NaN, no correction will be performed.
+    '''
+    mpMuelMatlibs = _loadClib()
+
+    if np.all(np.isnan(X3Dnan)):
+        X3Dfix = X3Dnan
+    else:
+        X3DRnan = X3Dnan.ravel(order='C').reshape(X3Dnan.shape)
+
+        dims3 = np.array(np.shape(X3DRnan)).astype(np.double)
+        dims2 = np.array([dims3[0], dims3[1]]).astype(np.double)
+        X2DnanMsk = np.isnan(X3DRnan[:, :, 0])
+        X3Dfix = np.array(X3DRnan).astype(np.double)
+        X2Dweight = scipy.ndimage.morphology.distance_transform_edt(X2DnanMsk)
+
+        subR, subC = np.where(X2DnanMsk)
+        idxList = np.ravel_multi_index([subR, subC], dims2.astype(np.int32)).astype(np.double)
+        lenList = np.array(np.sum(X2DnanMsk)).astype(np.int32)
+
+        X3Dfix_ptr = _ptr_X(X3Dfix)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        X2Dweight_ptr = _ptr_X(X2Dweight)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        dims3_ptr = _ptr_X(dims3)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        idxList_ptr = _ptr_X(idxList)#.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        lenList_ptr = lenList.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+
+        if verboseFlag:
+            t = time.time()
+            mpMuelMatlibs.fixVals_restoreValues3D(X3Dfix_ptr, X2Dweight_ptr, dims3_ptr, idxList_ptr, lenList_ptr[0])
+            telaps = time.time() - t
+            print(' >> fixNaNs: Elapsed time = {:.3f} s'.format(telaps))
+        else:
+            mpMuelMatlibs.fixVals_restoreValues3D(X3Dfix_ptr, X2Dweight_ptr, dims3_ptr, idxList_ptr, lenList_ptr[0])
+
+    return X3Dfix
+
+
+def thrImgBackGroundOTSU(Img):
+
+    if len(np.shape(Img)) == 3:
+        I2D = Img[:, :, 0]
+    elif len(np.shape(Img)) == 2:
+        I2D = Img
+    else:
+        raise Exception(
+            'Inputs: "Img" MUST be either a 3D or a 2D image, e.g. (idx0, idx1, [idx2]). The shape value of Img was found: {}'.format(np.shape(Img)))
+
+    I = (I2D-np.min(I2D))/(np.max(I2D)-np.min(I2D))
+    ampFactor = 1/5 # keep it < 1 for stretching the dynamic range of intensities
+    Iu8 = ((I**ampFactor)*255).astype(np.uint8)
+    Imed = cv2.medianBlur(Iu8, 5)
+    IGblr = cv2.GaussianBlur(Imed, (5, 5), 0)
+    thr = cv2.threshold(IGblr, 0, 255, cv2.THRESH_OTSU)[1]
+    thrFill = scipy.ndimage.morphology.binary_fill_holes(thr.astype(np.bool_))
+    bkgMsk = thrFill.astype(np.bool_)
+
+    return bkgMsk
+
+
+def compute_AzimuthErrDist(azimuthA, azimuthB):
+    # azimuthA, and azimuthB must have SAME shape!
+    # Values must be in (angles) Degrees within [0,180] range
+    if not isinstance(azimuthA, np.ndarray):
+        azimuthA = np.array([[azimuthA]])
+    if not isinstance(azimuthB, np.ndarray):
+        azimuthB = np.array([[azimuthB]])
+
+    shp2 = np.shape(azimuthA)
+    azimuthErr = np.zeros(shp2)
+
+    azimuthA[(azimuthA < 0) | (azimuthA > 180)] = np.mod(azimuthA[(azimuthA < 0) | (azimuthA > 180)], 180)
+    azimuthB[(azimuthB < 0) | (azimuthB > 180)] = np.mod(azimuthB[(azimuthB < 0) | (azimuthB > 180)], 180)
+
+    msk = azimuthA < azimuthB
+
+    ErrA = np.concatenate((np.reshape(np.mod(azimuthA - azimuthB, 180), [shp2[0], shp2[1], 1]),
+                           np.reshape(np.mod((azimuthB - 180) - azimuthA, 180), [shp2[0], shp2[1], 1])), axis=2)
+
+    ErrB = np.concatenate((np.reshape(np.mod(azimuthB - azimuthA, 180), [shp2[0], shp2[1], 1]),
+                           np.reshape(np.mod((azimuthA - 180) - azimuthB, 180), [shp2[0], shp2[1], 1])), axis=2)
+
+    ErrA = np.min(ErrA, axis=-1)
+    ErrB = np.min(ErrB, axis=-1)
+
+    azimuthErr[msk] = ErrA[msk]
+    azimuthErr[~msk] = ErrB[~msk]
+
+    return azimuthErr

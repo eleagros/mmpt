@@ -24,7 +24,6 @@ void fixVals_updateValues3D(double* img3D, double* dims3, double idx2)
 	int nc[] = {-1,0,1,-1,0,1,-1,0,1};
 
 	ind2subs2D(idx2, dims2, &r, &c); // Recover the subs indices for the indexed pixel
-    
 	for(int l=0;l<lin3x3;l++) // For each pixel in its 3x3 neighbourhood (2D)
 	{
 		rr = r + nr[l]; // Row of the neighbouring pixel
@@ -43,7 +42,6 @@ void fixVals_updateValues3D(double* img3D, double* dims3, double idx2)
 			}
 		}
 	}
-    
 	// Assign Values: imgage 3D
 	for(pp=0;pp<dims3[2];pp++) // For each channel (3D)
 	{

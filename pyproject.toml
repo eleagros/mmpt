@@ -14,7 +14,7 @@ authors = [
     { email = "romain.gros@unibe.ch", name = "Romain Gros" },
 ]
 dynamic = ["version"]
-dependencies = ["numpy", "matplotlib", "scipy", "tqdm", "opencv-python"]
+dependencies = ["numpy", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean"]
 
 [tool.hatch.version]
 path = "src/processingmm/__init__.py"
