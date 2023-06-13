@@ -109,7 +109,7 @@ def compute_one_MM(measurements_directory, calib_directory_dates_num, calib_dire
             A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, str(wavelength) +'_A.cod'), isRawFlag = 0)
             W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, str(wavelength) +'_W.cod'), isRawFlag = 0)
         else:
-            A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen = wavelength)[0:2]
+           A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen = wavelength)[0:2]
 
         try:
             I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 0)
@@ -132,7 +132,7 @@ def compute_one_MM(measurements_directory, calib_directory_dates_num, calib_dire
             I_IN = I - IN
             MM_new = libmpMuelMat.process_MM_pipeline(A, I_IN, W, I_IN)
             
-        MM_new['azimuth'] = curate_azimuth(MM_new['azimuth'], d.replace('raw_data', 'polarimetry'))
+        # MM_new['azimuth'] = curate_azimuth(MM_new['azimuth'], d.replace('raw_data', 'polarimetry'))
         
         if angle_correction == 90:
             MM_new['M11'] = rotate_maps(MM_new['M11'])
@@ -215,7 +215,10 @@ def curate_azimuth(azimuth, folder = None):
         the curated azimuth
     """
     counter = 0
-    
+    counter_correct = 0
+
+    print(counter, counter_correct, azimuth.shape[0]*azimuth.shape[1])
+
     # check if the azimuth is numerically stable (i.e. no NaN present)
     if not isNumStable(azimuth):
         for idx, x in enumerate(azimuth):
@@ -228,19 +231,25 @@ def curate_azimuth(azimuth, folder = None):
                     azi = select_region(azimuth.shape, azimuth, idx, idy)
                     if math.isnan(np.nanmean(azi)):
                         azimuth[idx,idy] = 0
-                        warnings.warn("Azimuth to be checked " + folder + ' for idx = ' + str(idx) + ' and idy = ' + str(idy))
+                        # warnings.warn("Azimuth to be checked " + folder + ' for idx = ' + str(idx) + ' and idy = ' + str(idy))
                     
                     # assign to the pixel the mean value of the neighboring pixels
                     azimuth[idx,idy] = np.nanmean(azi)
                     counter += 1
+                else:
+                    counter_correct += 1
         try:
             assert isNumStable(azimuth)
         except:
             print(folder)
     else:
         pass
+    
+    print(counter, counter_correct, azimuth.shape[0]*azimuth.shape[1])
+
     if counter > 1/100*azimuth.shape[0]*azimuth.shape[1]:
-        warnings.warn("Azimuth to be checked " + folder + ' more than 1% of NaN values')
+        pass
+        # warnings.warn("Azimuth to be checked " + folder + ' more than 1% of NaN values')
         
     return azimuth
 
