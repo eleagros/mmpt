@@ -82,7 +82,7 @@ def get_mask(path):
 
 def perform_visualisation(path, parameters_visualizations, parameters_set):
 
-        # 1. deplarization and retardance are higher than the tresholds
+    # 1. deplarization and retardance are higher than the tresholds
     # remove the points for which depolarization < depolarization_parameter and linear_retardance < linear_retardance_parameter
     depolarization_parameter = parameters_visualizations[parameters_set]['depolarization']
     linear_retardance_parameter = parameters_visualizations[parameters_set]['linear_retardance']
@@ -140,8 +140,6 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
     std_parameter : int
         remove the "pixels" for which azimuth std > std_parameter
     """
-    print(path, mask, grey_scale_parameter, linear_retardance_parameter, depolarization_parameter, 
-                               n, length, std_parameter, widths, cmap_azi, norm)
     # load the MM and creates, if necessary, the results folder
     orientation = load_MM(path)
 

@@ -5,16 +5,15 @@ import shutil
 import traceback
 from tqdm import tqdm
 
-from processingmm.helpers import load_filenames, add_path, chunks, copytree
+from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, load_parameters_visualization
 from processingmm import reorganize_folders, multi_img_processing, MM_processing, plot_polarimetry, visualization_lines
 from processingmm import libmpMuelMat
 
 
-def find_all_folders(directories):
+def find_all_folders(directories: list):
     """
-    walk through all of the directories present in the folders "directories" given as an input. finds
-    the folder with the 202x-xx-xx name format and return the list of folders. separates the transmission
-    and reflection measurements in two different lists - processed separatly
+    walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 202x-xx-xx name format 
+    and return the list of folders.
 
     Parameters
     ----------
@@ -27,23 +26,21 @@ def find_all_folders(directories):
         the list with all the folders containing data
     folder_names : list
         the list with the name of all the measurements
-    data_folder_transmission : list
-        the list with all the folders containing data for transmission
-    folder_names_transmission : list
-        the list with the name of all the measurements for transmission
     """
     data_folder = []
     folder_names = []
 
     for directory in directories:
         for root, dirs, files in os.walk(directory, topdown=False):
+            # remove the transmission measurements
             if 'TRANSMISSION' in root:
                 pass
             else:
                 find_folder_name(root, data_folder, folder_names)
     return list(set(data_folder)), list(set(folder_names))
 
-def find_folder_name(root, data_folder, folder_names):
+
+def find_folder_name(root: str, data_folder: list, folder_names: list):
     """
     check if a folder has the correct format: 202x-xx-xx. if yes, add it to the list of folders
 
@@ -63,32 +60,32 @@ def find_folder_name(root, data_folder, folder_names):
         splitted = root.split(x)
                     
         # if yes, append it to the lists containing the folder names
-        data_folder.append(splitted[0] + x + splitted[1].split('\\')[0])
+        data_folder.append(os.path.join(splitted[0],  x + splitted[1].split('\\')[0]))
         folder_names.append(x + splitted[1].split('\\')[0])
                     
     except Exception as e:
         pass
 
 
-def find_processed_folders(data_folder):
+def find_processed_folders(data_folder: list):
     """
     iterates over each of the folder to find the ones containing 550nm/650nm raw data and determine the ones that have been processed
 
     Parameters
     ----------
-    data_folder : list
-        the list with all the folders containing data
     transmission : 
         boolean indicating whether or not we are processing transmission data
     
     Returns
     -------
-    processed_ : list
-        a list of booleans indicating wether the folder has been processed
-    data_folder_nm : dict
-        a dictionnary indicating wether the data for 550nm, 650nm or both was obtained for each folder
+    processed_nm : dict of list
+        a dictionnary containing lists indicating if the files (i.e. polarimetric plots, etc...) were generated for each wavelength
+    data_folder_nm : dict of list
+        a dictionnary containing lists indicating if the data files are present for each wavelength
+    wavelenghts : list
+        the list of the wavelengths usable with the IMP
     """
-    wavelenghts = ['450nm', '500nm', '550nm', '600nm', '650nm', '700nm']
+    wavelenghts = load_wavelengths()
 
     processed_nm = {}
     data_folder_nm = {}
@@ -98,6 +95,7 @@ def find_processed_folders(data_folder):
         data = []
         processed = []
         for wl in wavelenghts:
+
             # check if raw data is available for the different measurements
             if os.path.exists(os.path.join(path, 'raw_data')):
                 data.append(is_there_data(os.path.join(path, 'raw_data', wl)))
@@ -114,7 +112,8 @@ def find_processed_folders(data_folder):
         
     return processed_nm, data_folder_nm, wavelenghts
 
-def is_there_data(path):
+
+def is_there_data(path: str):
     """
     check if raw data is available for the path given as an input
 
@@ -126,7 +125,7 @@ def is_there_data(path):
     Returns
     -------
     data_exist : bool
-        boolean indicating the presence of one or more .cod files
+        boolean indicating the presence of two .cod files
     """
     data_exist = False
     try:
@@ -136,34 +135,30 @@ def is_there_data(path):
     return data_exist
 
 
-def is_processed(path, wl):
+def is_processed(path: str, wl: str):
     """
-    check if the folders for which raw data is available have been processed (i.e. contains more than 'treshold' files)
+    check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
 
     Parameters
     ----------
     path : str
         the path to the folder to check
-    nm550_data : bool
-        boolean indicating whether or not data has been obtained for 550nm
-    nm650_data : bool
-        boolean indicating whether or not data has been obtained for 650nm
-    processed : list
-        a list of booleans indicating wether the folder has been processed
-    prefix : str
-        the folder in which the polarimetry data is located ('/polarimetry' by default)
-    treshold : int
-        the number of files to be found so that the folder is considered as processed (20 by default)
+    wl : str
+        the wavelenghts for which to check
+
+    Returns
+    ----------
+    all_found : bool
+        indicates if all the files were present
     """
     filenames = load_filenames()
+
+    # get the filenames
     all_file_names = os.listdir(os.path.join(path, 'polarimetry', wl))
 
     all_found = True
-
     for filename in filenames:
-
         found_file = False
-
         if filename == '_realsize.png':
             for file in all_file_names:
                 if file.endswith(filename):
@@ -172,14 +167,12 @@ def is_processed(path, wl):
             for file in all_file_names:
                 if file == filename:
                     found_file = True
-        
         if not found_file:
             all_found = False
-
     return all_found
 
 
-def create_folders_df(data_folder, processed, data_folder_nm, wavelenghts):
+def create_folders_df(data_folder: list, processed: dict, data_folder_nm: dict, wavelenghts: list):
     """
     create a dataframe referencing the path to the folder and if it has been processed
 
@@ -187,12 +180,12 @@ def create_folders_df(data_folder, processed, data_folder_nm, wavelenghts):
     ----------
     data_folder : list
         the list with all the folders containing data
-    processed_ : list 
-        a list of booleans indicating wether the folder has been processed
-    save_files : bool
-        a boolean indicating wether or not to save the df as excel file 
-    transmission : bool
-        boolean indicating whether or not we are processing transmission data
+    processed : dict of list
+        a dictionnary containing lists indicating if the files (i.e. polarimetric plots, etc...) were generated for each wavelength
+    data_folder_nm : dict of list
+        a dictionnary containing lists indicating if the data files are present for each wavelength
+    wavelenghts : list
+        the list of the wavelengths usable with the IMP
         
     Returns
     -------
@@ -203,15 +196,30 @@ def create_folders_df(data_folder, processed, data_folder_nm, wavelenghts):
     for folder in data_folder:
         for idx, boolean in enumerate(processed[folder]):
             df_list.append([folder, boolean, data_folder_nm[folder][idx], wavelenghts[idx]])
-            
     df = pd.DataFrame(df_list, columns = ['folder name', 'processed', 'data presence', 'wavelength'])
     df = df[df['data presence']]
     df = df.reset_index(drop=True)
-        
     return df
 
 
-def process_MM(measurement_directory, calib_directory):
+def process_MM(measurement_directory: str, calib_directory: str):
+    """
+    master function allowing to reogranize the folders, compute the MMs, generate the plots and the visualizations for one directory
+
+    Parameters
+    ----------
+    measurement_directory : str
+        the path to the directory in which the measurement are located
+    calib_directory : str
+        the path to the directory in which the calibration data is located
+        
+    Returns
+    -------
+    calibration_directories : list
+        the list of the calibration folders used to process the data (used to save it for tracability purposes)
+    parameters_set : str
+        the name of the parameters_set used for the line visualization
+    """
     # obtain the directories that we should reorganize the data for
     all_directories = os.listdir(measurement_directory)
 
@@ -234,15 +242,15 @@ def process_MM(measurement_directory, calib_directory):
         reorganize_folders.move_50x50_images(measurement_directory, directory)
 
     run_all = True
-
     to_compute = multi_img_processing.get_dir_to_compute(measurement_directory, run_all = run_all)
     calib_directory_dates_num = multi_img_processing.get_calibration_dates(calib_directory)
 
+    # compute the MMs
     MuellerMatrices, calibration_directories = MM_processing.compute_analysis_python(measurement_directory, 
                                         calib_directory_dates_num, calib_directory, to_compute, run_all = run_all, batch_processing = True, Flag = False)
-
     MuellerMatrices_raw = MuellerMatrices
 
+    # and generate the different plots
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.parameters_histograms(MuellerMatrices_raw, folder)
 
@@ -252,39 +260,38 @@ def process_MM(measurement_directory, calib_directory):
         plot_polarimetry.MM_histogram(MuellerMatrices, folder)
         plot_polarimetry.save_batch(folder)
 
-    parameters_visualizations = {
-        'PD': {'depolarization': 0.50, 'linear_retardance': 4, 'greyscale': 1.50, 'std_parameter': 50,
-            'n': 12, 'widths': 1.5, 'scale': 25},
-        'CUSA': {'depolarization': 0.96, 'linear_retardance': 12, 'greyscale': 1.50, 'std_parameter': 50,
-            'n': 10, 'widths': 1.6, 'scale': 15},
-        'fixed_brain': {'depolarization': 0.88, 'linear_retardance': 15, 'greyscale': 1.08, 'std_parameter': 50,
-            'n': 10, 'widths': 1.8, 'scale': 25},
-        'fixed_brain_EANS': {'depolarization': 0.90, 'linear_retardance': 3, 'greyscale': 1.80, 'std_parameter': 50,
-            'n': 12, 'widths': 1.8, 'scale': 25},
-        'fixed_brain': {'depolarization': 0.90, 'linear_retardance': 3, 'greyscale': 1.50, 'std_parameter': 50,
-            'n': 12, 'widths': 1.8, 'scale': 25}
-    }
-
+    # finally, generate the visuazation with the lines
+    parameters_visualizations = load_parameters_visualization()
     measurements_directory_viz = measurement_directory
     parameters_set = 'CUSA'
     param = visualization_lines.visualization_auto(measurements_directory_viz, parameters_visualizations, 
                                                 parameters_set, run_all = True, batch_processing = True)
-
-    print('here')
-
     for folder, _ in MuellerMatrices.items():
         visualization_lines.save_batch(folder)
 
     return calibration_directories, parameters_set
 
 
-def batch_process(directories, calib_directory):
-    data_folder, folder_names = find_all_folders(directories)
+def batch_process(directories: list, calib_directory: str):
+    """
+    master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
+
+    Parameters
+    ----------
+    directories : list
+        the list of the directories in which the measurement folders are located
+    calib_directory : str
+        the path to the calibration directory
+    """
+    # get all the names of the measurement folders
+    data_folder, _ = find_all_folders(directories)
     
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
+    print(processed)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
     
+    # get the files that needs to be processed
     if len(df) == 0:
         to_process = []
     else:
@@ -300,6 +307,7 @@ def batch_process(directories, calib_directory):
     except FileExistsError:
         pass
 
+    # get the different chunks that are used to split the processing of the data
     all_chunks = chunks(to_process, 2)
     all_chunks = list(all_chunks)
 
@@ -313,18 +321,19 @@ def batch_process(directories, calib_directory):
             pass
         except:
             traceback.print_exc()
-
         try:
             os.mkdir('./temp_processing')
         except FileExistsError:
             pass
 
+        # move the measurement folders to the temp_processing folder
         links_folders = {}
         for folder in chunk:
             links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
             shutil.move(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
             to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
         
+        # process the mueller matrix and generate the visualizations
         measurements_directory = './temp_processing'
         calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory)
         
@@ -336,15 +345,15 @@ def batch_process(directories, calib_directory):
             logbook_MM_processing.write(libmpMuelMat.__version__)
             logbook_MM_processing.close()
 
+        # put back the folders in the original folder
         links_folders = {v: k for k, v in links_folders.items()}
-
         for folder, temp_folder in links_folders.items():
             try:
                 shutil.rmtree(folder)
             except FileNotFoundError:
                 pass
             shutil.move(temp_folder, folder)
-        
+    
         try:
             shutil.rmtree('./temp_processing')
         except FileNotFoundError:
