@@ -241,9 +241,7 @@ def process_MM(measurement_directory: str, calib_directory: str):
     measurements_directory_viz = measurement_directory
     parameters_set = 'CUSA'
     _ = visualization_lines.visualization_auto(measurements_directory_viz, parameters_set, run_all = False, batch_processing = True)
-    print(MuellerMatrices)
     for folder, _ in MuellerMatrices.items():
-        print('here')
         plot_polarimetry.save_batch(folder, viz = True)
 
     return calibration_directories, parameters_set
