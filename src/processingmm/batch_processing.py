@@ -5,7 +5,7 @@ import shutil
 import traceback
 from tqdm import tqdm
 
-from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, load_parameters_visualization
+from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, load_parameters_visualization, is_there_data, is_processed
 from processingmm import reorganize_folders, multi_img_processing, MM_processing, plot_polarimetry, visualization_lines
 from processingmm import libmpMuelMat
 
@@ -111,28 +111,6 @@ def find_processed_folders(data_folder: list):
         data_folder_nm[path] = data
         
     return processed_nm, data_folder_nm, wavelenghts
-
-
-def is_there_data(path: str):
-    """
-    check if raw data is available for the path given as an input
-
-    Parameters
-    ----------
-    path : str
-        the path to the folder containing the raw data
-    
-    Returns
-    -------
-    data_exist : bool
-        boolean indicating the presence of two .cod files
-    """
-    data_exist = False
-    try:
-        data_exist = len(os.listdir(path)) == 2
-    except FileNotFoundError:
-        data_exist = False
-    return data_exist
 
 
 def is_processed(path: str, wl: str):
@@ -288,7 +266,6 @@ def batch_process(directories: list, calib_directory: str):
     
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
-    print(processed)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
     
     # get the files that needs to be processed

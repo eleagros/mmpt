@@ -1,8 +1,11 @@
 import os
 from datetime import datetime
 import warnings
+import copy
+from processingmm.helpers import load_wavelengths, is_there_data, is_processed
 
-def get_dir_to_compute(measurements_directory, treshold = 21, sanity = False, run_all = False):
+
+def get_dir_to_compute(measurements_directory: str, sanity = False, run_all = False):
     """
     get the directories to compute MM for (i.e. directories missing the polarimetric results)
 
@@ -10,6 +13,9 @@ def get_dir_to_compute(measurements_directory, treshold = 21, sanity = False, ru
     ----------
     measurements_directory : str
         the path to the measurement directory
+    sanity : boolean
+    run_all : boolean 
+        indicates if we should run the pipeline for all the measurement folders
 
     Returns
     -------
@@ -17,12 +23,14 @@ def get_dir_to_compute(measurements_directory, treshold = 21, sanity = False, ru
         the list of folders to be computed
     """
     if run_all:
-        treshold = 1000
-    to_compute = remove_already_computed_folders(measurements_directory, os.listdir(measurements_directory), treshold, sanity)
+        threshold = 1000
+    else:
+        threshold = 19
+    to_compute = remove_already_computed_folders(measurements_directory, os.listdir(measurements_directory), sanity = sanity)
     return to_compute
 
 
-def remove_already_computed_folders(measurements_directory, to_compute, treshold = 14, sanity = False):
+def remove_already_computed_folders(measurements_directory: str, to_compute: list, sanity = False):
     """
     check for each folder if it was already computed - if yes, remove it from the list of folders to compute
 
@@ -32,8 +40,6 @@ def remove_already_computed_folders(measurements_directory, to_compute, treshold
         the path to the measurement directory
     to_compute : list
         the list of folders to be computed
-    sanity : bool
-        not used anymore
 
     Returns
     -------
@@ -47,38 +53,31 @@ def remove_already_computed_folders(measurements_directory, to_compute, treshold
         path = os.path.join(measurements_directory, c)
         
         # get the directories that are not computed yet
-        directories = remove_already_computed_directories(path, treshold = treshold, sanity = sanity)
+        directories = remove_already_computed_directories(path, sanity = sanity)
         if len(directories) >= 1:
             not_computed.append(c)
     return not_computed
 
 
-def remove_already_computed_directories(path, treshold = 18, sanity = False):
+def remove_already_computed_directories(path: str, sanity = False):
     """
-    check if all wavelengths for a given folder was already computed - return the directories that needs to be processed
+    remove the folders and wl that were previsouly computed
 
     Parameters
     ----------
-    measurements_directory : str
+    path : str
         the path to the measurement directory
-    to_compute : list
-        the list of folders to be computed
     sanity : bool
-        not used anymore
 
     Returns
     -------
     directories_computable : list
         the list of directories to be computed (i.e. the folders that have not been computed yet)
     """
-
     # get the directories for which raw data is available
     path_raw_data = os.path.join(path, 'raw_data')
     directories = get_data_containing_folder(path_raw_data)
-    
-    path_50x50 = os.path.join(path, '50x50_images')
-    path_polarimetry = os.path.join(path, 'polarimetry') 
-    
+
     directories_computable = []
     
     # iterate over these directories
@@ -86,14 +85,10 @@ def remove_already_computed_directories(path, treshold = 18, sanity = False):
         if sanity:
             directories_computable.append(os.path.join(path_raw_data, d))
         else:
-            
-            # check if polarimetry was obtained
-            dir_list = os.listdir(os.path.join(path_polarimetry, d))
-            if len(dir_list) >= treshold:
+            if is_processed(path, d) or sanity:
                 pass
             else:
-                directories_computable.append(os.path.join(path_raw_data, d))
-              
+                directories_computable.append(os.path.join(path, d))
     directories_computable = list(set(directories_computable))
     return directories_computable
 
@@ -114,14 +109,10 @@ def get_data_containing_folder(path):
     """
     filenames = os.listdir(path)
     directories = []
-    
-    for filename in filenames:
-        if os.path.isdir(os.path.join(path, filename)):
-            
-            # check if the raw data is available for each wavelength
-            dir_empty = len(os.listdir(os.path.join(path, filename))) == 0
-            if not dir_empty:
-                directories.append(filename)
+    for wavelength in load_wavelengths():
+        if os.path.isdir(os.path.join(path, wavelength)):
+            if is_there_data(os.path.join(path, wavelength)):
+                directories.append(wavelength)
     return directories
 
 
@@ -139,18 +130,23 @@ def get_calibration_dates(calib_directory):
     calib_directory_dates_num : list of datetime
         a list containing the dates of the calibration folders
     """
-    
     # get all the folders
     calib_directory_dates = os.listdir(calib_directory)
+    wavelenghts = load_wavelengths()
+
     calib_directory_dates_cleaned = []
     for c in calib_directory_dates:
-        
-        # check if calibration was obtained for both wavelengths
-        if os.path.exists(os.path.join(calib_directory, c, '550nm', '550_W.mat')) and os.path.exists(os.path.join(calib_directory, c, '650nm', '650_W.mat')):
+        path_calib_directory = os.path.join(calib_directory, c)
+        calibration_found = False
+        for wl in wavelenghts:
+            if os.path.exists(os.path.join(path_calib_directory, wl, wl.split('nm')[0] + '_W.mat')) or os.path.exists(os.path.join(path_calib_directory, 
+                                                                                                                    wl, wl.split('nm')[0] + '_W.cod')):
+                calibration_found = True
+            else:
+                pass
+        if calibration_found:
             calib_directory_dates_cleaned.append(c)
-        else:
-            pass
-   
+
     # convert the folder names to datetimes and return the list containing the dates
     calib_directory_dates_num = []
     for c in calib_directory_dates:
@@ -244,7 +240,7 @@ def get_date_measurement(path, idx = -1):
     return date
 
 
-def find_closest_date(date_measurement, calib_dates, directories, calib_directory, Flag = False):
+def find_closest_date(date_measurement, calib_dates_complete, directories, calib_directory, Flag = False):
     """
     finds the closest date in a list given a date as an input
 
@@ -252,7 +248,7 @@ def find_closest_date(date_measurement, calib_dates, directories, calib_director
     ----------
     date_measurement : datetime
         the date
-    calib_dates : list of datetime
+    calib_dates_complete : list of datetime
         a list of datetimes in which the closest one to date_measurement should be found
 
     Returns
@@ -260,6 +256,7 @@ def find_closest_date(date_measurement, calib_dates, directories, calib_director
     closest_date : datetime
         the closest date to date_measurement in calib_dates
     """
+    calib_dates = copy.deepcopy(calib_dates_complete)
     directories_calib = os.listdir(calib_directory)
     
     found = False

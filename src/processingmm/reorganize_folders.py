@@ -1,9 +1,8 @@
-import pickle
 import os
 import shutil
-from tqdm import tqdm
+from processingmm.helpers import load_filenames_results, load_filenames_50x50, load_filenames
 
-def move_raw_data_folders(directory, measurements_directory, Flag = False):
+def move_raw_data_folders(directory: list, measurements_directory: str, Flag = False):
     """
     moves the raw data folders into the newly created raw_data directory
 
@@ -61,7 +60,8 @@ def move_raw_data_folders(directory, measurements_directory, Flag = False):
     if Flag:
         print('Raw data folders moved')
 
-def get_raw_data_folder(folders):
+
+def get_raw_data_folder(folders: list):
     """
     get all the folders containing raw data (i.e. folder of the following form: xxxnm)
 
@@ -86,7 +86,7 @@ def get_raw_data_folder(folders):
                 pass
     return raw_data
 
-def create_directories(measurements_directory, directory, directories_tbc, wavelenghts, Flag = False):
+def create_directories(measurements_directory: str, directory: list, directories_tbc: list, wavelenghts: list, Flag = False):
     """
     create the architecture for the folders copied from the IMP (polarimetry, 50x50_images, histology,...)
 
@@ -100,12 +100,12 @@ def create_directories(measurements_directory, directory, directories_tbc, wavel
         the list of directories to be created
     wavelenghts : list of str
         the wavelengths of interest
+    Flag : boolean
+        indicates wether the progression should be displayed
     """
-
     path_directory = os.path.join(measurements_directory, directory)
 
     for directory_tbc in directories_tbc:
-        
         # if the directory already exists...
         if directory_tbc in os.listdir(path_directory):
             
@@ -148,45 +148,55 @@ def create_directories(measurements_directory, directory, directories_tbc, wavel
         print('Directories created')
 
 
-def remove_old_computation(measurements_directory, directory, Flag = False):
+def remove_old_computation(measurements_directory: str, directory: str, Flag = False):
+    """
+    create the architecture for the folders copied from the IMP (polarimetry, 50x50_images, histology,...)
+
+    Parameters
+    ----------
+    measurements_directory : str
+        the path to the measurement directory
+    directory : str
+        the folder name
+    Flag : boolean
+        indicates wether the progression should be displayed
+    """
     polarimetry = os.path.join(measurements_directory, directory, 'polarimetry')
     for wl in os.listdir(polarimetry):
         folder = os.path.join(polarimetry, wl)
-        
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-
-        with open(os.path.join(dir_path.split('src')[0], 'data', 'filenames.pickle'), 'rb') as handle:
-            filenames = pickle.load(handle)
-        with open(os.path.join(dir_path.split('src')[0], 'data', 'filenames_50x50.pickle'), 'rb') as handle:
-            filenames_50x50 = pickle.load(handle)
-        with open(os.path.join(dir_path.split('src')[0], 'data', 'filenames_results.pickle'), 'rb') as handle:
-            filenames_results = pickle.load(handle)
+        filenames = load_filenames()
+        filenames_50x50 = load_filenames_50x50()
+        filenames_results = load_filenames_results()
             
         for file in os.listdir(folder):
             if file in filenames:
                 pass
             else:
-                if file == '50x50_images':
-                    for file_50x50 in os.listdir(os.path.join(folder, '50x50_images')):
-                        if file_50x50 in filenames_50x50:
-                            os.remove(os.path.join(folder, '50x50_images', file_50x50))
+                if file == '50x50_images' or file == 'results':
+                    if file == '50x50_images':
+                        file_res = filenames_50x50
+                    else:
+                        file_res = filenames_results
+                        
+                    for file_ind in os.listdir(os.path.join(folder, file)):
+                        if file_ind in file_res:
+                            pass
+                        else:
+                            os.remove(os.path.join(folder, file, file_ind))
                 else:
                     if file.endswith('_realsize.png'):
                         pass
-                    elif file == 'results':
-                        for file_results in os.listdir(os.path.join(folder, 'results')):
-                            if file_results in filenames_results or file_results == '.ipynb_checkpoints':
-                                pass
-                            else:
-                                os.remove(os.path.join(folder, 'results', file_results))
                     else:
-                        os.remove(os.path.join(folder, file))
+                        if file in filenames:
+                            pass
+                        else:
+                            os.remove(os.path.join(folder, file))
     
     if Flag:
         print('Old computations were removed')
 
 
-def move_50x50_images(measurements_directory, directory, Flag = False):
+def move_50x50_images(measurements_directory: str, directory: str, Flag = False):
     """
     move the 50x50 images that were already computed in thw new 50x50_images folder
 
@@ -194,7 +204,7 @@ def move_50x50_images(measurements_directory, directory, Flag = False):
     ----------
     measurements_directory : str
         the path to the measurement directory
-    directory : list of str
+    directory : str
         the folder name
     """
     source = os.path.join(measurements_directory, directory, '50x50_images')

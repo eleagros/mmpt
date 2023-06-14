@@ -1,0 +1,24 @@
+50x50_images
+results
+_realsize.png
+Azimuth of optical axis.pdf
+Azimuth of optical axis.png
+Azimuth of optical axis_img.png
+combined_img.png
+combined_img_line.png
+Depolarization.pdf
+Depolarization.png
+Depolarization_img.png
+Intensity.pdf
+Intensity.png
+Intensity_img.png
+Linear retardance.pdf
+Linear retardance.png
+Linear retardance_img.png
+MM.png
+MM.pdf
+MM.npz
+MM_histogram.pdf
+MM_histogram.png
+parameters_histogram.pdf
+parameters_histogram.png

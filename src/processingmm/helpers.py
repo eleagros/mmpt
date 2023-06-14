@@ -24,6 +24,52 @@ def get_wavelength(fname: str):
     return wavelength
 
 
+def save_list_as_txt(lst: list, path: str):
+    with open(path, 'w') as fp:
+        for item in lst:
+            fp.write("%s\n" % item)
+
+def save_dict_as_json(dictionnary: dict, path: str):
+    with open(path, "w") as file:
+        json.dump(dictionnary, file)
+
+
+def load_filenames_results():
+    """
+    load and returns the name of the files that will be generated during the processing
+
+    Returns
+    -------
+    filenames : list
+        the list of the files generated during the processing
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(dir_path, '../../data', 'filenames_results.txt')) as f:
+        lines = f.readlines()
+    f.close()
+    for idx, l in enumerate(lines):
+        lines[idx] = l.replace('\n', '')
+    return lines
+
+
+def load_filenames_50x50():
+    """
+    load and returns the name of the files that will be generated during the processing
+
+    Returns
+    -------
+    filenames : list
+        the list of the files generated during the processing
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(dir_path, '../../data', 'filenames_50x50.txt')) as f:
+        lines = f.readlines()
+    f.close()
+    for idx, l in enumerate(lines):
+        lines[idx] = l.replace('\n', '')
+    return lines
+
+
 def load_filenames():
     """
     load and returns the name of the files that will be generated during the processing
@@ -34,9 +80,12 @@ def load_filenames():
         the list of the files generated during the processing
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'filenames.pickle'), 'rb') as handle:
-        filenames = pickle.load(handle)
-    return filenames
+    with open(os.path.join(dir_path, '../../data', 'filenames.txt')) as f:
+        lines = f.readlines()
+    f.close()
+    for idx, l in enumerate(lines):
+        lines[idx] = l.replace('\n', '')
+    return lines
 
 
 def load_parameter_maps():
@@ -49,9 +98,9 @@ def load_parameter_maps():
         the parameters to plot the parameters histograms
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'parameters_map.pickle'), 'rb') as handle:
-        parameters_map = pickle.load(handle)
-    return parameters_map
+    with open(os.path.join(dir_path, '../../data', 'parameters_map.json')) as json_file:
+        data = json.load(json_file)
+    return data
 
 
 def load_plot_parameters():
@@ -64,8 +113,9 @@ def load_plot_parameters():
         the parameters to plot the parameters maps
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'parameters_plot.pickle'), 'rb') as handle:
-        return pickle.load(handle)
+    with open(os.path.join(dir_path, '../../data', 'parameters_plot.json')) as json_file:
+        data = json.load(json_file)
+    return data
     
 
 def load_parameters_visualization():
@@ -184,3 +234,118 @@ def chunks(lst: list, n: int):
     """
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+
+def save_file_as_npz(variable: dict, path: str):   
+    """
+    save_file_as_npz allows to store a Mueller Matrix as a numpy zipped file
+
+    Parameters
+    ----------
+    variable : dict
+        the MM to save (should contain ['Intensity', 'M11', 'Msk', 'totD', 'linR', 'azimuth', 'totP'] as keys)
+    path : str
+        the path in which the MM should be saved
+    """
+    np.savez_compressed(path, 
+                        Intensity = variable['Intensity'],
+                        M11 = variable['M11'],
+                        Msk = variable['Msk'],
+                        totD = variable['totD'],
+                        linR = variable['linR'],
+                        azimuth = variable['azimuth'],
+                        totP = variable['totP'])
+    
+
+def rotate_maps_90_deg(map_resize: np.ndarray, azimuth = False):
+    """
+    rotate_maps allows to rotate an array by 90 degree
+
+    Parameters
+    ----------
+    map_resize : array
+        the array that will be rotated
+    idx_azimuth : boolean
+        indicates if we are working with azimuth data (hence correction would be needed, default: False)
+    
+    Returns
+    -------
+    resized_rotated : array
+        the rotated array
+    """
+    rotated = np.rot90(map_resize)[0:map_resize.shape[0], :]
+    
+    resized_rotated = np.zeros(map_resize.shape)
+    for idx, x in enumerate(resized_rotated):
+        for idy, y in enumerate(x):
+            if idy < (map_resize.shape[1] - rotated.shape[0]) / 2 or idy > map_resize.shape[1] - (map_resize.shape[1] - rotated.shape[0]) / 2:
+                pass
+            else:
+                try:
+                    if azimuth:
+                        resized_rotated[idx, idy] = ((rotated[idx, int(idy - ((map_resize.shape[1] - rotated.shape[0]) / 2 - 1))] + 90) % 180)
+                    else:
+                        resized_rotated[idx, idy] = rotated[idx, int(idy - ((map_resize.shape[1] - rotated.shape[0]) / 2 - 1))]
+                except:
+                    pass
+
+    return resized_rotated  
+
+
+def is_there_data(path: str):
+    """
+    check if raw data is available for the path given as an input
+
+    Parameters
+    ----------
+    path : str
+        the path to the folder containing the raw data
+    
+    Returns
+    -------
+    data_exist : bool
+        boolean indicating the presence of two .cod files
+    """
+    data_exist = False
+    try:
+        data_exist = len(os.listdir(path)) == 2
+    except FileNotFoundError:
+        data_exist = False
+    return data_exist
+
+
+def is_processed(path: str, wl: str):
+    """
+    check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
+
+    Parameters
+    ----------
+    path : str
+        the path to the folder to check
+    wl : str
+        the wavelenghts for which to check
+
+    Returns
+    ----------
+    all_found : bool
+        indicates if all the files were present
+    """
+    filenames = load_filenames()
+
+    # get the filenames
+    all_file_names = os.listdir(os.path.join(path, 'polarimetry', wl))
+
+    all_found = True
+    for filename in filenames:
+        found_file = False
+        if filename == '_realsize.png':
+            for file in all_file_names:
+                if file.endswith(filename):
+                    found_file = True
+        else:
+            for file in all_file_names:
+                if file == filename:
+                    found_file = True
+        if not found_file:
+            all_found = False
+    return all_found
