@@ -510,7 +510,7 @@ def MM_histogram(MuellerMatrices: dict, folder: str):
     plt.close()
 
 
-def save_batch(folder):
+def save_batch(folder: str, viz = False):
     """
     combine the 4 images (linear retardance, depolarization, azimuth and intensity in a single file)
 
@@ -519,8 +519,12 @@ def save_batch(folder):
     folder : str
         the folder in which to find the images
     """
-    names = load_combined_plot_name()
-    figures = load_filenames_combined_plot()
+    if viz:
+        names = load_combined_plot_name(viz = True)
+        figures = load_filenames_combined_plot(viz = True)
+    else:
+        names = load_combined_plot_name()
+        figures = load_filenames_combined_plot()
 
     # load the four images
     img_3 = cv2.imread(folder + '/' + figures[0])[40:960, 160:1450]

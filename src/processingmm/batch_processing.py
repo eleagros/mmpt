@@ -133,7 +133,6 @@ def is_processed(path: str, wl: str):
 
     # get the filenames
     all_file_names = os.listdir(os.path.join(path, 'polarimetry', wl))
-
     all_found = True
     for filename in filenames:
         found_file = False
@@ -241,9 +240,11 @@ def process_MM(measurement_directory: str, calib_directory: str):
     # finally, generate the visuazation with the lines
     measurements_directory_viz = measurement_directory
     parameters_set = 'CUSA'
-    param = visualization_lines.visualization_auto(measurements_directory_viz, parameters_set, run_all = False, batch_processing = True)
+    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameters_set, run_all = False, batch_processing = True)
+    print(MuellerMatrices)
     for folder, _ in MuellerMatrices.items():
-        visualization_lines.save_batch(folder)
+        print('here')
+        plot_polarimetry.save_batch(folder, viz = True)
 
     return calibration_directories, parameters_set
 

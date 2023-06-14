@@ -104,7 +104,6 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
     
     # get the corresponding calibration_directory
     calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, Flag = Flag)
-    print(calibration_directory_closest)
     
     for d in directories:
                         

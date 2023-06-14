@@ -544,8 +544,8 @@ def save_batch(folder: str):
     names : str
         the name of the new file to be created
     """
-    names = load_combined_plot_name()
-    figures = load_filenames_combined_plot()
+    names = load_combined_plot_name(viz = True)
+    figures = load_filenames_combined_plot(viz = True)
 
     # load the four images
     img_3 = cv2.imread(folder + '/' + figures[0])[40:960, 160:1450]
