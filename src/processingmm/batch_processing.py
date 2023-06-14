@@ -270,6 +270,8 @@ def process_MM(measurement_directory, calib_directory):
     param = visualization_lines.visualization_auto(measurements_directory_viz, parameters_visualizations, 
                                                 parameters_set, run_all = True, batch_processing = True)
 
+    print('here')
+
     for folder, _ in MuellerMatrices.items():
         visualization_lines.save_batch(folder)
 
@@ -282,7 +284,12 @@ def batch_process(directories, calib_directory):
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
-    to_process = df[~df['processed']]
+    
+    if len(df) == 0:
+        to_process = []
+    else:
+        to_process = df[~df['processed']]
+
     if len(to_process) == 0:
         to_process = []
     else:
@@ -315,7 +322,7 @@ def batch_process(directories, calib_directory):
         links_folders = {}
         for folder in chunk:
             links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
-            copytree(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
+            shutil.move(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
             to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
         
         measurements_directory = './temp_processing'
@@ -336,7 +343,7 @@ def batch_process(directories, calib_directory):
                 shutil.rmtree(folder)
             except FileNotFoundError:
                 pass
-            copytree(temp_folder, folder)
+            shutil.move(temp_folder, folder)
         
         try:
             shutil.rmtree('./temp_processing')

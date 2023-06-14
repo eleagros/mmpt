@@ -17,6 +17,7 @@ from scipy.ndimage.morphology import binary_dilation
 
 from processingmm.helpers import get_cmap, get_wavelength, load_MM
 from processingmm.multi_img_processing import remove_already_computed_directories
+from processingmm.libmpMuelMat import _isNumStable
 
 
 def visualization_auto(measurements_directory, parameters_visualizations, parameters_set, batch_processing = False,
@@ -139,7 +140,8 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
     std_parameter : int
         remove the "pixels" for which azimuth std > std_parameter
     """
-    
+    print(path, mask, grey_scale_parameter, linear_retardance_parameter, depolarization_parameter, 
+                               n, length, std_parameter, widths, cmap_azi, norm)
     # load the MM and creates, if necessary, the results folder
     orientation = load_MM(path)
 
@@ -164,6 +166,7 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
     depolarization = orientation['totP']
     retardance = orientation['linR']
 
+    assert _isNumStable(orientation['azimuth'])
     # get the azimuth and convert angles to radian
     # azimuth = np.pi*orientation['Image_orientation_linear_retardance_full']/360
     azimuth = np.pi*orientation['azimuth']/360
@@ -181,7 +184,6 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
     new_cmap_values = [x for y in cmaps for x in y[:-1]]
     new_cmap_values.append(cmaps[-1][-1])
     interval_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('interval_cmap',new_cmap_values)
-    
     
     new_mask = np.logical_not(np.logical_or(np.logical_and(depolarization<depolarization_parameter, 
                                 gaussian_filter(orientation['linR'],4)<linear_retardance_parameter), 
