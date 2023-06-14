@@ -15,13 +15,12 @@ from skimage.restoration import unwrap_phase
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import binary_dilation
 
-from processingmm.helpers import get_cmap, get_wavelength, load_MM
+from processingmm.helpers import get_cmap, get_wavelength, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, is_there_data, load_combined_plot_name, load_filenames_combined_plot
 from processingmm.multi_img_processing import remove_already_computed_directories
 from processingmm.libmpMuelMat import _isNumStable
 
 
-def visualization_auto(measurements_directory, parameters_visualizations, parameters_set, batch_processing = False,
-                       to_compute = None, run_all = True):
+def visualization_auto(measurements_directory: str, parameters_set: str, batch_processing = False, to_compute = None, run_all = True):
     """
     master function calling line_visualization_routine for each of the folders in the measurements_directory
     
@@ -29,58 +28,94 @@ def visualization_auto(measurements_directory, parameters_visualizations, parame
     ----------
     measurements_directory : str
         the path to the directory containing the measurements
-    depolarization_parameter : double
-        remove the points for which depolarization < depolarization_parameter and 
-        linear_retardance < linear_retardance_parameter
-    linear_retardance_parameter : double
-        remove the points for which depolarization < depolarization_parameter and 
-        linear_retardance < linear_retardance_parameter
-    grey_scale_parameter : double
-        remove pixels that are too dark compared to white matter (intensity < 1/parameter * mean(image))
-    n : int
-        bigger n = more points incorporated in each "pixel"
-    scale : int
-        change the scale of the arrows
-    std_parameter : int
-        remove the "pixels" for which azimuth std > std_parameter
+    parameters_set : str
+        the name of the set of parameters that should be used (i.e. 'CUSA')
+    batch_processing : boolean
+        indicates if we are batch processing the data (and if we should print progress bars, default = False)
     to_compute : list
-        (optional) list of folders to compute visualization for
+        the list of folders to compute (if one wants to process only specific ones, default = None)
+    run_all : boolean
+        defines wether all the folders should be processed (default = True)
     """
     if to_compute:
         pass
     else:
-        if run_all: 
-            treshold = 1000
+        if run_all:
+            to_compute = os.listdir(measurements_directory)
         else:
-            treshold = 8
-        # get the folders to compute if not given as an input
-        to_compute = remove_computed_folders_viz(measurements_directory, treshold)
-
+            # get the folders to compute if not given as an input
+            to_compute = remove_computed_folders_viz(measurements_directory)
 
     if not batch_processing:
         for c in tqdm(to_compute):
             path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_visualizations, parameters_set)
+            perform_visualisation(path, parameters_set)
     else:
         for c in to_compute:
             path = measurements_directory + c
             path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_visualizations, parameters_set)
-                
+            perform_visualisation(path, parameters_set)
 
-def get_mask(path):
-    if 'mask-viz.tif' in os.listdir(os.path.join(path, 'annotation')):
-        mask = np.array(Image.open(os.path.join(path, 'annotation', 'mask-viz.tif')))
-        mask = mask != 0
-    elif 'merged.jpeg' in os.listdir(os.path.join(path, 'annotation')):
-        mask = np.array(Image.open(os.path.join(path, 'annotation', 'merged.jpeg')))
-        mask = mask != 128
-        plt.imshow(mask)
-    else:
-        mask = None
-    return mask
 
-def perform_visualisation(path, parameters_visualizations, parameters_set):
+def remove_computed_folders_viz(measurements_directory):
+    """
+    removes the folders for which the visualization was already obtained
+    
+    Parameters
+    ----------
+    measurements_directory : str
+        the path to the directory containing the measurements
+
+    Returns
+    -------
+    to_compute : list
+        the list of the folders that need to be computed
+    """
+    filename_results = load_filenames_results()
+    folders = os.listdir(measurements_directory)
+    to_compute = []
+
+    for c in folders:
+        visualized = True
+
+        path = os.path.join(measurements_directory, c)
+        wavelengths = load_wavelengths()
+        check_wl = []
+        for wl in wavelengths:
+            if is_there_data(os.path.join(path, 'raw_data', wl)):
+                check_wl.append(wl)
+
+        for wl in check_wl:
+            path_wl = os.path.join(path, 'polarimetry', wl)
+            if os.path.isdir(os.path.join(path_wl, 'results')):
+                for file in filename_results:
+                    if file in os.listdir(os.path.join(path_wl, 'results')):
+                        pass
+                    else:
+                        visualized = False
+            else:
+                visualized = False
+
+        if visualized:
+            pass
+        else:
+            to_compute.append(c)
+
+    return to_compute
+
+
+def perform_visualisation(path: str, parameters_set: str):
+    """
+    master function running the visualization script for one folder
+    
+    Parameters
+    ----------
+    path : str
+        the path to the folder on which the routine should be run
+    parameters_set : str
+        the name of the set of parameters that should be used (i.e. 'CUSA')
+    """
+    parameters_visualizations = load_parameters_visualization()
 
     # 1. deplarization and retardance are higher than the tresholds
     # remove the points for which depolarization < depolarization_parameter and linear_retardance < linear_retardance_parameter
@@ -112,12 +147,36 @@ def perform_visualisation(path, parameters_visualizations, parameters_set):
         d = d_.replace('raw_data', 'polarimetry')
         # get wavelength and call line_visualization_routine
         wavelength = get_wavelength(d)
-        line_visualization(os.path.join(d, 'MM.npz'), mask, grey_scale_parameter, linear_retardance_parameter, depolarization_parameter, n, scale, std_parameter,
-                           widths, cmap, norm)
+        line_visualization(os.path.join(d, 'MM.npz'), mask, parameters_set)
 
 
-def line_visualization(path, mask, grey_scale_parameter, linear_retardance_parameter, depolarization_parameter, 
-                               n, length, std_parameter, widths, cmap_azi, norm, title = 'Azimuth of the optical axis (°)'):
+def get_mask(path: str):
+    """
+    get_mask returns a manually created mask if has been created
+    
+    Parameters
+    ----------
+    path : str
+        the path to the folder of interest
+
+    Returns
+    -------
+    mask : 
+        the manually created mask, if existing
+    """
+    if 'mask-viz.tif' in os.listdir(os.path.join(path, 'annotation')):
+        mask = np.array(Image.open(os.path.join(path, 'annotation', 'mask-viz.tif')))
+        mask = mask != 0
+    elif 'merged.jpeg' in os.listdir(os.path.join(path, 'annotation')):
+        mask = np.array(Image.open(os.path.join(path, 'annotation', 'merged.jpeg')))
+        mask = mask != 128
+        plt.imshow(mask)
+    else:
+        mask = None
+    return mask
+
+
+def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of the optical axis (°)'):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -125,21 +184,35 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
     ----------
     path : str
         the path of the folder of interest
-    grey_scale_parameter : double
-        remove pixels that are too dark compared to white matter (intensity < 1/parameter * mean(image))
-    linear_retardance_parameter : double
-        remove the points for which depolarization < depolarization_parameter and 
-        linear_retardance < linear_retardance_parameter
-    depolarization_parameter : double
-        remove the points for which depolarization < depolarization_parameter and 
-        linear_retardance < linear_retardance_parameter
-    n : int
-        bigger n = more points incorporated in each "pixel"
-    scale : int
-        change the scale of the arrows
-    std_parameter : int
-        remove the "pixels" for which azimuth std > std_parameter
+    mask : np.ndarray
+        the manual mask, if it has been created
+    parameters_set : str
+        the name of the set of parameters that should be used (i.e. 'CUSA')
+    title : str
+        the title of the graph
     """
+    parameters_visualizations = load_parameters_visualization()
+
+    # 1. deplarization and retardance are higher than the tresholds
+    # remove the points for which depolarization < depolarization_parameter and linear_retardance < linear_retardance_parameter
+    depolarization_parameter = parameters_visualizations[parameters_set]['depolarization']
+    linear_retardance_parameter = parameters_visualizations[parameters_set]['linear_retardance']
+
+    # 2. remove pixels that are too dark compared to white matter (intensity < 1/parameter * mean(image))
+    grey_scale_parameter = parameters_visualizations[parameters_set]['greyscale']
+
+    # 3. remove the "pixels" for which std > std_parameter
+    # std_parameter = parameters_visualizations[parameters_set]['std_parameter']
+
+    # 4. bigger n = more points incorporated in each "pixel"
+    n = parameters_visualizations[parameters_set]['n']
+
+    # 5. change the width of the rectangles - typically around 1.5
+    widths = parameters_visualizations[parameters_set]['widths']
+
+    # 6. change the scale of the arrows - typically around 20
+    scale = parameters_visualizations[parameters_set]['scale']
+
     # load the MM and creates, if necessary, the results folder
     orientation = load_MM(path)
 
@@ -156,9 +229,8 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
     # load the first element of the Mueller Matrix for each pixel - the M11 element scales the input intensity to the output 
     # intensity so this element can be interpreted as the simple transmittance
     M11 = orientation['M11']
-    image_size = M11.shape
-    lower_M11 = np.mean(M11) - 2*np.std(M11)
-    upper_M11 = np.mean(M11) + 2*np.std(M11)
+    # lower_M11 = np.mean(M11) - 2*np.std(M11)
+    # upper_M11 = np.mean(M11) + 2*np.std(M11)
 
     # get the depolarization and linear retardance value for each pixel of the original image
     depolarization = orientation['totP']
@@ -166,36 +238,52 @@ def line_visualization(path, mask, grey_scale_parameter, linear_retardance_param
 
     assert _isNumStable(orientation['azimuth'])
     # get the azimuth and convert angles to radian
-    # azimuth = np.pi*orientation['Image_orientation_linear_retardance_full']/360
     azimuth = np.pi*orientation['azimuth']/360
     
     # phase unwrap or unwrap is a process often used to reconstruct a signal's original phase
     azimuth_unwrapped = unwrap_phase(4*azimuth)/2
-    cycle_limits = (np.floor(np.min(azimuth_unwrapped/(np.pi))), np.ceil(np.max(azimuth_unwrapped/(np.pi))))
-    num_cycles = cycle_limits[1]-cycle_limits[0]
-    
-    cut_points = np.linspace(0,1.0, int(num_cycles+1))
-    intervals = zip(cut_points[:-1],cut_points[1:])
-
-    # create the colormap for each interval of interest
-    cmaps = [list(zip(np.linspace(x,y,128),cmocean.cm.phase(np.linspace(0,1.,128)))) for x,y in zip(cut_points[:-1],cut_points[1:])]
-    new_cmap_values = [x for y in cmaps for x in y[:-1]]
-    new_cmap_values.append(cmaps[-1][-1])
-    interval_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('interval_cmap',new_cmap_values)
     
     new_mask = np.logical_not(np.logical_or(np.logical_and(depolarization<depolarization_parameter, 
                                 gaussian_filter(orientation['linR'],4)<linear_retardance_parameter), 
                                 binary_dilation(M11<(1/grey_scale_parameter*np.mean(M11)), iterations = 3)))
     new_mask_M11 = np.logical_not(binary_dilation(M11<(1/grey_scale_parameter*np.mean(M11)), iterations = 3))
         
-    plot_azimuth(retardance, M11, azimuth_unwrapped, image_size, cmap_azi, norm, n, widths, length, title, path_results,
+    plot_azimuth(retardance, M11, azimuth_unwrapped, n, widths, scale, title, path_results,
                  new_mask_M11, mask, normalized = False)
-    plot_azimuth(retardance, M11, azimuth_unwrapped, image_size, cmap_azi, norm, n, widths, length, title, path_results,
+    plot_azimuth(retardance, M11, azimuth_unwrapped, n, widths, scale, title, path_results,
                  new_mask, mask, normalized = True)
     
 
-def plot_azimuth(retardance, M11, azimuth_unwrapped, image_size, cmap_azi, norm, n, widths, length, title, path_results,
-                 new_mask, mask, normalized = False):
+def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.ndarray, n: int, widths: int, length: int, title: str, 
+                 path_results: str, new_mask: np.ndarray, mask: np.ndarray, normalized = False):
+    """
+    apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
+
+    Parameters
+    ----------
+    retardance : np.ndarray
+        the polarimetric map of the retardance
+    M11 : np.ndarray
+        the grayscale intensity image
+    azimuth_unwrapped : np.ndarray
+        the map of the unwrapped azimuth
+    n : int
+        the number of oints incorporated in each "pixel"
+    widths : int
+        change the width of the rectangles
+    length : int
+        change the scale of the arrows
+    title : str
+        the title of the plot
+    path_results : str
+        the path in which to save the plots generated
+    new_mask : np.ndarray
+        the mask used to decided where to plot and where to mask
+    mask : np.ndarray
+        the manual mask, if it has been created
+    """
+    image_size = M11.shape
+    cmap_azi, norm = get_cmap(parameter = 'azimuth')
 
     if type(mask) == np.ndarray:
         new_mask = np.logical_and(mask, new_mask)
@@ -212,18 +300,11 @@ def plot_azimuth(retardance, M11, azimuth_unwrapped, image_size, cmap_azi, norm,
         plt.savefig(os.path.join(path_results, 'mask.pdf'))
         plt.savefig(os.path.join(path_results, 'mask.png'))
         plt.close(fig)
-        
     
     X, Y = np.meshgrid(np.arange(image_size[1]), np.arange(image_size[0]))
-    # if normalized:
-        # pass
-    # else: 
-        # new_mask = np.ones(retardance.shape)
         
     orientation_cos = np.cos(azimuth_unwrapped)
     orientation_sin = np.sin(azimuth_unwrapped)
-    orientation_cos_depol_masked = np.ma.array(orientation_cos, mask = new_mask)
-    orientation_sin_depol_masked = np.ma.array(orientation_sin, mask = new_mask)
     
     u = (retardance*orientation_cos)
     v = (retardance*orientation_sin)
@@ -235,15 +316,14 @@ def plot_azimuth(retardance, M11, azimuth_unwrapped, image_size, cmap_azi, norm,
     ax.imshow(M11, cmap = 'gray')
     
     all_norms = []
-    for idy, y in enumerate(X[::n,::n]):
-        for idx, x in enumerate(Y[::n,::n][0]):
+    for idy, _ in enumerate(X[::n,::n]):
+        for idx, _ in enumerate(Y[::n,::n][0]):
             u = u_normalized[idy, idx]
             v = v_normalized[idy, idx]
             all_norms.append(np.linalg.norm([u,v]))
-    max_norm = np.median(all_norms)
     
-    for idy, y in enumerate(X[::n,::n]):
-        for idx, x in enumerate(Y[::n,::n][0]):
+    for idy, _ in enumerate(X[::n,::n]):
+        for idx, _ in enumerate(Y[::n,::n][0]):
             idx_scale = idx * n
             idy_scale = idy * n
             u = u_normalized[idy, idx]
@@ -305,16 +385,42 @@ def plot_azimuth(retardance, M11, azimuth_unwrapped, image_size, cmap_azi, norm,
     plt.close(fig)
 
 
-def func(x, a, b, c, d, e):
+def func(x: float, a: float, b: float, c: float, d: float, e: float):
+    """
+    the sigmoid function
+
+    Parameters
+    ----------
+    x, a, b, c, d, e: float
+        the sigmoid parameters
+        
+    Returns
+    -------
+    fun : 
+        the sigmoid function
+    """
     return a + (b - c) / (1 + pow(x/d, e))
 
-def function_sig_fixed(x):
+def function_sig_fixed(x: float):
+    """
+    the sigmoid function for fixed tissue
+
+    Parameters
+    ----------
+    x : float
+        the value to evaluate the function for
+        
+    Returns
+    -------
+    f(x) : float
+        the value of the sigmoid function at the point x
+    """
     popt = [1.00176023e+00, 7.50232796e+03, 7.50330844e+03, 2.95781650e+00,
        3.88876080e+00]
     return func(x, *popt)
 
 
-def get_u_v(u_plot, v_plot, normalized = True):
+def get_u_v(u_plot: np.ndarray, v_plot: np.ndarray, normalized: bool = True):
     """
     obtain the arrows that will be used for plotting
 
@@ -360,7 +466,7 @@ def get_u_v(u_plot, v_plot, normalized = True):
     return u_normalized, v_normalized
 
 
-def get_plot_arrows(u, v, new_mask, n):
+def get_plot_arrows(u: np.ndarray, v: np.ndarray, new_mask: np.ndarray, n: int):
     """
     obtain the arrows that will be used for plotting
 
@@ -374,8 +480,6 @@ def get_plot_arrows(u, v, new_mask, n):
         mask to be used for selecting pixels of interest
     n : int
         bigger n = more points incorporated in each "pixel"
-    std_parameter : int
-        remove the "pixels" for which azimuth std > std_parameter
         
     Returns
     -------
@@ -427,55 +531,7 @@ def get_plot_arrows(u, v, new_mask, n):
     return u_plot, v_plot
 
 
-def remove_computed_folders_viz(measurements_directory, treshold = 8):
-    """
-    removes the folders for which the visualization was already obtained
-    
-    Parameters
-    ----------
-    measurements_directory : str
-        the path to the directory containing the measurements
-
-    Returns
-    -------
-    to_compute : list
-        the list of the folders that need to be computed
-    """
-    folders = os.listdir(measurements_directory)
-    folers_to_compute = []
-
-    for c in folders:
-        visualized = True
-
-        path = os.path.join(measurements_directory, c)
-        directories = remove_already_computed_directories(path, sanity = True)
-        
-        for d_ in directories:
-            d = d_.replace('raw_data', 'polarimetry')
-            wavelength = get_wavelength(d)
-            if os.path.exists(os.path.join(d, 'results')):
-                if os.path.isdir(os.path.join(d, 'results')):
-                    
-                    # check if the visualization was obtained or not
-                    if len(os.listdir(os.path.join(d, 'results'))) >= treshold:
-                        pass
-                    else:
-                        visualized = False
-                else:
-                    visualized = False
-            else:
-                visualized = False
-
-        if visualized:
-            pass
-        else:
-            folers_to_compute.append(c)
-            
-    to_compute = folers_to_compute[::-1]
-    return to_compute
-
-
-def save_batch(folder):
+def save_batch(folder: str):
     """
     combine the 4 images (linear retardance, depolarization, azimuth and intensity in a single file)
 
@@ -488,8 +544,8 @@ def save_batch(folder):
     names : str
         the name of the new file to be created
     """
-    names = 'combined_img_line.png'
-    figures = ['Depolarization.png', 'results/CUSA_fig.png', 'Intensity.png', 'Linear Retardance.png']
+    names = load_combined_plot_name()
+    figures = load_filenames_combined_plot()
 
     # load the four images
     img_3 = cv2.imread(folder + '/' + figures[0])[40:960, 160:1450]

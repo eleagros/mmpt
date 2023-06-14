@@ -1,15 +1,15 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import os
 import cv2
 
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from matplotlib import cm
-import matplotlib.colors as clr
 
-from processingmm.helpers import load_parameter_maps, get_cmap, load_plot_parameters
+from processingmm.helpers import load_parameter_maps, get_cmap, load_plot_parameters, load_combined_plot_name, load_filenames_combined_plot
 
-def parameters_histograms(MuellerMatrices, folder, max_ = False):
+
+def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
     """
     generate the histogram for the four parameters
 
@@ -17,10 +17,8 @@ def parameters_histograms(MuellerMatrices, folder, max_ = False):
     ----------
     MuellerMatrices : dict
         the dictionnary containing the computed Mueller Matrices
-    folder : path
+    folder : str
         the name of the current processed folder
-    parameters_map : dict
-        the map linking the keys in the MM and the name of the parameter
     max_ : bool
         boolean indicating wether or not the max_ should be printed
     """
@@ -101,18 +99,17 @@ def parameters_histograms(MuellerMatrices, folder, max_ = False):
     plt.close()
 
 
-def generate_plots(MuellerMatrices, folder):
+def generate_plots(MuellerMatrices: dict, folder: str):
     """
-    generate_plots is used to create the plots for the parameters map
+    master function allowing to create the plots for the polarimetric parameters map, calls the function plot_polarimetric_paramter for 
+    each parameter
 
     Parameters
     ----------
     MuellerMatrices : dict
         the computed Mueller Matrices with folders and parameters as keys
-    folder : path
+    folder : str
         the name of the current processed folder
-    parameters_map : dict
-        the map linking the keys in the MM and the name of the parameter
     """
     parameters_map = load_parameter_maps()
     
@@ -140,7 +137,7 @@ def generate_plots(MuellerMatrices, folder):
             plot_polarimetric_paramter(MuellerMatrices[folder][key], cmap, norm, parameter, path_save, folder)
 
 
-def plot_polarimetric_paramter(X2D, cmap, norm, parameter, path_save, folder):
+def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path_save: str, folder: str):
     """
     function to display an individual 2D component (e.g. one component of the Mueller Matrix coeffs, or a Mask)
 
@@ -155,17 +152,19 @@ def plot_polarimetric_paramter(X2D, cmap, norm, parameter, path_save, folder):
         the name of the parameter (i.e. 'azimuth', 'depolarization'...)
     path_save : str
         the path to which the final plot should be saved
+    folder : str
+        the name of the current processed folder
     """
+    # load the parameters that will be used for the plot
     plot_parameters = load_plot_parameters()[parameter]
     cbar_min = plot_parameters['cbar_min']
     cbar_max = plot_parameters['cbar_max']
     cbar_step = plot_parameters['cbar_step']
     formatter = plot_parameters['formatter']
-        
+    
+    # rescale the matrices to have the right color bars
     X2D[X2D < cbar_min] = cbar_min
     X2D[X2D > cbar_max] = cbar_max
-
-    # rescale the matrices to have the right color bars
     if len(X2D[X2D < cbar_min]) != 0:
         pass
     else:
@@ -175,9 +174,11 @@ def plot_polarimetric_paramter(X2D, cmap, norm, parameter, path_save, folder):
     else:
         X2D[-1, 0] = cbar_max
 
+    # 1. save the plot as an image only
     path_save_img = path_save.replace('.png', '_img.png')
     plt.imsave(path_save_img, X2D, cmap = cmap, vmin = cbar_min, vmax = cbar_max)
 
+    # 2. save the plot with the colorbar and title
     fig, ax = plt.subplots(figsize = (15,10))
     ax.imshow(X2D, cmap = cmap)
     ax = plt.gca()
@@ -195,23 +196,13 @@ def plot_polarimetric_paramter(X2D, cmap, norm, parameter, path_save, folder):
     plt.savefig(path_save.replace('.png', '.pdf'))
     plt.close('all')
 
+    # 3. for the intensity, save the realsize image
     if parameter == 'intensity':
         folder = folder.replace('\\', '/')
         path_save = os.path.join('/'.join(folder.split('/')[:-1]), folder.split('/')[-1],
                     folder.split('/')[-3] + '_' + folder.split('/')[-1] + '_realsize.png').replace('\\', '/')
         plt.imsave(path_save, X2D, cmap = cmap, vmin = cbar_min, vmax = cbar_max)
  
-
-def resize_MM(X2D):
-    if np.max(X2D) == np.min(X2D) == 1:
-        return X2D
-    a = 2 / (np.max(X2D) - np.min(X2D))
-    a = 1
-    b = 1 - a * np.max(X2D)
-    b = 0
-    newvalue = a * X2D + b
-    return newvalue
-
 
 def show_MM(X3D, folder):
     """
@@ -236,18 +227,18 @@ def show_MM(X3D, folder):
             'Input: "X3D" should have shape 16 components in the last dimension. The number of elements in the last dimension is: {}'.format(
                 shp3[-1]))
 
+    # create the rescaled matrix that will be used to plot
     X_montage = np.concatenate((np.concatenate(
-        (resize_MM(X3D[:, :, 0]).squeeze(), 5*X3D[:, :, 1].squeeze(), 5*X3D[:, :, 2].squeeze(), 5*X3D[:, :, 3].squeeze()), axis=1),
-        np.concatenate((5*X3D[:, :, 4].squeeze(), resize_MM(X3D[:, :, 5]).squeeze(), 5*X3D[:, :, 6].squeeze(),
+        (rescale_MM(X3D[:, :, 0]).squeeze(), 5*X3D[:, :, 1].squeeze(), 5*X3D[:, :, 2].squeeze(), 5*X3D[:, :, 3].squeeze()), axis=1),
+        np.concatenate((5*X3D[:, :, 4].squeeze(), rescale_MM(X3D[:, :, 5]).squeeze(), 5*X3D[:, :, 6].squeeze(),
                                                 5*X3D[:, :, 7].squeeze()), axis=1),
-                                np.concatenate((5*X3D[:, :, 8].squeeze(), 5*X3D[:, :, 9].squeeze(), resize_MM(X3D[:, :, 10]).squeeze(),
+                                np.concatenate((5*X3D[:, :, 8].squeeze(), 5*X3D[:, :, 9].squeeze(), rescale_MM(X3D[:, :, 10]).squeeze(),
                                                 5*X3D[:, :, 11].squeeze()), axis=1),
                                 np.concatenate((5*X3D[:, :, 12].squeeze(), 5*X3D[:, :, 13].squeeze(),
-                                                5*X3D[:, :, 14].squeeze(), resize_MM(X3D[:, :, 15]).squeeze()), axis=1)), axis=0)
+                                                5*X3D[:, :, 14].squeeze(), rescale_MM(X3D[:, :, 15]).squeeze()), axis=1)), axis=0)
                                
     # get the colormap to be used to plot the MM
     cmap, norm = get_cmap(parameter = 'MM')
-    
     cbar_max = 1
     cbar_min = -1
     cbar_step = 0.5
@@ -262,7 +253,6 @@ def show_MM(X3D, folder):
         pass
     else:
         X_montage[-1, 0] = cbar_max
-        
     X_montage[X_montage < cbar_min] = cbar_min
     X_montage[X_montage > cbar_max] = cbar_max
     formatter = '{:.1f}'
@@ -397,8 +387,6 @@ def show_MM(X3D, folder):
                                      fill=True,
                                      lw=lw_color))
             
-
-    
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.025, location='right', shrink = 0.65,
                         ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step))
@@ -432,7 +420,31 @@ def show_MM(X3D, folder):
     return X_montage
 
 
-def MM_histogram(MuellerMatrices, folder):
+def rescale_MM(X2D: np.ndarray):
+    """
+    resize each of the 16 MM components for plotting it
+
+    Parameters
+    ----------
+    X2D : np.ndarray
+        the MM component
+
+    Returns
+    ----------
+    newvalues : np.ndarray
+        the rescaled MM component
+    """
+    if np.max(X2D) == np.min(X2D) == 1:
+        return X2D
+    a = 2 / (np.max(X2D) - np.min(X2D))
+    a = 1
+    b = 1 - a * np.max(X2D)
+    b = 0
+    newvalue = a * X2D + b
+    return newvalue
+
+
+def MM_histogram(MuellerMatrices: dict, folder: str):
     """
     function to create the histograms for the Mueller matrices
 
@@ -506,13 +518,9 @@ def save_batch(folder):
     ----------
     folder : str
         the folder in which to find the images
-    figures : list of str
-        the names of the figures (i.e. 'Depolarization.png', 'Linear Retardance.png'...)
-    names : str
-        the name of the new file to be created
     """
-    names = 'combined_img.png'
-    figures = ['Depolarization.png', 'Azimuth of optical axis.png', 'Intensity.png', 'Linear Retardance.png']
+    names = load_combined_plot_name()
+    figures = load_filenames_combined_plot()
 
     # load the four images
     img_3 = cv2.imread(folder + '/' + figures[0])[40:960, 160:1450]
@@ -535,25 +543,3 @@ def save_batch(folder):
 
     # save the new image
     cv2.imwrite(folder + '/' + names, output)
-
-
-# parameters_plot = {}
-# parameters_plot['azimuth'] = {'cbar_min': 0, 'cbar_max': 180, 'cbar_step': 30, 'formatter': '{:.0f}', 'n_bins':  12,
-#                               'colors': [(0, 0, 1), (0, 0.5, 0), (0, 0.5, 0), (0, 1, 0), (0, 1, 0), (1, 0, 0), (1, 0, 0),
-#                                          (1, 1, 0), (1, 1, 0), (0, 1, 1), (0, 1, 1), (0, 0, 1)], 'cmap_name': 'azimuth'}
-# parameters_plot['depolarization'] = {'cbar_min': 0.5, 'cbar_max': 1, 'cbar_step': 0.1, 'formatter': '{:.1f}', 'n_bins': 200,
-#                           'colors': [(0, 0, 0.5), (0, 0, 1), (0, 1, 1), (1, 1, 0), (1, 0, 0), (0.5, 0, 0)], 
-#                                      'cmap_name': 'depolarization'}
-# parameters_plot['retardance'] = {'cbar_min': 0, 'cbar_max': 40, 'cbar_step': 10, 'formatter': '{:.0f}', 'n_bins': 200,
-#                                 'colors': [(0, 0, 0.5), (0, 0, 1), (0, 1, 1),  (1, 1, 0), (1, 0, 0), (0.5, 0, 0)], 
-#                                  'cmap_name': 'retardance'}
-# parameters_plot['intensity'] = {'cbar_min': 0, 'cbar_max': 70000, 'cbar_step': 10000, 'formatter': '{:.0e}', 'n_bins': 10000,
-#                               'colors': [(0, 0, 0), (1, 1, 1)],
-#                              'cmap_name': 'intensity'}
-# parameters_plot['MM'] = {'cbar_min': -1, 'cbar_max': 1, 'cbar_step': 0.2, 'formatter': '{:.1f}', 'n_bins': 200,
-#                               'colors': [(0, 0, 0.5), (0, 0, 1), (0, 1, 1), (1, 1, 0), (1, 0, 0), (0.5, 0, 0)],
-#                          'cmap_name': 'MM'}
-
-# import pickle
-# with open('parameters_plot.pickle', 'wb') as handle:
-#     pickle.dump(parameters_plot, handle, protocol=pickle.HIGHEST_PROTOCOL)

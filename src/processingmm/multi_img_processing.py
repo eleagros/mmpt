@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from datetime import datetime
 import warnings
 import copy
@@ -93,7 +94,7 @@ def remove_already_computed_directories(path: str, sanity = False):
     return directories_computable
 
 
-def get_data_containing_folder(path):
+def get_data_containing_folder(path: str):
     """
     get the wavelength folders containing raw data
 
@@ -116,7 +117,7 @@ def get_data_containing_folder(path):
     return directories
 
 
-def get_calibration_dates(calib_directory):
+def get_calibration_dates(calib_directory: str):
     """
     returns the dates of all the calibration folders containing calibration data for 550nm and 650nm in the calibration directory
 
@@ -154,7 +155,7 @@ def get_calibration_dates(calib_directory):
     return calib_directory_dates_num
 
 
-def get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, Flag = False, idx = -1):
+def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_directory: str, directories, Flag = False, idx = -1):
     """
     get the calibration directory with the date closest to the folder given as in input
 
@@ -166,6 +167,10 @@ def get_calibration_directory(calib_directory_dates_num, path, calib_directory, 
         the path to the folder that is currently being processed
     calib_directory : str
         the path to the folder containing the calibration data
+    directories : list
+        the path of the directories containing the raw data
+    Flag : boolean
+        boolean indicating if the warnings and processed should be displayed (default: False)
     idx : int
         should always be -1, except for quality check
         
@@ -217,7 +222,125 @@ def get_calibration_directory(calib_directory_dates_num, path, calib_directory, 
     else:
         raise FileNotFoundError('No calibration was found. Check if calibration folders are present.')
 
-def get_date_measurement(path, idx = -1):
+
+def find_closest_date(date_measurement: datetime, calib_dates_complete: list, directories: list, calib_directory: str, Flag = False):
+    """
+    finds the directory with the closest date to the measurement one
+
+    Parameters
+    ----------
+    date_measurement : datetime
+        the date
+    calib_dates_complete : list of datetime
+        a list of datetimes in which the closest one to date_measurement should be found
+    directories : list
+        the path of the directories containing the raw data
+    calib_directory : str
+        the path to the folder containing the calibration data
+    Flag : boolean
+        boolean indicating if the warnings and processed should be displayed (default: False)
+
+    Returns
+    -------
+    date_calibration : str
+        the name of the folder with the closest date to the measurement one
+    """
+    # create a deep copy of the calibration dates
+    calib_dates = copy.deepcopy(calib_dates_complete)
+    directories_calib = os.listdir(calib_directory)
+    found = False
+
+    # get the list of the wavelengths that needs to be checked
+    wavelenghts_check = []
+    for d in directories:
+        wavelenghts_check.append(d.split('\\')[-1])
+
+    while not found:
+        date_calibration = None
+        
+        # compute the time difference between the calibration days and the measurement day 
+        durations = []
+        for calib in calib_dates:
+            durations.append(abs((calib - date_measurement).days))
+        
+        # get the smallest indexs
+        min_idx = np.where(np.array(durations) == np.array(durations).min())[0]
+        min_idx_distance = min_idx[0]
+        min_duration_distance = durations[min_idx_distance]
+        closest_date = calib_dates[min_idx_distance].strftime('%Y-%m-%d')
+
+        # get the calibration folders that were made on the date 'closest date'
+        dates_calibrated = []
+        for directory in directories_calib:
+            if closest_date in directory:
+                dates_calibrated.append(directory)
+
+        found_calib = False
+
+        while not found_calib and len(dates_calibrated) > 0:
+            # get the last calibration made on the date 'closest_date' (e.g. returns 2022-11-01-C3 if three calibrations were performed on that day)
+            idx_last_calib = get_last_calibration_idx(dates_calibrated)
+            last_calibration = dates_calibrated[idx_last_calib]
+
+            # check if there is calibration data for all the wavelenghts necessary
+            all_found = True
+            for wl in wavelenghts_check:
+                path_A = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_W.cod')
+                path_W = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_cond_W.cod')
+                if os.path.isfile(path_A) and os.path.isfile(path_W):
+                    pass
+                else:
+                    all_found = False
+                    
+            # if yes, pass
+            if all_found:
+                found_calib = True
+            # otherwise, go to the previous calibration (e.g. 2022-11-01-C2, 2022-11-01-C1...)
+            else:
+                del dates_calibrated[idx_last_calib]
+        
+        # if the calibration folder has been found, exit the while loop
+        if found_calib:
+            date_calibration = last_calibration
+            found = True
+        # else, remove this date from the list of possible dates
+        else:
+            min_idx = sorted(min_idx, reverse=True)
+            for idx in min_idx:
+                del calib_dates[idx]
+
+    if date_calibration == None:
+        raise FileNotFoundError('No calibration was found for the closest 1000 days. Check if calibration folders are present.')
+    
+    # if no calibration can be found for the same day, raise a warning
+    if min_duration_distance > 0:
+        incorrect_date(min_duration_distance, Flag = Flag)
+
+    return date_calibration
+
+
+def get_last_calibration_idx(dates_calibrated: list):
+    """
+    function returning the folder with the highest calibration index name (e.g. returns '2022-11-02-C3' if the input is 
+    ['2022-11-02-C3', '2022-11-02-C2', '2022-11-02-C1'])
+
+    Parameters
+    ----------
+    dates_calibrated : list
+        the list of the folder names
+
+    Returns
+    -------
+    calib_folder : str
+        the folder with the highest calibration index name
+    """
+    calibration_idxs = []
+    for date in dates_calibrated:
+        calibration_idxs.append(int(date.split('_')[-1]))
+    return np.argmax(calibration_idxs)
+
+
+def get_date_measurement(path: str, idx = -1):
     """
     returns the data of the measured folder
 
@@ -240,77 +363,7 @@ def get_date_measurement(path, idx = -1):
     return date
 
 
-def find_closest_date(date_measurement, calib_dates_complete, directories, calib_directory, Flag = False):
-    """
-    finds the closest date in a list given a date as an input
-
-    Parameters
-    ----------
-    date_measurement : datetime
-        the date
-    calib_dates_complete : list of datetime
-        a list of datetimes in which the closest one to date_measurement should be found
-
-    Returns
-    -------
-    closest_date : datetime
-        the closest date to date_measurement in calib_dates
-    """
-    calib_dates = copy.deepcopy(calib_dates_complete)
-    directories_calib = os.listdir(calib_directory)
-    
-    found = False
-    while not found:
-        
-        closest = 1000
-        date_calibration = None
-        idx = None
-        
-        # iterate over the dates in the list
-        for idy, calib in enumerate(calib_dates):
-            duration = calib - date_measurement 
-
-            # get the number of days separating the calibration and measurement
-            days = abs(duration.days)
-            if days < closest:
-                date_calibration = calib
-                closest = days
-                idx = idy
-                
-        closest_date = date_calibration.strftime('%Y-%m-%d')
-        
-        # iterate over the directories in the calibration folder
-        for directory in directories_calib:
-
-            # add to the calib_folder list the folders with the date corresponding to the closest date
-            if closest_date in directory:
-
-                all_wl = True
-                for d in directories:
-                    path_A = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_B0.cod')
-                    path_W = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_Bruit.cod')
-                    if os.path.isfile(path_A) and os.path.isfile(path_W):
-                        pass
-                    else:
-                        all_wl = False
-             
-        if all_wl: 
-            found = True
-        else:
-            del calib_dates[idx]
-    
-    if date_calibration == None:
-        raise FileNotFoundError('No calibration was found for the closest 1000 days. Check if calibration folders are present.')
-    
-    # if no calibration can be found for the same day, raise a warning
-    if closest > 0:
-        incorrect_date(closest, Flag = Flag)
-    closest_date = date_calibration.strftime('%Y-%m-%d')
-
-    return closest_date
-
-
-def incorrect_date(closest, Flag = False):
+def incorrect_date(closest: int, Flag = False):
     """
     raises a warning indicating that no calibration has been found for the exact date of the measurement
 

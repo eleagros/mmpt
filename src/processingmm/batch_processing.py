@@ -5,7 +5,7 @@ import shutil
 import traceback
 from tqdm import tqdm
 
-from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, load_parameters_visualization, is_there_data, is_processed
+from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, is_there_data, is_processed
 from processingmm import reorganize_folders, multi_img_processing, MM_processing, plot_polarimetry, visualization_lines
 from processingmm import libmpMuelMat
 
@@ -239,11 +239,9 @@ def process_MM(measurement_directory: str, calib_directory: str):
         plot_polarimetry.save_batch(folder)
 
     # finally, generate the visuazation with the lines
-    parameters_visualizations = load_parameters_visualization()
     measurements_directory_viz = measurement_directory
     parameters_set = 'CUSA'
-    param = visualization_lines.visualization_auto(measurements_directory_viz, parameters_visualizations, 
-                                                parameters_set, run_all = True, batch_processing = True)
+    param = visualization_lines.visualization_auto(measurements_directory_viz, parameters_set, run_all = False, batch_processing = True)
     for folder, _ in MuellerMatrices.items():
         visualization_lines.save_batch(folder)
 

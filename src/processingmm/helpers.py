@@ -24,6 +24,60 @@ def get_wavelength(fname: str):
     return wavelength
 
 
+def load_filenames_combined_plot(viz: bool = False):
+    """
+    load and returns the name of the files that will be used to create the combined plot
+
+    Parameters
+    -------
+    viz: bool
+        indicates if we are working with the bar visualization
+    
+    Returns
+    -------
+    filenames : list
+        the list of the files that will be used to create the combined plot
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    if viz:
+        fname = 'figures_names_combined_viz.txt'
+    else:
+        fname = 'figures_names_combined.txt'
+
+    with open(os.path.join(dir_path, '../../data', fname)) as f:
+        lines = f.readlines()
+    f.close()
+    for idx, l in enumerate(lines):
+        lines[idx] = l.replace('\n', '')
+    return lines
+
+
+def load_combined_plot_name(viz: bool = False):
+    """
+    load and returns the name of the combined plot file
+
+    Parameters
+    -------
+    viz: bool
+        indicates if we are working with the bar visualization
+
+    Returns
+    -------
+    filenames : list
+        the list of the files generated during the processing
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    if viz:
+        fname = 'name_combined_viz.txt'
+    else:
+        fname = 'name_combined.txt'
+
+    with open(os.path.join(dir_path, '../../data', fname)) as f:
+        lines = f.readlines()[0]
+    f.close()
+    return lines
+
+
 def save_list_as_txt(lst: list, path: str):
     with open(path, 'w') as fp:
         for item in lst:
