@@ -1,5 +1,4 @@
 import numpy as np
-import pickle
 import os
 import matplotlib.colors as clr
 import json
@@ -44,7 +43,7 @@ def load_filenames_combined_plot(viz: bool = False):
     else:
         fname = 'figures_names_combined.txt'
 
-    with open(os.path.join(dir_path, '../../data', fname)) as f:
+    with open(os.path.join(dir_path, 'data', fname)) as f:
         lines = f.readlines()
     f.close()
     for idx, l in enumerate(lines):
@@ -72,7 +71,7 @@ def load_combined_plot_name(viz: bool = False):
     else:
         fname = 'name_combined.txt'
 
-    with open(os.path.join(dir_path, '../../data', fname)) as f:
+    with open(os.path.join(dir_path, 'data', fname)) as f:
         lines = f.readlines()[0]
     f.close()
     return lines
@@ -98,7 +97,7 @@ def load_filenames_results():
         the list of the files generated during the processing
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'filenames_results.txt')) as f:
+    with open(os.path.join(dir_path, 'data', 'filenames_results.txt')) as f:
         lines = f.readlines()
     f.close()
     for idx, l in enumerate(lines):
@@ -116,7 +115,7 @@ def load_filenames_50x50():
         the list of the files generated during the processing
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'filenames_50x50.txt')) as f:
+    with open(os.path.join(dir_path, 'data', 'filenames_50x50.txt')) as f:
         lines = f.readlines()
     f.close()
     for idx, l in enumerate(lines):
@@ -134,7 +133,7 @@ def load_filenames():
         the list of the files generated during the processing
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'filenames.txt')) as f:
+    with open(os.path.join(dir_path, 'data', 'filenames.txt')) as f:
         lines = f.readlines()
     f.close()
     for idx, l in enumerate(lines):
@@ -152,7 +151,7 @@ def load_parameter_maps():
         the parameters to plot the parameters histograms
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'parameters_map.json')) as json_file:
+    with open(os.path.join(dir_path, 'data', 'parameters_map.json')) as json_file:
         data = json.load(json_file)
     return data
 
@@ -167,7 +166,7 @@ def load_plot_parameters():
         the parameters to plot the parameters maps
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'parameters_plot.json')) as json_file:
+    with open(os.path.join(dir_path, 'data', 'parameters_plot.json')) as json_file:
         data = json.load(json_file)
     return data
     
@@ -182,7 +181,7 @@ def load_parameters_visualization():
         the parameters used for the parameters of the visualization
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'parameters_visualizations.json')) as json_file:
+    with open(os.path.join(dir_path, 'data', 'parameters_visualizations.json')) as json_file:
         data = json.load(json_file)
     return ast.literal_eval(data)
 
@@ -197,7 +196,7 @@ def load_wavelengths():
         the wavelengths usable by the IMP
     """
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, '../../data', 'wavelengths.txt')) as f:
+    with open(os.path.join(dir_path, 'data', 'wavelengths.txt')) as f:
         lines = f.readlines()
     f.close()
     for idx, l in enumerate(lines):
