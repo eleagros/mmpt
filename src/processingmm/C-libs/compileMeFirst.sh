@@ -23,4 +23,4 @@ done
 # gcc -fopenmp -shared -o libmpMuelMat.so *.o ## << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
 gcc -fopenmp -shared -o libmpMuelMat.dll *.o ## << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
 
-# Remember to add the gcc compiler shared libraries to the PATHS of the System! 
+# Remember to add the gcc compiler shared libraries to the PATHS of the System!

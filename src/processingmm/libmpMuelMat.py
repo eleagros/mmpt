@@ -10,6 +10,11 @@ import scipy.ndimage
 import cv2
 from datetime import datetime
 from tqdm import tqdm
+try:
+    import win32api
+    import win32con
+except:
+    pass
 
 __version__ = "1.0"
 
@@ -96,9 +101,14 @@ def _loadClib():
     try:
         Clib = ctypes.cdll.LoadLibrary(_get_CLib_path())
     except:
-        Clib = None
-        print(
-            " <!> libmpMuelMat: Cannot Load Shared Library! -- Please check dependencies with: libmpMuelMat.list_Dependencies()")
+        try:
+            dll_name = _get_CLib_path()
+            dll_handle = win32api.LoadLibraryEx(dll_name, 0, win32con.LOAD_WITH_ALTERED_SEARCH_PATH)
+            Clib = ctypes.WinDLL(dll_name, handle=dll_handle)
+        except:
+            Clib = None
+            print(
+                " <!> libmpMuelMat: Cannot Load Shared Library! -- Please check dependencies with: libmpMuelMat.list_Dependencies()")
 
     return Clib
 
