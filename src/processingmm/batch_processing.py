@@ -312,6 +312,14 @@ def batch_process(directories: list, calib_directory: str):
         calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory)
         
         for folder in to_process_temp:
+            try:
+                os.remove(os.path.join(folder, 'processing_logbook.txt'), 'w')
+            except:
+                pass
+            try:
+                os.remove(os.path.join(folder, 'MMProcessing.txt'), 'w')
+            except:
+                pass
             logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
             logbook_MM_processing.write('Processed: true\n')
             logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
