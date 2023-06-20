@@ -315,7 +315,7 @@ def batch_process(directories: list, calib_directory: str):
             try:
                 os.remove(os.path.join(folder, 'processing_logbook.txt'), 'w')
             except:
-                pass
+                print('problem')
             try:
                 os.remove(os.path.join(folder, 'MMProcessing.txt'), 'w')
             except:
