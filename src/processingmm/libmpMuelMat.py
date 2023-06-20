@@ -14,7 +14,7 @@ try:
     import win32api
     import win32con
 except:
-    pass
+    print(' Could not import win32api and/or win32con')
 
 __version__ = "1.0"
 
