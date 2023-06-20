@@ -183,7 +183,7 @@ def load_parameters_visualization():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(dir_path, 'data', 'parameters_visualizations.json')) as json_file:
         data = json.load(json_file)
-    return ast.literal_eval(data)
+    return data
 
 
 def load_wavelengths():

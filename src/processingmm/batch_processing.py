@@ -103,6 +103,10 @@ def find_processed_folders(data_folder: list):
             else:
                 data.append(is_there_data(os.path.join(path, wl)))
             if os.path.exists(os.path.join(path, 'polarimetry')):
+                try:
+                    os.mkdir(os.path.join(os.path.join(path, 'polarimetry', wl)))
+                except FileExistsError:
+                    pass
                 processed.append(is_processed(path, wl))
             else:
                 processed.append(False)
@@ -180,7 +184,7 @@ def create_folders_df(data_folder: list, processed: dict, data_folder_nm: dict, 
     return df
 
 
-def process_MM(measurement_directory: str, calib_directory: str):
+def process_MM(measurement_directory: str, calib_directory: str, run_all: bool = False, parameter_set: str = None):
     """
     master function allowing to reogranize the folders, compute the MMs, generate the plots and the visualizations for one directory
 
@@ -219,8 +223,7 @@ def process_MM(measurement_directory: str, calib_directory: str):
     for directory in all_directories:
         reorganize_folders.move_50x50_images(measurement_directory, directory)
 
-    run_all = True
-    to_compute = multi_img_processing.get_dir_to_compute(measurement_directory, run_all = run_all)
+    to_compute = multi_img_processing.remove_already_computed_folders(measurement_directory, run_all = run_all)
     calib_directory_dates_num = multi_img_processing.get_calibration_dates(calib_directory)
 
     # compute the MMs
@@ -240,15 +243,18 @@ def process_MM(measurement_directory: str, calib_directory: str):
 
     # finally, generate the visuazation with the lines
     measurements_directory_viz = measurement_directory
-    parameters_set = 'CUSA'
-    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameters_set, run_all = False, batch_processing = True)
+    if parameter_set == None:
+        parameter_set = 'CUSA'
+
+    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameter_set, run_all = False, batch_processing = True)
+
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.save_batch(folder, viz = True)
 
-    return calibration_directories, parameters_set
+    return calibration_directories, parameter_set
 
 
-def batch_process(directories: list, calib_directory: str):
+def batch_process(directories: list, calib_directory: str, run_all: bool = False, parameter_set: str = None):
     """
     master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
 
@@ -275,7 +281,10 @@ def batch_process(directories: list, calib_directory: str):
     if len(df) == 0:
         to_process = []
     else:
-        to_process = df[~df['processed']]
+        if run_all:
+            to_process = df
+        else:
+            to_process = df[~df['processed']]
 
     if len(to_process) == 0:
         to_process = []
@@ -315,7 +324,7 @@ def batch_process(directories: list, calib_directory: str):
         
         # process the mueller matrix and generate the visualizations
         measurements_directory = './temp_processing'
-        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory)
+        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, run_all = run_all, parameter_set = parameter_set)
         
         for folder in to_process_temp:
             logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
@@ -323,6 +332,8 @@ def batch_process(directories: list, calib_directory: str):
             logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
             logbook_MM_processing.write(parameters_set + '\n')
             logbook_MM_processing.write(libmpMuelMat.__version__)
+            import processingmm
+            logbook_MM_processing.write(processingmm.__version__)
             logbook_MM_processing.close()
 
         # put back the folders in the original folder

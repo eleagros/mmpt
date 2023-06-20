@@ -162,6 +162,9 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     cbar_step = plot_parameters['cbar_step']
     formatter = plot_parameters['formatter']
     
+    if parameter == 'intensity':
+        X2D = X2D / 10000
+
     # rescale the matrices to have the right color bars
     X2D[X2D < cbar_min] = cbar_min
     X2D[X2D > cbar_max] = cbar_max
@@ -182,12 +185,16 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     fig, ax = plt.subplots(figsize = (15,10))
     ax.imshow(X2D, cmap = cmap)
     ax = plt.gca()
+
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.02, 
                         ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=25, weight='bold')
     
+    if parameter == 'intensity':
+        ax.text(500, -10, "x10⁴", fontsize=25, fontweight="bold")
+
     title = path_save.split('\\')[-1].split('.')[0]
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
     plt.xticks([])
