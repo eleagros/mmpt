@@ -4,6 +4,7 @@ import pandas as pd
 import shutil 
 import traceback
 from tqdm import tqdm
+import traceback
 
 from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, is_there_data, is_processed
 from processingmm import reorganize_folders, multi_img_processing, MM_processing, plot_polarimetry, visualization_lines
@@ -315,7 +316,7 @@ def batch_process(directories: list, calib_directory: str):
             try:
                 os.remove(os.path.join(folder, 'processing_logbook.txt'), 'w')
             except:
-                print('problem')
+                traceback.print_exc()
             try:
                 os.remove(os.path.join(folder, 'MMProcessing.txt'), 'w')
             except:
