@@ -261,7 +261,12 @@ def batch_process(directories: list, calib_directory: str):
     """
     # get all the names of the measurement folders
     data_folder, _ = find_all_folders(directories)
-    
+    for folder in data_folder:
+        try:
+            os.remove(os.path.join(folder, 'processing_logbook.txt'))
+        except:
+            pass
+
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
@@ -313,14 +318,6 @@ def batch_process(directories: list, calib_directory: str):
         calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory)
         
         for folder in to_process_temp:
-            try:
-                os.remove(os.path.join(folder, 'processing_logbook.txt'), 'w')
-            except:
-                traceback.print_exc()
-            try:
-                os.remove(os.path.join(folder, 'MMProcessing.txt'), 'w')
-            except:
-                pass
             logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
             logbook_MM_processing.write('Processed: true\n')
             logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
