@@ -331,7 +331,7 @@ def batch_process(directories: list, calib_directory: str, run_all: bool = False
             logbook_MM_processing.write('Processed: true\n')
             logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
             logbook_MM_processing.write(parameters_set + '\n')
-            logbook_MM_processing.write(libmpMuelMat.__version__)
+            logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
             import processingmm
             logbook_MM_processing.write(processingmm.__version__)
             logbook_MM_processing.close()
