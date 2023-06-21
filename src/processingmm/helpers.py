@@ -104,6 +104,23 @@ def load_filenames_results():
         lines[idx] = l.replace('\n', '')
     return lines
 
+def load_filenames_raw_data():
+    """
+    load and returns the name of the files that are generated during the acquisition of the data
+
+    Returns
+    -------
+    filenames : list
+        the list of the files generated during the processing
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(dir_path, 'data', 'filenames_raw_data.txt')) as f:
+        lines = f.readlines()
+    f.close()
+    for idx, l in enumerate(lines):
+        lines[idx] = l.replace('\n', '')
+    return lines
+
 
 def load_filenames_50x50():
     """

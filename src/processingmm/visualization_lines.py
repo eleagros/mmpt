@@ -54,7 +54,6 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
         for c in to_compute:
             path = measurements_directory + c
             path = os.path.join(measurements_directory, c)
-            print(parameters_set)
             perform_visualisation(path, parameters_set, run_all = run_all)
 
 
@@ -88,7 +87,7 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False):
 
         for wl in check_wl:
             path_wl = os.path.join(path, 'polarimetry', wl)
-            if os.path.isdir(os.path.join(path_wl, 'results')) or not run_all:
+            if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
                 for file in filename_results:
                     if file in os.listdir(os.path.join(path_wl, 'results')) :
                         pass
@@ -116,8 +115,6 @@ def perform_visualisation(path: str, parameters_set: str, run_all: bool = False)
     parameters_set : str
         the name of the set of parameters that should be used (i.e. 'CUSA')
     """
-    parameters_visualizations = load_parameters_visualization()
-
     mask = get_mask(path)
     # remove_already_computed_directories with sanity = True puts all the wavelengths to be processed
     directories = remove_already_computed_directories(path, sanity = True, run_all = run_all)

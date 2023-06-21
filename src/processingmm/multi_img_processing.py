@@ -261,9 +261,12 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, di
             # check if there is calibration data for all the wavelenghts necessary
             all_found = True
             for wl in wavelenghts_check:
-                path_A = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_W.cod')
-                path_W = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_cond_W.cod')
-                if os.path.isfile(path_A) and os.path.isfile(path_W):
+                path_B0 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_B0.cod')
+                path_Bruit = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_Bruit.cod')
+                path_L30 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_L30.cod')
+                path_P0 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_P0.cod')
+                path_P90 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_P90.cod')
+                if os.path.isfile(path_B0) and os.path.isfile(path_Bruit) and os.path.isfile(path_L30) and os.path.isfile(path_P0) and os.path.isfile(path_P90):
                     pass
                 else:
                     all_found = False

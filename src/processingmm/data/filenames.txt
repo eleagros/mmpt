@@ -1,4 +1,3 @@
-50x50_images
 results
 _realsize.png
 Azimuth of optical axis.pdf

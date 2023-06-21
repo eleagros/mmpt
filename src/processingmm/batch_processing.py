@@ -11,7 +11,13 @@ from processingmm import reorganize_folders, multi_img_processing, MM_processing
 from processingmm import libmpMuelMat
 
 
-def find_all_folders(directories: list):
+def f7(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
+
+def find_all_folders(directories: list, win7: bool = False):
     """
     walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 202x-xx-xx name format 
     and return the list of folders.
@@ -38,7 +44,10 @@ def find_all_folders(directories: list):
                 pass
             else:
                 find_folder_name(root, data_folder, folder_names)
-    return list(set(data_folder)), list(set(folder_names))
+    if win7:
+        return f7(data_folder), f7(folder_names)
+    else:
+        return list(set(data_folder)), list(set(folder_names))
 
 
 def find_folder_name(root: str, data_folder: list, folder_names: list):
@@ -254,29 +263,36 @@ def process_MM(measurement_directory: str, calib_directory: str, run_all: bool =
     return calibration_directories, parameter_set
 
 
-def batch_process(directories: list, calib_directory: str, run_all: bool = False, parameter_set: str = None):
-    """
-    master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
+def move_folders_temp(directories, target_temp, to_process, put_back: bool = False):
+    to_process_new = []
+    for folder in to_process:
+        try:
+            if type(directories) == list:
+                directories = directories[0]
+            if type(target_temp) == list:
+                target_temp = target_temp[0]
+            to_process_new.append(folder.replace(directories, target_temp))
+            if put_back:
+                shutil.rmtree(folder.replace(directories, target_temp), ignore_errors=True)
+            shutil.copytree(folder, folder.replace(directories, target_temp))
+        except FileExistsError:
+            pass
+    return to_process_new
 
-    Parameters
-    ----------
-    directories : list
-        the list of the directories in which the measurement folders are located
-    calib_directory : str
-        the path to the calibration directory
-    """
-    # get all the names of the measurement folders
+
+def get_df_processing(directories: list):
     data_folder, _ = find_all_folders(directories)
     for folder in data_folder:
         try:
             os.remove(os.path.join(folder, 'processing_logbook.txt'))
         except:
             pass
-
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
-    
+    return df
+
+def get_to_process(df: pd.DataFrame, run_all: bool = True):
     # get the files that needs to be processed
     if len(df) == 0:
         to_process = []
@@ -290,6 +306,27 @@ def batch_process(directories: list, calib_directory: str, run_all: bool = False
         to_process = []
     else:
         to_process = list(set(list(to_process.reset_index(level=0).apply(add_path, axis = 1))))
+
+    return to_process
+    
+def batch_process(directories: list, calib_directory: str, run_all: bool = False, parameter_set: str = None, max_nb: int = None, target_temp: list = None):
+    """
+    master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
+
+    Parameters
+    ----------
+    directories : list
+        the list of the directories in which the measurement folders are located
+    calib_directory : str
+        the path to the calibration directory
+    """
+    # get all the names of the measurement folders
+    df = get_df_processing(directories)
+    to_process = get_to_process(df, run_all = run_all)
+
+    if max_nb != None and target_temp != None:
+        to_process = to_process[0:max_nb]
+        to_process = move_folders_temp(directories, target_temp, to_process)
 
     try:
         os.mkdir('./temp_processing')
@@ -327,14 +364,18 @@ def batch_process(directories: list, calib_directory: str, run_all: bool = False
         calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, run_all = run_all, parameter_set = parameter_set)
         
         for folder in to_process_temp:
-            logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
-            logbook_MM_processing.write('Processed: true\n')
-            logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
-            logbook_MM_processing.write(parameters_set + '\n')
-            logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
-            import processingmm
-            logbook_MM_processing.write(processingmm.__version__)
-            logbook_MM_processing.close()
+            try:
+                logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
+                logbook_MM_processing.write('Processed: true\n')
+                logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
+                logbook_MM_processing.write(parameters_set + '\n')
+                logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
+                import processingmm
+                logbook_MM_processing.write(processingmm.__version__)
+                logbook_MM_processing.close()
+            except:
+                logbook_MM_processing.close()
+                traceback.print_exc()
 
         # put back the folders in the original folder
         links_folders = {v: k for k, v in links_folders.items()}
@@ -351,3 +392,5 @@ def batch_process(directories: list, calib_directory: str, run_all: bool = False
             pass
         except:
             traceback.print_exc()
+
+    return to_process
