@@ -158,6 +158,18 @@ def load_filenames():
     return lines
 
 
+def load_path_win7():
+    """
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(dir_path, 'data', 'path_dict_path.txt')) as f:
+        lines = f.readlines()
+    f.close()
+    fname = lines[0]
+    with open(fname) as json_file:
+        data = json.load(json_file)
+    return data
+
 def load_parameter_maps():
     """
     load and returns the parameters for the histogram plots

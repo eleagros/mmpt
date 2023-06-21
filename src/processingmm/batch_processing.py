@@ -292,7 +292,7 @@ def get_df_processing(directories: list):
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
     return df
 
-def get_to_process(df: pd.DataFrame, run_all: bool = True):
+def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = False):
     # get the files that needs to be processed
     if len(df) == 0:
         to_process = []
@@ -300,7 +300,10 @@ def get_to_process(df: pd.DataFrame, run_all: bool = True):
         if run_all:
             to_process = df
         else:
-            to_process = df[~df['processed']]
+            if inverse:
+                to_process = df[df['processed']]
+            else:
+                to_process = df[~df['processed']]
 
     if len(to_process) == 0:
         to_process = []

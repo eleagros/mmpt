@@ -4,23 +4,21 @@ import shutil
 import traceback
 
 from processingmm.helpers import load_filenames_raw_data
-from processingmm.batch_processing import find_all_folders
+from processingmm.batch_processing import find_all_folders, get_df_processing, get_to_process
 
 
-def move_to_NAS(directories: list, to_process: list, dst: str = r'X:\DataRaw'):
+def move_to_NAS(directories: list, processed: list, folder_NAS: str):
     
-    already_done = set(os.listdir(dst))
-    for folder in os.listdir(directories[0]):
-        if folder in already_done:
+    already_done = set(os.listdir(folder_NAS))
+    df = get_df_processing(directories)
+    processed = get_to_process(df, run_all = False, inverse = True)
+    
+    for folder in processed:
+        fname = folder.split('\\')[-1]
+        if fname in already_done:
             pass
         else:
-            if os.path.join(directories[0], folder) in to_process:
-                processed = []
-                is_processed(os.path.join(directories[0], folder), processed, last_version = last_version)
-                if processed[0]:
-                    shutil.copytree(os.path.join(directories[0], folder), os.path.join(dst, folder))
-            else:
-                pass
+            shutil.copytree(folder, os.path.join(folder_NAS, fname))
 
 def find_folder_name(root, data_folder, folder_names):
     """
