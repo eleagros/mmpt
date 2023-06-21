@@ -237,7 +237,7 @@ def process_MM(measurement_directory: str, calib_directory: str, run_all: bool =
 
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.generate_plots(MuellerMatrices, folder)
-        X_montage = plot_polarimetry.show_MM(MuellerMatrices[folder]['nM'], folder)
+        _ = plot_polarimetry.show_MM(MuellerMatrices[folder]['nM'], folder)
         plot_polarimetry.MM_histogram(MuellerMatrices, folder)
         plot_polarimetry.save_batch(folder)
 
@@ -246,7 +246,7 @@ def process_MM(measurement_directory: str, calib_directory: str, run_all: bool =
     if parameter_set == None:
         parameter_set = 'CUSA'
 
-    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameter_set, run_all = False, batch_processing = True)
+    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameter_set, run_all = run_all, batch_processing = True)
 
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.save_batch(folder, viz = True)

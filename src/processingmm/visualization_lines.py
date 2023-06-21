@@ -44,20 +44,21 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
             to_compute = os.listdir(measurements_directory)
         else:
             # get the folders to compute if not given as an input
-            to_compute = remove_computed_folders_viz(measurements_directory)
+            to_compute = remove_computed_folders_viz(measurements_directory, run_all = run_all)
 
     if not batch_processing:
         for c in tqdm(to_compute):
             path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_set)
+            perform_visualisation(path, parameters_set, run_all = run_all)
     else:
         for c in to_compute:
             path = measurements_directory + c
             path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_set)
+            print(parameters_set)
+            perform_visualisation(path, parameters_set, run_all = run_all)
 
 
-def remove_computed_folders_viz(measurements_directory):
+def remove_computed_folders_viz(measurements_directory, run_all: bool = False):
     """
     removes the folders for which the visualization was already obtained
     
@@ -87,9 +88,9 @@ def remove_computed_folders_viz(measurements_directory):
 
         for wl in check_wl:
             path_wl = os.path.join(path, 'polarimetry', wl)
-            if os.path.isdir(os.path.join(path_wl, 'results')):
+            if os.path.isdir(os.path.join(path_wl, 'results')) or not run_all:
                 for file in filename_results:
-                    if file in os.listdir(os.path.join(path_wl, 'results')):
+                    if file in os.listdir(os.path.join(path_wl, 'results')) :
                         pass
                     else:
                         visualized = False
@@ -104,7 +105,7 @@ def remove_computed_folders_viz(measurements_directory):
     return to_compute
 
 
-def perform_visualisation(path: str, parameters_set: str):
+def perform_visualisation(path: str, parameters_set: str, run_all: bool = False):
     """
     master function running the visualization script for one folder
     
@@ -117,31 +118,9 @@ def perform_visualisation(path: str, parameters_set: str):
     """
     parameters_visualizations = load_parameters_visualization()
 
-    # 1. deplarization and retardance are higher than the tresholds
-    # remove the points for which depolarization < depolarization_parameter and linear_retardance < linear_retardance_parameter
-    depolarization_parameter = parameters_visualizations[parameters_set]['depolarization']
-    linear_retardance_parameter = parameters_visualizations[parameters_set]['linear_retardance']
-
-    # 2. remove pixels that are too dark compared to white matter (intensity < 1/parameter * mean(image))
-    grey_scale_parameter = parameters_visualizations[parameters_set]['greyscale']
-
-    # 3. remove the "pixels" for which std > std_parameter
-    std_parameter = parameters_visualizations[parameters_set]['std_parameter']
-
-    # 4. bigger n = more points incorporated in each "pixel"
-    n = parameters_visualizations[parameters_set]['n']
-
-    # 5. change the width of the rectangles - typically around 1.5
-    widths = parameters_visualizations[parameters_set]['widths']
-
-    # 6. change the scale of the arrows - typically around 20
-    scale = parameters_visualizations[parameters_set]['scale']
-    
-    cmap, norm = get_cmap(parameter = 'azimuth')
-
     mask = get_mask(path)
     # remove_already_computed_directories with sanity = True puts all the wavelengths to be processed
-    directories = remove_already_computed_directories(path, sanity = True)
+    directories = remove_already_computed_directories(path, sanity = True, run_all = run_all)
 
     for d_ in directories:
         d = d_.replace('raw_data', 'polarimetry')
