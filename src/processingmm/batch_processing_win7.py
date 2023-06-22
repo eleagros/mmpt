@@ -6,7 +6,6 @@ import traceback
 from processingmm.helpers import load_filenames_raw_data
 from processingmm.batch_processing import find_all_folders, get_df_processing, get_to_process
 
-
 def move_to_NAS(directories: list, processed: list, folder_NAS: str):
     
     already_done = set(os.listdir(folder_NAS))
