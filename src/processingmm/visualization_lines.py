@@ -333,16 +333,16 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
                     
     plt.xticks([])
     plt.yticks([])
-    plt.title(title, fontsize=40, fontweight="bold", pad=20)
-    
+    plt.title(title, fontsize=35, fontweight="bold", pad=20)
+        
     cbar_max = 180
     cbar_min = 0
     cbar_step = 30
     formatter = '{:.0f}'
-    cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap_azi), pad = 0.01, 
+    cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap_azi), pad = 0.02, 
                         ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
-                            fontsize=30, weight='bold')
+                            fontsize=25, weight='bold')
         
     if normalized:
         plt.savefig(os.path.join(path_results, 'CUSA_fig.pdf'))
