@@ -29,7 +29,7 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
     except:
         pass
     
-    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(15,11))
+    _, axes = plt.subplots(nrows=2, ncols=2, figsize=(15,11))
     
     for i, (key, param) in zip(range(0,4), parameters_map.items()):
         row = i%2
@@ -112,12 +112,9 @@ def generate_plots(MuellerMatrices: dict, folder: str):
         the name of the current processed folder
     """
     parameters_map = load_parameter_maps()
-    
-    plots = []
+
     for key, param in parameters_map.items():
         path_save = os.path.join(folder, param[0].replace(' (°)', '') + '.png')
-        path_save_histo = os.path.join(path_save.split('\\polarimetry')[0], 'histology', 
-                            param[0].replace(' (°)', '') + '_' + path_save.split('nm\\')[0].split('\\')[-1] + 'nm.png')
         
         if 'Diattenuation' in path_save:
             pass

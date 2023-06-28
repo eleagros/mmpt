@@ -149,10 +149,16 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         
         # apply a rotation corrections if necessary 
         if angle_correction != 0:
+            
             parameter_names = load_parameter_names()
+            
             for parameter in parameter_names:
-                if parameter == 'azimuth' and angle_correction == 90:
-                    MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter], azimuth = True)
+                if parameter == 'azimuth':
+                    if angle_correction == 90:
+                        MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter], azimuth = True)
+                    else:
+                        MM_new[parameter] = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
+                        MM_new[parameter] = (MM_new[parameter] - angle_correction) % 180
                 else:
                     if angle_correction == 90:
                         MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter])
