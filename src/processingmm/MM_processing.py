@@ -2,10 +2,11 @@ from tqdm import tqdm
 import os
 import math
 import numpy as np
+from scipy import ndimage
 
 from processingmm import libmpMuelMat
 from processingmm.multi_img_processing import remove_already_computed_directories, get_calibration_directory
-from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg
+from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names
 
 def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, to_compute: list, remove_reflection = True,
                             run_all = False, batch_processing = False, Flag = False):
@@ -147,22 +148,18 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         MM_new['azimuth'] = curate_azimuth(MM_new['azimuth'], d.replace('raw_data', 'polarimetry'))
         
         # apply a rotation corrections if necessary 
-        if angle_correction == 90:
-            MM_new['M11'] = rotate_maps_90_deg(MM_new['M11'])
-            MM_new['Msk'] = rotate_maps_90_deg(MM_new['Msk'])
-            MM_new['totD'] = rotate_maps_90_deg(MM_new['totD'])
-            MM_new['linR'] = rotate_maps_90_deg(MM_new['linR'])
-            MM_new['azimuth'] = rotate_maps_90_deg(MM_new['azimuth'], azimuth = True)
-            MM_new['totP'] = rotate_maps_90_deg(MM_new['totP'])
-        elif angle_correction == 180:
-            MM_new['M11'] = MM_new['M11'][::-1,::-1]
-            MM_new['Msk'] = MM_new['Msk'][::-1,::-1]
-            MM_new['totD'] = MM_new['totD'][::-1,::-1]
-            MM_new['linR'] = MM_new['linR'][::-1,::-1]
-            MM_new['azimuth'] = MM_new['azimuth'][::-1,::-1]
-            MM_new['totP'] = MM_new['totP'][::-1,::-1]
-        else:
-            pass
+        if angle_correction != 0:
+            parameter_names = load_parameter_names()
+            for parameter in parameter_names:
+                if parameter == 'azimuth' and angle_correction == 90:
+                    MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter], azimuth = True)
+                else:
+                    if angle_correction == 90:
+                        MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter])
+                    elif angle_correction == 180:
+                        MM_new[parameter] = MM_new[parameter][::-1,::-1]
+                    else:
+                        MM_new[parameter] = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
             
         MuellerMatrices[d.replace('raw_data', 'polarimetry')] = MM_new
         MM = MuellerMatrices[d.replace('raw_data', 'polarimetry')]

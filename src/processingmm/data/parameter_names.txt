@@ -1,0 +1,6 @@
+M11
+Msk
+totD
+linR
+azimuth
+totP

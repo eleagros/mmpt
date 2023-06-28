@@ -23,6 +23,31 @@ def get_wavelength(fname: str):
     return wavelength
 
 
+def load_parameter_names():
+    """
+    load and returns the name of the files that will be used to create the combined plot
+
+    Parameters
+    -------
+    viz: bool
+        indicates if we are working with the bar visualization
+    
+    Returns
+    -------
+    filenames : list
+        the list of the files that will be used to create the combined plot
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    fname = 'parameter_names.txt'
+
+    with open(os.path.join(dir_path, 'data', fname)) as f:
+        lines = f.readlines()
+    f.close()
+    for idx, l in enumerate(lines):
+        lines[idx] = l.replace('\n', '')
+    return lines
+
+
 def load_filenames_combined_plot(viz: bool = False):
     """
     load and returns the name of the files that will be used to create the combined plot
