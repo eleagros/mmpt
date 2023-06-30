@@ -172,11 +172,10 @@ def remove_old_computation(measurements_directory: str, directory: str, Flag = F
             if file in filenames:
                 pass
             else:
-                if file == '50x50_images' or file == 'results':
-                    if file == '50x50_images':
-                        file_res = filenames_50x50
-                    else:
-                        file_res = filenames_results
+                if file == '50x50_images':
+                    pass
+                elif file == 'results':
+                    file_res = filenames_results
                         
                     for file_ind in os.listdir(os.path.join(folder, file)):
                         if file_ind in file_res:
