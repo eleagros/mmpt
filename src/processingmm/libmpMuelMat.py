@@ -1513,6 +1513,7 @@ def show_Montage(X3D, vmin=None, vmax=None, title=None):
     plt.xticks([])
     plt.yticks([])
     plt.show()
+    plt.close()
 
 
 def show_REls(REls, vmin=None, vmax=None):
@@ -1543,6 +1544,7 @@ def show_REls(REls, vmin=None, vmax=None):
     plt.xticks([])
     plt.yticks([])
     plt.show()
+    plt.close()
 
 
 def show_Comp(X2D, vmin=None, vmax=None, title=None, bwperim=None):
@@ -1574,6 +1576,7 @@ def show_Comp(X2D, vmin=None, vmax=None, title=None, bwperim=None):
     plt.xticks([])
     plt.yticks([])
     plt.show()
+    plt.close()
 
 
 def calib_System_AW(calib_Folderpath, wlen=None, CamType=None):

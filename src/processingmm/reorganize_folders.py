@@ -165,7 +165,6 @@ def remove_old_computation(measurements_directory: str, directory: str, Flag = F
     for wl in os.listdir(polarimetry):
         folder = os.path.join(polarimetry, wl)
         filenames = load_filenames()
-        filenames_50x50 = load_filenames_50x50()
         filenames_results = load_filenames_results()
             
         for file in os.listdir(folder):

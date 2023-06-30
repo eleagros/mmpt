@@ -165,8 +165,13 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
                     elif angle_correction == 180:
                         MM_new[parameter] = MM_new[parameter][::-1,::-1]
                     else:
-                        MM_new[parameter] = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
-            
+                        if parameter == 'Msk':
+                            rotated = ndimage.rotate(MM_new[parameter].astype(float), angle = angle_correction, reshape = False)
+                            MM_new[parameter] = rotated > 0.5
+                        else:
+                            rotated = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
+                            MM_new[parameter] = rotated
+                            
         MuellerMatrices[d.replace('raw_data', 'polarimetry')] = MM_new
         MM = MuellerMatrices[d.replace('raw_data', 'polarimetry')]
         

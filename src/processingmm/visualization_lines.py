@@ -146,7 +146,6 @@ def get_mask(path: str):
     elif 'merged.jpeg' in os.listdir(os.path.join(path, 'annotation')):
         mask = np.array(Image.open(os.path.join(path, 'annotation', 'merged.jpeg')))
         mask = mask != 128
-        plt.imshow(mask)
     else:
         mask = None
     return mask
