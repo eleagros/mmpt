@@ -187,10 +187,10 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.02, 
                         ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
-                            fontsize=25, weight='bold')
+                            fontsize=40, weight='bold')
     
     if parameter == 'intensity':
-        ax.text(500, -10, "x10⁴", fontsize=25, fontweight="bold")
+        ax.text(500, -10, "x10⁴", fontsize=40, fontweight="bold")
 
     title = path_save.split('\\')[-1].split('.')[0]
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
@@ -207,6 +207,9 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
                     folder.split('/')[-3] + '_' + folder.split('/')[-1] + '_realsize.png').replace('\\', '/')
         plt.imsave(path_save, X2D, cmap = cmap, vmin = cbar_min, vmax = cbar_max)
  
+
+from matplotlib.patches import Rectangle
+
 
 def show_MM(X3D, folder):
     """
@@ -397,6 +400,7 @@ def show_MM(X3D, folder):
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=30, weight='bold')
     cbar.ax.tick_params(size=0)
+    cbar.ax.add_patch(Rectangle((5 - .1, 5 - .1), 0.2, 0.2, fill=None, alpha=1))
     cbar.ax.get_children()[7].set_color('#1F51FF')
     cbar.ax.get_children()[7].set_linewidth(5)
     
@@ -406,6 +410,7 @@ def show_MM(X3D, folder):
     cbar.ax.set_yticklabels([formatter_v2.format(a/5) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=30, weight='bold')
     cbar.ax.tick_params(size=0)
+    cbar.ax.add_patch(Rectangle((5 - .1, 5 - .1), 0.2, 0.2, fill=None, alpha=1))
     cbar.ax.get_children()[7].set_color('#e0ae00')
     cbar.ax.get_children()[7].set_linewidth(5)
     
