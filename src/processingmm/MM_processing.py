@@ -126,6 +126,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
             I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 0)
         except:
             I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 1)
+                
         IN = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Bruit.cod'), isRawFlag = 1)
         
         # eventually, remove the reflections and compute the MM

@@ -415,6 +415,7 @@ def is_there_data(path: str):
     """
     data_exist = False
     try:
+        # data_exist = len(os.listdir(path)) == 2 or len(os.listdir(path)) == 3
         data_exist = len(os.listdir(path)) == 2
     except FileNotFoundError:
         data_exist = False

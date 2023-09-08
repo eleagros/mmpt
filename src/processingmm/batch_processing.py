@@ -36,14 +36,16 @@ def find_all_folders(directories: list, win7: bool = False):
     """
     data_folder = []
     folder_names = []
-
+    
     for directory in directories:
+
         for root, dirs, files in os.walk(directory, topdown=False):
             # remove the transmission measurements
             if 'TRANSMISSION' in root:
                 pass
             else:
                 find_folder_name(root, data_folder, folder_names)
+    
     if win7:
         return f7(data_folder), f7(folder_names)
     else:
@@ -68,12 +70,13 @@ def find_folder_name(root: str, data_folder: list, folder_names: list):
         assert len(re.findall("[\d]{4}-[\d]{2}-[\d]{2}", root)) == 1
         x = re.search("[\d]{4}-[\d]{2}-[\d]{2}", root).group(0)
         splitted = root.split(x)
-                    
+        
         # if yes, append it to the lists containing the folder names
         data_folder.append(os.path.join(splitted[0],  x + splitted[1].split('\\')[0]))
         folder_names.append(x + splitted[1].split('\\')[0])
                     
     except Exception as e:
+        traceback.print_exc()
         pass
 
 
