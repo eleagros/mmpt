@@ -8,8 +8,8 @@ from processingmm import libmpMuelMat
 from processingmm.multi_img_processing import remove_already_computed_directories, get_calibration_directory
 from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names
 
-def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, to_compute: list, remove_reflection = True,
-                            run_all = False, batch_processing = False, Flag = False):
+def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, to_compute: list, PDDN = False, remove_reflection = True,
+                            folder_eu_time: dict = {}, run_all = False, batch_processing = False, Flag = False):
     """
     run the script for all the measurement folders in the directory given as an input
 
@@ -52,18 +52,18 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
         with tqdm(total = len(to_compute)) as pbar:
             for c in to_compute:
                 calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, 
-                                            MuellerMatrices, treshold, c, remove_reflection = remove_reflection, pbar = pbar, Flag = Flag)
+                                            MuellerMatrices, treshold, c, PDDN = PDDN, folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, pbar = pbar, Flag = Flag)
                 calibration_directories[c] = calibration_directory_closest
     else:
         for c in to_compute:
             calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory,
-                                                    MuellerMatrices, treshold, c, remove_reflection = remove_reflection, Flag = Flag)
+                                                    MuellerMatrices, treshold, c, PDDN = PDDN, folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, Flag = Flag)
             calibration_directories[c] = calibration_directory_closest
     return MuellerMatrices, calibration_directories
 
 
 def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, MuellerMatrices: dict, 
-                   treshold: int, c: str, remove_reflection = True, pbar = None, Flag = False):
+                   treshold: int, c: str, PDDN = False, folder_eu_time: dict = {}, remove_reflection = True, pbar = None, Flag = False):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -104,7 +104,8 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         angle_correction = 0
     
     # get the corresponding calibration_directory
-    calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, Flag = Flag)
+    print(folder_eu_time)
+    calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, folder_eu_time = folder_eu_time, Flag = Flag)
     
     for d in directories:
                         
@@ -123,10 +124,19 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
 
         # load the measurement intensities
         try:
-            I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 0)
+            if PDDN:
+                I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), isRawFlag = 0)
+            else:
+                I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 0)
         except:
-            I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 1)
-                
+            if PDDN:
+                try:
+                    I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), isRawFlag = 1)
+                except:
+                    raise ValueError("No PDDN file found")
+            else:
+                I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite.cod'), isRawFlag = 1)
+                 
         IN = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Bruit.cod'), isRawFlag = 1)
         
         # eventually, remove the reflections and compute the MM

@@ -131,7 +131,7 @@ def get_calibration_dates(calib_directory: str):
     return calib_directory_dates_num
 
 
-def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_directory: str, directories, Flag = False, idx = -1):
+def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_directory: str, directories, folder_eu_time: dict = {}, Flag = False, idx = -1):
     """
     get the calibration directory with the date closest to the folder given as in input
 
@@ -155,8 +155,15 @@ def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_
     cal_fol_rt : path
         the path to the calibration directory with the date closest to the folder given as in input
     """
+    
+    print(folder_eu_time, path.split('temp_processing\\')[1])
     # get the date of the measurement of the folder that is currently being processed
-    date_measurement = get_date_measurement(path, idx)
+    if path.split('temp_processing\\')[1] in folder_eu_time.keys():
+        date_measurement = folder_eu_time[path.split('temp_processing\\')[1]]
+    else:
+        date_measurement = get_date_measurement(path, idx)
+    
+    print(path, date_measurement)
     
     # find the data that is the closest in the calibration directory
     closest_date = find_closest_date(date_measurement, calib_directory_dates_num, directories, calib_directory, Flag = Flag)
