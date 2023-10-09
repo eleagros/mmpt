@@ -76,7 +76,6 @@ def find_folder_name(root: str, data_folder: list, folder_names: list):
         folder_names.append(x + splitted[1].split('\\')[0])
                     
     except Exception as e:
-        traceback.print_exc()
         pass
 
 
