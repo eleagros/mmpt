@@ -195,7 +195,7 @@ def create_folders_df(data_folder: list, processed: dict, data_folder_nm: dict, 
     return df
 
 
-def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, PDDN = False):
+def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, PDDN = False, remove_reflection: bool = False):
     """
     master function allowing to reogranize the folders, compute the MMs, generate the plots and the visualizations for one directory
 
@@ -239,7 +239,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
 
     # compute the MMs
     MuellerMatrices, calibration_directories = MM_processing.compute_analysis_python(measurement_directory, 
-                                        calib_directory_dates_num, calib_directory, to_compute, folder_eu_time = folder_eu_time, run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN)
+                                        calib_directory_dates_num, calib_directory, to_compute, remove_reflection = remove_reflection, folder_eu_time = folder_eu_time, run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN)
     MuellerMatrices_raw = MuellerMatrices
 
     # and generate the different plots
@@ -314,7 +314,7 @@ def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = Fals
 
     return to_process
     
-def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, max_nb: int = None, target_temp: list = None, PDDN = False):
+def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, max_nb: int = None, target_temp: list = None, PDDN = False, remove_reflection = True):
     """
     master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
 
@@ -367,7 +367,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         
         # process the mueller matrix and generate the visualizations
         measurements_directory = './temp_processing'
-        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, folder_eu_time = folder_eu_time, run_all = run_all, parameter_set = parameter_set, PDDN = PDDN)
+        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, folder_eu_time = folder_eu_time, run_all = run_all, parameter_set = parameter_set, PDDN = PDDN, remove_reflection = remove_reflection)
         
         for folder in to_process_temp:
             try:
