@@ -104,7 +104,6 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         angle_correction = 0
     
     # get the corresponding calibration_directory
-    print(folder_eu_time)
     calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, folder_eu_time = folder_eu_time, Flag = Flag)
     
     for d in directories:

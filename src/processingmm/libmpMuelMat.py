@@ -1035,7 +1035,8 @@ def norm_MM(M):
                 shp3[-1]))
 
     (nM, _) = ini_MM(shp2)
-    M11 = np.array(M[:, :, 0])
+    # M11 = np.array(M[:, :, 0])
+    M11 = np.mean(np.array(M[:, :, :]), axis = 2)
 
     # Element-wise normalisation
     for i in range(shp3[-1]):

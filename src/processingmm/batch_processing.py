@@ -324,7 +324,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         the list of the directories in which the measurement folders are located
     calib_directory : str
         the path to the calibration directory
-    """
+    """    
     # get all the names of the measurement folders
     df = get_df_processing(directories)
     to_process = get_to_process(df, run_all = run_all)
