@@ -8,6 +8,8 @@ combined_img_line.png
 Depolarization.pdf
 Depolarization.png
 Depolarization_img.png
+Diattenuation.png
+Diattenuation_img.png
 Intensity.pdf
 Intensity.png
 Intensity_img.png
