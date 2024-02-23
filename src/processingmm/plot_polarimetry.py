@@ -116,10 +116,12 @@ def generate_plots(MuellerMatrices: dict, folder: str):
     for key, param in parameters_map.items():
         path_save = os.path.join(folder, param[0].replace(' (°)', '') + '.png')
         
-        if 'Diattenuation' in path_save:
+        if False:
             pass
         else:
-            if 'Depolarization' in path_save:
+            if 'Diattenuation' in path_save:
+                parameter = 'diattenuation'
+            elif 'Depolarization' in path_save:
                 parameter = 'depolarization'
             elif 'retardance' in path_save:
                 parameter = 'retardance'

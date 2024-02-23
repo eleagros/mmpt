@@ -1,5 +1,6 @@
 {"azimuth": {"cbar_min": 0, "cbar_max": 180, "cbar_step": 30, "formatter": "{:.0f}", "n_bins": 12, "colors": [[0, 0, 1], [0, 0.5, 0], [0, 0.5, 0], [0, 1, 0], [0, 1, 0], [1, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 0], [0, 1, 1], [0, 1, 1], [0, 0, 1]], "cmap_name": "azimuth"}, 
-"depolarization": {"cbar_min": 0.6, "cbar_max": 1, "cbar_step": 0.1, "formatter": "{:.1f}", "n_bins": 200, "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]], "cmap_name": "depolarization"}, 
+"depolarization": {"cbar_min": 0.6, "cbar_max": 1, "cbar_step": 0.1, "formatter": "{:.1f}", "n_bins": 200, "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]], "cmap_name": "depolarization"},
+"diattenuation": {"cbar_min": 0, "cbar_max": 0.2, "cbar_step": 0.05, "formatter": "{:.2f}", "n_bins": 200, "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]], "cmap_name": "diattenuation"},  
 "retardance": {"cbar_min": 0, "cbar_max": 32, "cbar_step": 8, "formatter": "{:.0f}", "n_bins": 200, "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]], "cmap_name": "retardance"}, 
 "intensity": {"cbar_min": 0, "cbar_max": 7, "cbar_step": 1, "formatter": "{:.0f}", "n_bins": 200, "colors": [[0, 0, 0], [1, 1, 1]], "cmap_name": "intensity"}, 
 "MM": {"cbar_min": -1, "cbar_max": 1, "cbar_step": 0.2, "formatter": "{:.1f}", "n_bins": 200, "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]], "cmap_name": "MM"}}
