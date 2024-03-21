@@ -125,7 +125,6 @@ def find_processed_folders(data_folder: list):
         # add the information to lists
         processed_nm[path] = processed
         data_folder_nm[path] = data
-        
     return processed_nm, data_folder_nm, wavelenghts
 
 
@@ -150,6 +149,7 @@ def is_processed(path: str, wl: str):
     # get the filenames
     all_file_names = os.listdir(os.path.join(path, 'polarimetry', wl))
     all_found = True
+
     for filename in filenames:
         found_file = False
         if filename == '_realsize.png':
@@ -162,6 +162,7 @@ def is_processed(path: str, wl: str):
                     found_file = True
         if not found_file:
             all_found = False
+            
     return all_found
 
 
@@ -362,7 +363,6 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         for folder in chunk:
             links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
             shutil.copytree(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
-            shutil.rmtree(folder)
             to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
         
         # process the mueller matrix and generate the visualizations
@@ -387,7 +387,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         links_folders = {v: k for k, v in links_folders.items()}
         for folder, temp_folder in links_folders.items():
             try:
-                shutil.rmtree(folder)
+                shutil.rmtree(folder, ignore_errors=True)
             except FileNotFoundError:
                 pass
             shutil.move(temp_folder, folder)

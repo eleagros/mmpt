@@ -361,7 +361,8 @@ def save_file_as_npz(variable: dict, path: str):
                         totD = variable['totD'],
                         linR = variable['linR'],
                         azimuth = variable['azimuth'],
-                        totP = variable['totP'])
+                        totP = variable['totP'],
+                        azimuth_std = variable['azimuth_std'])
     
 
 def rotate_maps_90_deg(map_resize: np.ndarray, azimuth = False):

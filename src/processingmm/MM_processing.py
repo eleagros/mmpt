@@ -7,6 +7,7 @@ from scipy import ndimage
 from processingmm import libmpMuelMat
 from processingmm.multi_img_processing import remove_already_computed_directories, get_calibration_directory
 from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names
+from processingmm.AzimuthStdViz import AzimuthStdViz
 
 def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, to_compute: list, PDDN = False, remove_reflection = True,
                             folder_eu_time: dict = {}, run_all = False, batch_processing = False, Flag = False):
@@ -182,6 +183,9 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
                             rotated = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
                             MM_new[parameter] = rotated
                             
+        azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', 'polarimetry')], 4, azimuth = MM_new['azimuth'], MM_computation = True)
+        MM_new['azimuth_std'] = azimuth_stds[d.replace('raw_data', 'polarimetry')]
+        
         MuellerMatrices[d.replace('raw_data', 'polarimetry')] = MM_new
         MM = MuellerMatrices[d.replace('raw_data', 'polarimetry')]
         
