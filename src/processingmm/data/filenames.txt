@@ -4,6 +4,7 @@ Azimuth of optical axis.pdf
 Azimuth of optical axis.png
 Azimuth of optical axis_img.png
 azimuth_noise.png
+azimuth_noise_img.png
 azimuth_noise.pdf
 combined_img.png
 combined_img_line.png

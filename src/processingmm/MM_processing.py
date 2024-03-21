@@ -184,7 +184,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
                             MM_new[parameter] = rotated
                             
         azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', 'polarimetry')], 4, azimuth = MM_new['azimuth'], MM_computation = True)
-        MM_new['azimuth_std'] = azimuth_stds[d.replace('raw_data', 'polarimetry')]
+        MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', 'polarimetry')]
         
         MuellerMatrices[d.replace('raw_data', 'polarimetry')] = MM_new
         MM = MuellerMatrices[d.replace('raw_data', 'polarimetry')]

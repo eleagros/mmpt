@@ -149,8 +149,13 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
                 if y != 0:
                     azimuth_std[idx, idy] = 45
         
+    
+    
     # plot the azimuth std
     if plot:
+        path_save_img = os.path.join(folder, 'azimuth_noise_img.png')
+        plt.imsave(path_save_img, azimuth_std, cmap = cmap_colorbar, vmin = 0, vmax = 40)
+    
         ax.imshow(azimuth_std, cmap = cmap_colorbar, norm = norm_colorbar)
     else:
         ax.imshow(azimuth_std, cmap = cmap_plt)
