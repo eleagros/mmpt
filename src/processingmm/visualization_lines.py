@@ -47,7 +47,7 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
             to_compute = os.listdir(measurements_directory)
         else:
             # get the folders to compute if not given as an input
-            to_compute = remove_computed_folders_viz(measurements_directory, run_all = run_all)
+            to_compute = remove_computed_folders_viz(measurements_directory, run_all = run_all, PDDN = PDDN)
 
     if not batch_processing:
         for c in tqdm(to_compute):
@@ -60,7 +60,7 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
             perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN)
 
 
-def remove_computed_folders_viz(measurements_directory, run_all: bool = False):
+def remove_computed_folders_viz(measurements_directory, run_all: bool = False, PDDN = False):
     """
     removes the folders for which the visualization was already obtained
     
@@ -89,7 +89,14 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False):
                 check_wl.append(wl)
 
         for wl in check_wl:
-            path_wl = os.path.join(path, 'polarimetry', wl)
+            
+            path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
+            if PDDN and os.path.exists(path_model):
+                path_polarimetry = 'polarimetry_PDDN'
+            else:
+                path_polarimetry = 'polarimetry'
+                
+            path_wl = os.path.join(path, path_polarimetry, wl)
             if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
                 for file in filename_results:
                     if file in os.listdir(os.path.join(path_wl, 'results')) :

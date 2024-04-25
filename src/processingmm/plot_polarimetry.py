@@ -530,13 +530,14 @@ def save_batch(folder: str, viz = False):
     folder : str
         the folder in which to find the images
     """
+    
     if viz:
         names = load_combined_plot_name(viz = True)
         figures = load_filenames_combined_plot(viz = True)
     else:
         names = load_combined_plot_name()
         figures = load_filenames_combined_plot()
-
+    
     # load the four images
     img_3 = cv2.imread(folder + '/' + figures[0])[40:960, 160:1450]
     img_2 = cv2.imread(folder + '/' + figures[1])[40:960, 160:1450]
