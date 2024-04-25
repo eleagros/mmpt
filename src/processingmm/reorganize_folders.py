@@ -110,7 +110,7 @@ def create_directories(measurements_directory: str, directory: list, directories
         if directory_tbc in os.listdir(path_directory):
             
             # ... and if it is polarimetry
-            if directory_tbc == 'polarimetry':
+            if directory_tbc == 'polarimetry' or directory_tbc == 'polarimetry_PDDN':
                 dir_tb = os.path.join(path_directory, directory_tbc)
                 for dir_ in os.listdir(dir_tb):
                     

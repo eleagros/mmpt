@@ -416,14 +416,13 @@ def is_there_data(path: str):
     """
     data_exist = False
     try:
-        # data_exist = len(os.listdir(path)) == 2 or len(os.listdir(path)) == 3
-        data_exist = len(os.listdir(path)) == 2
+        data_exist = len(os.listdir(path)) == 2 or len(os.listdir(path)) == 3
     except FileNotFoundError:
         data_exist = False
     return data_exist
 
 
-def is_processed(path: str, wl: str):
+def is_processed(path: str, wl: str, PDDN: bool = False):
     """
     check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
 
@@ -441,9 +440,16 @@ def is_processed(path: str, wl: str):
     """
     filenames = load_filenames()
 
+    path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl.split('nm')[0]) + '_Fresh_HB.pt')
+    
+    if PDDN and os.path.exists(path_PDDN_model):
+        polarimetry_fname = 'polarimetry_PDDN'
+    else:
+        polarimetry_fname = 'polarimetry'
+        
     # get the filenames
-    all_file_names = os.listdir(os.path.join(path, 'polarimetry', wl))
-
+    all_file_names = os.listdir(os.path.join(path, polarimetry_fname, wl))
+    
     all_found = True
     for filename in filenames:
         found_file = False
@@ -457,4 +463,5 @@ def is_processed(path: str, wl: str):
                     found_file = True
         if not found_file:
             all_found = False
+
     return all_found

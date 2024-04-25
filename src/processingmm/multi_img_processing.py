@@ -6,7 +6,8 @@ import copy
 from processingmm.helpers import load_wavelengths, is_there_data, is_processed
 
 
-def remove_already_computed_folders(measurements_directory: str, sanity = False, run_all: bool = False):
+def remove_already_computed_folders(measurements_directory: str, sanity = False, run_all: bool = False,
+                                    PDDN = False):
     """
     check for each folder if it was already computed - if yes, remove it from the list of folders to compute
 
@@ -24,19 +25,21 @@ def remove_already_computed_folders(measurements_directory: str, sanity = False,
     """
     to_compute = os.listdir(measurements_directory)
     not_computed = []
-    
+
     # iterate over the list of folders to be computed
     for c in to_compute:
         path = os.path.join(measurements_directory, c)
         
         # get the directories that are not computed yet
-        directories = remove_already_computed_directories(path, sanity = sanity, run_all = run_all)
+        directories = remove_already_computed_directories(path, sanity = sanity, run_all = run_all, PDDN = PDDN)
+
         if len(directories) >= 1:
             not_computed.append(c)
+            
     return not_computed
 
 
-def remove_already_computed_directories(path: str, sanity = False, run_all: bool = False):
+def remove_already_computed_directories(path: str, sanity = False, run_all: bool = False, PDDN = False):
     """
     remove the folders and wl that were previsouly computed
 
@@ -54,7 +57,7 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
     # get the directories for which raw data is available
     path_raw_data = os.path.join(path, 'raw_data')
     directories = get_data_containing_folder(path_raw_data)
-
+    
     directories_computable = []
     
     # iterate over these directories
@@ -62,11 +65,14 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
         if sanity or run_all:
             directories_computable.append(os.path.join(path_raw_data, d))
         else:
-            if is_processed(path, d) or sanity and not run_all:
+            if is_processed(path, d, PDDN = PDDN) or sanity and not run_all:
                 pass
             else:
-                directories_computable.append(os.path.join(path, d))
+                directories_computable.append(os.path.join(path_raw_data, d))
+    
+    
     directories_computable = list(set(directories_computable))
+    
     return directories_computable
 
 

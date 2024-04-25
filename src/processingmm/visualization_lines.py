@@ -20,7 +20,8 @@ from processingmm.multi_img_processing import remove_already_computed_directorie
 from processingmm.libmpMuelMat import _isNumStable
 
 
-def visualization_auto(measurements_directory: str, parameters_set: str, batch_processing = False, to_compute = None, run_all = True):
+def visualization_auto(measurements_directory: str, parameters_set: str, batch_processing = False, to_compute = None, run_all = True,
+                       PDDN = False):
     """
     master function calling line_visualization_routine for each of the folders in the measurements_directory
     
@@ -36,6 +37,8 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
         the list of folders to compute (if one wants to process only specific ones, default = None)
     run_all : boolean
         defines wether all the folders should be processed (default = True)
+    PDDN : boolean
+        indicates if we are using denoising
     """
     if to_compute:
         pass
@@ -49,12 +52,12 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
     if not batch_processing:
         for c in tqdm(to_compute):
             path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_set, run_all = run_all)
+            perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN)
     else:
         for c in to_compute:
             path = measurements_directory + c
             path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_set, run_all = run_all)
+            perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN)
 
 
 def remove_computed_folders_viz(measurements_directory, run_all: bool = False):
@@ -104,7 +107,7 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False):
     return to_compute
 
 
-def perform_visualisation(path: str, parameters_set: str, run_all: bool = False):
+def perform_visualisation(path: str, parameters_set: str, run_all: bool = False, PDDN = False):
     """
     master function running the visualization script for one folder
     
@@ -114,15 +117,30 @@ def perform_visualisation(path: str, parameters_set: str, run_all: bool = False)
         the path to the folder on which the routine should be run
     parameters_set : str
         the name of the set of parameters that should be used (i.e. 'CUSA')
+    run_all : boolean
+        defines wether all the folders should be processed (default = True)
+    PDDN : boolean
+        indicates if we are using denoising
     """
+    
+        
     mask = get_mask(path)
     # remove_already_computed_directories with sanity = True puts all the wavelengths to be processed
     directories = remove_already_computed_directories(path, sanity = True, run_all = run_all)
 
     for d_ in directories:
-        d = d_.replace('raw_data', 'polarimetry')
-        # get wavelength and call line_visualization_routine
-        wavelength = get_wavelength(d)
+        wavelength = get_wavelength(d_)
+        
+        path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
+        
+        if PDDN and os.path.exists(path_PDDN_model):
+            polarimetry_path = 'polarimetry_PDDN'
+        else:
+            polarimetry_path = 'polarimetry'
+        
+        d = d_.replace('raw_data', polarimetry_path)
+        
+        # get wavelength and call line_visualization_routine  
         line_visualization(os.path.join(d, 'MM.npz'), mask, parameters_set)
 
 

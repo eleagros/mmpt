@@ -168,7 +168,7 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
                             fontsize=40, weight='bold')
 
     # add a title and save the plot
-    title = 'Azimuth of the optical axis'
+    title = 'Azimuth local variability'
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
     plt.xticks([])
     plt.yticks([])

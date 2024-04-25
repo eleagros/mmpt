@@ -79,7 +79,7 @@ def find_folder_name(root: str, data_folder: list, folder_names: list):
         pass
 
 
-def find_processed_folders(data_folder: list):
+def find_processed_folders(data_folder: list, PDDN = False):
     """
     iterates over each of the folder to find the ones containing 550nm/650nm raw data and determine the ones that have been processed
 
@@ -96,6 +96,7 @@ def find_processed_folders(data_folder: list):
         a dictionnary containing lists indicating if the data files are present for each wavelength
     wavelenghts : list
         the list of the wavelengths usable with the IMP
+    
     """
     wavelenghts = load_wavelengths()
 
@@ -107,18 +108,26 @@ def find_processed_folders(data_folder: list):
         data = []
         processed = []
         for wl in wavelenghts:
+            
+            path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
 
+            if PDDN and os.path.exists(path_PDDN_model):
+                path_polarimetry = 'polarimetry_PDDN'
+            else:
+                path_polarimetry = 'polarimetry'
+                
             # check if raw data is available for the different measurements
             if os.path.exists(os.path.join(path, 'raw_data')):
                 data.append(is_there_data(os.path.join(path, 'raw_data', wl)))
             else:
                 data.append(is_there_data(os.path.join(path, wl)))
-            if os.path.exists(os.path.join(path, 'polarimetry')):
+                
+            if os.path.exists(os.path.join(path, path_polarimetry)):
                 try:
-                    os.mkdir(os.path.join(os.path.join(path, 'polarimetry', wl)))
+                    os.mkdir(os.path.join(os.path.join(path, path_polarimetry, wl)))
                 except FileExistsError:
                     pass
-                processed.append(is_processed(path, wl))
+                processed.append(is_processed(path, wl, path_polarimetry))
             else:
                 processed.append(False)
         
@@ -128,7 +137,7 @@ def find_processed_folders(data_folder: list):
     return processed_nm, data_folder_nm, wavelenghts
 
 
-def is_processed(path: str, wl: str):
+def is_processed(path: str, wl: str, path_polarimetry: str):
     """
     check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
 
@@ -147,7 +156,7 @@ def is_processed(path: str, wl: str):
     filenames = load_filenames()
 
     # get the filenames
-    all_file_names = os.listdir(os.path.join(path, 'polarimetry', wl))
+    all_file_names = os.listdir(os.path.join(path, path_polarimetry, wl))
     all_found = True
 
     for filename in filenames:
@@ -218,7 +227,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     all_directories = os.listdir(measurement_directory)
 
     # 1. move the raw data folders into the raw data directory
-    directories_tbc = ['polarimetry', 'histology', 'annotation']
+    directories_tbc = ['polarimetry', 'polarimetry_PDDN', 'histology', 'annotation']
     wavelenghts = ['400nm', '450nm', '500nm', '550nm', '600nm', '650nm', '700nm']
     for directory in all_directories:
         reorganize_folders.move_raw_data_folders(directory, measurement_directory)
@@ -235,12 +244,16 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     for directory in all_directories:
         reorganize_folders.move_50x50_images(measurement_directory, directory)
 
-    to_compute = multi_img_processing.remove_already_computed_folders(measurement_directory, run_all = run_all)
+    to_compute = multi_img_processing.remove_already_computed_folders(measurement_directory, run_all = run_all, PDDN = PDDN)
     calib_directory_dates_num = multi_img_processing.get_calibration_dates(calib_directory)
+    
 
     # compute the MMs
     MuellerMatrices, calibration_directories = MM_processing.compute_analysis_python(measurement_directory, 
-                                        calib_directory_dates_num, calib_directory, to_compute, remove_reflection = remove_reflection, folder_eu_time = folder_eu_time, run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN)
+                                        calib_directory_dates_num, calib_directory, to_compute, remove_reflection = remove_reflection, 
+                                        folder_eu_time = folder_eu_time, run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN)
+
+    print(MuellerMatrices.keys())
     MuellerMatrices_raw = MuellerMatrices
 
     # and generate the different plots
@@ -257,8 +270,9 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     measurements_directory_viz = measurement_directory
     if parameter_set == None:
         parameter_set = 'CUSA'
-
-    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameter_set, run_all = run_all, batch_processing = True)
+    
+    _ = visualization_lines.visualization_auto(measurements_directory_viz, parameter_set, run_all = run_all, batch_processing = True,
+                                               PDDN = PDDN)
 
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.save_batch(folder, viz = True)
@@ -283,15 +297,17 @@ def move_folders_temp(directories, target_temp, to_process, put_back: bool = Fal
     return to_process_new
 
 
-def get_df_processing(directories: list):
+def get_df_processing(directories: list, PDDN = False):
     data_folder, _ = find_all_folders(directories)
+    
     for folder in data_folder:
         try:
             os.remove(os.path.join(folder, 'processing_logbook.txt'))
         except:
             pass
+        
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
-    processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder)
+    processed, data_folder_nm, wavelenghts = find_processed_folders(data_folder, PDDN = PDDN)
     df = create_folders_df(data_folder, processed, data_folder_nm, wavelenghts)
     return df
 
@@ -315,7 +331,10 @@ def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = Fals
 
     return to_process
     
-def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, max_nb: int = None, target_temp: list = None, PDDN = False, remove_reflection = True):
+    
+
+def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, 
+                  max_nb: int = None, target_temp: list = None, PDDN = False, remove_reflection = True):
     """
     master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
 
@@ -327,9 +346,9 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         the path to the calibration directory
     """    
     # get all the names of the measurement folders
-    df = get_df_processing(directories)
+    df = get_df_processing(directories, PDDN = PDDN)
     to_process = get_to_process(df, run_all = run_all)
-
+    
     if max_nb != None and target_temp != None:
         to_process = to_process[0:max_nb]
         to_process = move_folders_temp(directories, target_temp, to_process)
@@ -367,7 +386,9 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         
         # process the mueller matrix and generate the visualizations
         measurements_directory = './temp_processing'
-        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, folder_eu_time = folder_eu_time, run_all = run_all, parameter_set = parameter_set, PDDN = PDDN, remove_reflection = remove_reflection)
+        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, folder_eu_time = folder_eu_time, 
+                                                             run_all = run_all, parameter_set = parameter_set, PDDN = PDDN, 
+                                                             remove_reflection = remove_reflection)
         
         for folder in to_process_temp:
             try:
