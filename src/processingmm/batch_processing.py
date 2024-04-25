@@ -333,6 +333,30 @@ def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = Fals
     
     
 
+
+def batch_process_master(directories, calib_directory, run_all = False, parameter_set = 'TheoniPics', PDDN = 'no'):
+    
+    assert PDDN in ['no', 'pddn', 'both'], ("PDDN_mode should be one of the following: ['no', 'pddn', 'both'].")
+
+    if PDDN == 'no':
+        print('processing without PDDN...')
+        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False)
+        print('processing without PDDN done.')
+        
+    elif PDDN == 'pddn':
+        print('processing with PDDN...')
+        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True)
+        print('processing with PDDN done.')
+    else:
+        print('1. processing without PDDN...')
+        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False)
+        print('processing without PDDN done.')
+        print()
+        print('2. processing with PDDN.')
+        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True)
+        print('processing with PDDN done.')
+    
+    
 def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, parameter_set: str = None, 
                   max_nb: int = None, target_temp: list = None, PDDN = False, remove_reflection = True):
     """
