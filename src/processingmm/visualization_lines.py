@@ -20,8 +20,8 @@ from processingmm.multi_img_processing import remove_already_computed_directorie
 from processingmm.libmpMuelMat import _isNumStable
 
 
-def visualization_auto(measurements_directory: str, parameters_set: str, batch_processing = False, to_compute = None, run_all = True,
-                       PDDN = False):
+def visualization_auto(measurements_directory: str, parameters_set: str, batch_processing = False, to_compute = None, 
+                       run_all = True, PDDN = False, wavelengths = []):
     """
     master function calling line_visualization_routine for each of the folders in the measurements_directory
     
@@ -47,20 +47,16 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
             to_compute = os.listdir(measurements_directory)
         else:
             # get the folders to compute if not given as an input
-            to_compute = remove_computed_folders_viz(measurements_directory, run_all = run_all, PDDN = PDDN)
-
-    if not batch_processing:
-        for c in tqdm(to_compute):
-            path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN)
-    else:
-        for c in to_compute:
-            path = measurements_directory + c
-            path = os.path.join(measurements_directory, c)
-            perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN)
+            to_compute = remove_computed_folders_viz(measurements_directory, run_all = run_all, PDDN = PDDN,
+                                                     wavelengths = wavelengths)
+    
+    for c in tqdm(to_compute) if batch_processing else to_compute:
+        path = os.path.join(measurements_directory, c)
+        perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN,
+                                  wavelengths = wavelengths)
 
 
-def remove_computed_folders_viz(measurements_directory, run_all: bool = False, PDDN = False):
+def remove_computed_folders_viz(measurements_directory, run_all: bool = False, PDDN = False, wavelengths= []):
     """
     removes the folders for which the visualization was already obtained
     
@@ -82,7 +78,6 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False, P
         visualized = True
 
         path = os.path.join(measurements_directory, c)
-        wavelengths = load_wavelengths()
         check_wl = []
         for wl in wavelengths:
             if is_there_data(os.path.join(path, 'raw_data', wl)):
@@ -110,11 +105,12 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False, P
             pass
         else:
             to_compute.append(c)
-
+            
     return to_compute
 
 
-def perform_visualisation(path: str, parameters_set: str, run_all: bool = False, PDDN = False):
+def perform_visualisation(path: str, parameters_set: str, run_all: bool = False, PDDN = False,
+                          wavelengths = []):
     """
     master function running the visualization script for one folder
     
@@ -129,15 +125,14 @@ def perform_visualisation(path: str, parameters_set: str, run_all: bool = False,
     PDDN : boolean
         indicates if we are using denoising
     """
-    
         
     mask = get_mask(path)
+    
     # remove_already_computed_directories with sanity = True puts all the wavelengths to be processed
-    directories = remove_already_computed_directories(path, sanity = True, run_all = run_all)
-
+    directories = remove_already_computed_directories(path, sanity = True, wavelengths = wavelengths, run_all = run_all)
+    
     for d_ in directories:
         wavelength = get_wavelength(d_)
-        
         path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
         
         if PDDN and os.path.exists(path_PDDN_model):
@@ -176,7 +171,7 @@ def get_mask(path: str):
     return mask
 
 
-def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of the optical axis (°)'):
+def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of optical axis'):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -254,8 +249,8 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
                  new_mask, mask, normalized = True)
     
 
-def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.ndarray, n: int, widths: int, length: int, title: str, 
-                 path_results: str, new_mask: np.ndarray, mask: np.ndarray, normalized = False):
+def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.ndarray, n: int, widths: int, length: int, 
+                 title: str, path_results: str, new_mask: np.ndarray, mask: np.ndarray, normalized = False):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -355,10 +350,21 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
                                            length * function_sig_fixed(norm_vector), 
                                            angle = angle, facecolor = color, edgecolor = color))
                     
+
+        
     plt.xticks([])
     plt.yticks([])
-    plt.title(title, fontsize=35, fontweight="bold", pad=20)
-        
+    plt.title(title, fontsize=35, fontweight="bold", pad=14)
+    
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label1.set_fontsize(22)
+        tick.label1.set_fontweight('bold')
+    for tick in ax.yaxis.get_major_ticks():
+        tick.label1.set_fontsize(22)
+        tick.label1.set_fontweight('bold')
+            
+
+            
     cbar_max = 180
     cbar_min = 0
     cbar_step = 30
@@ -366,7 +372,7 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap_azi), pad = 0.02, 
                         ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
-                            fontsize=25, weight='bold')
+                            fontsize=40, weight='bold')
         
     if normalized:
         plt.savefig(os.path.join(path_results, 'CUSA_fig.pdf'))
@@ -376,7 +382,7 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
         plt.savefig(os.path.join(path_results, 'CUSA_fig_weighted.png'))
     
     plt.axis('off')
-    plt.title('')
+
     cbar.remove()
     if normalized:
         fig.savefig(os.path.join(path_results, 'CUSA_fig_image.png'), bbox_inches='tight',transparent=True, pad_inches=0)

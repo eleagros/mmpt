@@ -537,12 +537,12 @@ def save_batch(folder: str, viz = False):
     else:
         names = load_combined_plot_name()
         figures = load_filenames_combined_plot()
-    
+
     # load the four images
-    img_3 = cv2.imread(folder + '/' + figures[0])[40:960, 160:1450]
-    img_2 = cv2.imread(folder + '/' + figures[1])[40:960, 160:1450]
-    img_1 = cv2.imread(folder + '/' + figures[2])[40:960, 160:1450]
-    img_4 = cv2.imread(folder + '/' + figures[3])[40:960, 160:1450]
+    img_3 = cv2.imread(os.path.join(folder, figures[0]))[40:960, 160:1450]
+    img_2 = cv2.imread(os.path.join(folder, figures[1]))[40:960, 160:1450]
+    img_1 = cv2.imread(os.path.join(folder, figures[2]))[40:960, 160:1450]
+    img_4 = cv2.imread(os.path.join(folder, figures[3]))[40:960, 160:1450]
 
     h1, w1 = img_1.shape[:2]
     h2, w2 = img_2.shape[:2]
@@ -558,4 +558,4 @@ def save_batch(folder: str, viz = False):
     output[h2:h2+h4, w2:w2+w4, :3] = img_4
 
     # save the new image
-    cv2.imwrite(folder + '/' + names, output)
+    cv2.imwrite(os.path.join(folder, names), output)

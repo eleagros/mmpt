@@ -165,7 +165,7 @@ def load_filenames_50x50():
     return lines
 
 
-def load_filenames():
+def load_filenames(processing_mode = 'full'):
     """
     load and returns the name of the files that will be generated during the processing
 
@@ -180,6 +180,17 @@ def load_filenames():
     f.close()
     for idx, l in enumerate(lines):
         lines[idx] = l.replace('\n', '')
+        
+    if processing_mode == 'no_visualization':
+        lines.remove('results')
+        lines.remove('combined_img_line.png')
+    elif processing_mode == 'fast':
+        lines.remove('results')
+        lines.remove('combined_img_line.png')
+        lines.remove('azimuth_noise.png')
+        lines.remove('azimuth_noise_img.png')
+        lines.remove('azimuth_noise.pdf')
+
     return lines
 
 
@@ -343,7 +354,7 @@ def chunks(lst: list, n: int):
         yield lst[i:i + n]
 
 
-def save_file_as_npz(variable: dict, path: str):   
+def save_file_as_npz(variable: dict, path: str, processing_mode = 'full'):   
     """
     save_file_as_npz allows to store a Mueller Matrix as a numpy zipped file
 
@@ -354,15 +365,25 @@ def save_file_as_npz(variable: dict, path: str):
     path : str
         the path in which the MM should be saved
     """
-    np.savez_compressed(path, 
-                        Intensity = variable['Intensity'],
-                        M11 = variable['M11'],
-                        Msk = variable['Msk'],
-                        totD = variable['totD'],
-                        linR = variable['linR'],
-                        azimuth = variable['azimuth'],
-                        totP = variable['totP'],
-                        azimuth_local_var = variable['azimuth_local_var'])
+    if processing_mode == 'full' or processing_mode == 'no_visualization':
+        np.savez_compressed(path, 
+                            Intensity = variable['Intensity'],
+                            M11 = variable['M11'],
+                            Msk = variable['Msk'],
+                            totD = variable['totD'],
+                            linR = variable['linR'],
+                            azimuth = variable['azimuth'],
+                            totP = variable['totP'],
+                            azimuth_local_var = variable['azimuth_local_var'])
+    else:
+        np.savez_compressed(path, 
+                            Intensity = variable['Intensity'],
+                            M11 = variable['M11'],
+                            Msk = variable['Msk'],
+                            totD = variable['totD'],
+                            linR = variable['linR'],
+                            azimuth = variable['azimuth'],
+                            totP = variable['totP'])
     
 
 def rotate_maps_90_deg(map_resize: np.ndarray, azimuth = False):
@@ -422,7 +443,7 @@ def is_there_data(path: str):
     return data_exist
 
 
-def is_processed(path: str, wl: str, PDDN: bool = False):
+def is_processed(path: str, wl: str, PDDN: bool = False, processing_mode = 'full'):
     """
     check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
 
@@ -438,8 +459,7 @@ def is_processed(path: str, wl: str, PDDN: bool = False):
     all_found : bool
         indicates if all the files were present
     """
-    filenames = load_filenames()
-
+    filenames = load_filenames(processing_mode = processing_mode)
     path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl.split('nm')[0]) + '_Fresh_HB.pt')
     
     if PDDN and os.path.exists(path_PDDN_model):

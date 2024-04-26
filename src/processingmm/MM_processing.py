@@ -10,8 +10,10 @@ from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_9
 from processingmm.AzimuthStdViz import AzimuthStdViz
 from processingmm import libmpMPIdenoisePDDN
 
-def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, to_compute: list, PDDN = False, remove_reflection = True,
-                            folder_eu_time: dict = {}, run_all = False, batch_processing = False, Flag = False):
+def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
+                            to_compute: list, PDDN = False, remove_reflection = True, folder_eu_time: dict = {}, 
+                            run_all = False, batch_processing = False, Flag = False, wavelengths = [],
+                            processing_mode = ''):
     """
     run the script for all the measurement folders in the directory given as an input
 
@@ -53,19 +55,26 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
     if not batch_processing:
         with tqdm(total = len(to_compute)) as pbar:
             for c in to_compute:
-                calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory, 
-                                            MuellerMatrices, treshold, c, PDDN = PDDN, folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, pbar = pbar, Flag = Flag)
+                calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, 
+                                            calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
+                                            folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
+                                            wavelengths = wavelengths, pbar = pbar, Flag = Flag,
+                                            processing_mode = processing_mode)
                 calibration_directories[c] = calibration_directory_closest
     else:
         for c in to_compute:
-            calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, calib_directory,
-                                                    MuellerMatrices, treshold, c, PDDN = PDDN, folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, Flag = Flag)
+            calibration_directory_closest = compute_one_MM(measurements_directory, calib_directory_dates_num, 
+                                                calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
+                                                folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
+                                                wavelengths = wavelengths, Flag = Flag, 
+                                                processing_mode = processing_mode)
             calibration_directories[c] = calibration_directory_closest
     return MuellerMatrices, calibration_directories
 
 
-def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, MuellerMatrices: dict, 
-                   treshold: int, c: str, PDDN = False, folder_eu_time: dict = {}, remove_reflection = True, pbar = None, Flag = False):
+def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
+                   MuellerMatrices: dict, treshold: int, c: str, PDDN = False, folder_eu_time: dict = {}, 
+                   remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = ''):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -89,15 +98,18 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         the progress bar that should (or not) be processed (default None)
     Flag : boolean
         boolean indicating if the warnings should be displayed (default: False)
+    wavelengths : list
+        the list of wavelengths that should be processed 
     
     Returns
     -------
     calibration_directory_closest : str
         the path to the calibration folder that will be used
     """
-    
+
     path = os.path.join(measurements_directory, c)
-    directories = remove_already_computed_directories(path, sanity = False, PDDN = PDDN)
+    directories = remove_already_computed_directories(path, sanity = False, PDDN = PDDN, wavelengths = wavelengths,
+                                                      Flag = True, processing_mode = processing_mode)
     
     try:
         with open(os.path.join(path, 'annotation', 'rotation_MM.txt')) as f:
@@ -194,16 +206,17 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
                         else:
                             rotated = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
                             MM_new[parameter] = rotated
-                            
-        azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', polarimetry_fname)], 4, azimuth = MM_new['azimuth'], 
-                                                        MM_computation = True)
-        MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', polarimetry_fname)]
+        
+        if processing_mode == 'full' or processing_mode == 'no_visualization':                    
+            azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', polarimetry_fname)], 4, azimuth = MM_new['azimuth'], 
+                                                            MM_computation = True)
+            MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', polarimetry_fname)]
         
         MuellerMatrices[d.replace('raw_data', polarimetry_fname)] = MM_new
         MM = MuellerMatrices[d.replace('raw_data', polarimetry_fname)]
         
         # save the Mueller matrix as npz file
-        save_file_as_npz(MM, os.path.join(d.replace('raw_data', polarimetry_fname), 'MM.npz'))
+        save_file_as_npz(MM, os.path.join(d.replace('raw_data', polarimetry_fname), 'MM.npz'), processing_mode = processing_mode)
         
     if pbar is None:
         pass

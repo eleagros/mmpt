@@ -7,7 +7,7 @@ from processingmm.helpers import load_wavelengths, is_there_data, is_processed
 
 
 def remove_already_computed_folders(measurements_directory: str, sanity = False, run_all: bool = False,
-                                    PDDN = False):
+                                    PDDN = False, wavelengths = [], Flag = False):
     """
     check for each folder if it was already computed - if yes, remove it from the list of folders to compute
 
@@ -31,7 +31,8 @@ def remove_already_computed_folders(measurements_directory: str, sanity = False,
         path = os.path.join(measurements_directory, c)
         
         # get the directories that are not computed yet
-        directories = remove_already_computed_directories(path, sanity = sanity, run_all = run_all, PDDN = PDDN)
+        directories = remove_already_computed_directories(path, sanity = sanity, run_all = run_all, PDDN = PDDN,
+                                                          wavelengths = wavelengths, Flag = Flag)
 
         if len(directories) >= 1:
             not_computed.append(c)
@@ -39,7 +40,8 @@ def remove_already_computed_folders(measurements_directory: str, sanity = False,
     return not_computed
 
 
-def remove_already_computed_directories(path: str, sanity = False, run_all: bool = False, PDDN = False):
+def remove_already_computed_directories(path: str, sanity = False, run_all: bool = False, PDDN = False, 
+                                        wavelengths = [], Flag = False, processing_mode = 'full'):
     """
     remove the folders and wl that were previsouly computed
 
@@ -54,10 +56,10 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
     directories_computable : list
         the list of directories to be computed (i.e. the folders that have not been computed yet)
     """
+
     # get the directories for which raw data is available
     path_raw_data = os.path.join(path, 'raw_data')
-    directories = get_data_containing_folder(path_raw_data)
-    
+    directories = get_data_containing_folder(path_raw_data, wavelengths = wavelengths)
     directories_computable = []
     
     # iterate over these directories
@@ -65,7 +67,7 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
         if sanity or run_all:
             directories_computable.append(os.path.join(path_raw_data, d))
         else:
-            if is_processed(path, d, PDDN = PDDN) or sanity and not run_all:
+            if is_processed(path, d, PDDN = PDDN, processing_mode = processing_mode) or sanity and not run_all:
                 pass
             else:
                 directories_computable.append(os.path.join(path_raw_data, d))
@@ -76,7 +78,7 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
     return directories_computable
 
 
-def get_data_containing_folder(path: str):
+def get_data_containing_folder(path: str, wavelengths = []):
     """
     get the wavelength folders containing raw data
 
@@ -93,9 +95,10 @@ def get_data_containing_folder(path: str):
     filenames = os.listdir(path)
     directories = []
     for wavelength in load_wavelengths():
-        if os.path.isdir(os.path.join(path, wavelength)):
-            if is_there_data(os.path.join(path, wavelength)):
-                directories.append(wavelength)
+        if wavelength in wavelengths:
+            if os.path.isdir(os.path.join(path, wavelength)):
+                if is_there_data(os.path.join(path, wavelength)):
+                    directories.append(wavelength)
     return directories
 
 
