@@ -5,11 +5,12 @@ import shutil
 import traceback
 from tqdm import tqdm
 import traceback
+from packaging.version import Version
 
 from processingmm.helpers import load_filenames, add_path, chunks, load_wavelengths, is_there_data, is_processed
 from processingmm import reorganize_folders, multi_img_processing, MM_processing, plot_polarimetry, visualization_lines
 from processingmm import libmpMuelMat
-
+import processingmm
 
 def f7(seq):
     seen = set()
@@ -381,21 +382,23 @@ def batch_process_master(directories, calib_directory, run_all = False, paramete
                       wavelengths = wavelengths, processing_mode = processing_mode)
         print('processing without PDDN done.')
         
-    elif PDDN == 'pddn':
-        print('processing with PDDN...')
-        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
-                      wavelengths = wavelengths, processing_mode = processing_mode)
-        print('processing with PDDN done.')
     else:
-        print('1. processing without PDDN...')
-        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
-                      wavelengths = wavelengths, processing_mode = processing_mode)
-        print('processing without PDDN done.')
-        print()
-        print('2. processing with PDDN.')
-        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
-                      wavelengths = wavelengths, processing_mode = processing_mode)
-        print('processing with PDDN done.')
+        assert Version(processingmm.__version__) >= Version('1.1'), ("Please update the processingmm package to version 1.1 or higher to use PDDN.")
+        if PDDN == 'pddn':
+            print('processing with PDDN...')
+            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
+                        wavelengths = wavelengths, processing_mode = processing_mode)
+            print('processing with PDDN done.')
+        else:
+            print('1. processing without PDDN...')
+            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
+                        wavelengths = wavelengths, processing_mode = processing_mode)
+            print('processing without PDDN done.')
+            print()
+            print('2. processing with PDDN.')
+            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
+                        wavelengths = wavelengths, processing_mode = processing_mode)
+            print('processing with PDDN done.')
     
     
     
