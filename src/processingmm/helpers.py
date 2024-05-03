@@ -3,7 +3,7 @@ import os
 import matplotlib.colors as clr
 import json
 import ast
-
+from scipy import ndimage
 
 def get_wavelength(fname: str):
     """
@@ -435,11 +435,13 @@ def is_there_data(path: str):
     data_exist : bool
         boolean indicating the presence of two .cod files
     """
+
     data_exist = False
     try:
         data_exist = len(os.listdir(path)) == 2 or len(os.listdir(path)) == 3
     except FileNotFoundError:
         data_exist = False
+
     return data_exist
 
 
@@ -485,3 +487,24 @@ def is_processed(path: str, wl: str, PDDN: bool = False, processing_mode = 'full
             all_found = False
 
     return all_found
+
+
+def rotate_parameter(parameter, angle_correction, MM_new = None):
+    if MM_new is None:
+        value = parameter
+    else:
+        value = MM_new[parameter]
+        
+    if angle_correction == 90:
+        value_rotated = rotate_maps_90_deg(value)
+    elif angle_correction == 180:
+        value_rotated = value[::-1,::-1]
+    else:
+        if parameter == 'Msk':
+            rotated = ndimage.rotate(value.astype(float), angle = angle_correction, reshape = False)
+            value_rotated = rotated > 0.5
+        else:
+            rotated = ndimage.rotate(value, angle = angle_correction, reshape = False)
+            value_rotated = rotated
+            
+    return value_rotated

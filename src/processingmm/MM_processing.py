@@ -6,7 +6,7 @@ from scipy import ndimage
 
 from processingmm import libmpMuelMat
 from processingmm.multi_img_processing import remove_already_computed_directories, get_calibration_directory
-from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names
+from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names, rotate_parameter
 from processingmm.AzimuthStdViz import AzimuthStdViz
 from processingmm import libmpMPIdenoisePDDN
 
@@ -59,7 +59,7 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
                                             calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
                                             folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
                                             wavelengths = wavelengths, pbar = pbar, Flag = Flag,
-                                            processing_mode = processing_mode)
+                                            processing_mode = processing_mode, run_all = run_all)
                 calibration_directories[c] = calibration_directory_closest
     else:
         for c in to_compute:
@@ -67,14 +67,15 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
                                                 calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
                                                 folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
                                                 wavelengths = wavelengths, Flag = Flag, 
-                                                processing_mode = processing_mode)
+                                                processing_mode = processing_mode, run_all = run_all)
             calibration_directories[c] = calibration_directory_closest
     return MuellerMatrices, calibration_directories
 
 
 def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
                    MuellerMatrices: dict, treshold: int, c: str, PDDN = False, folder_eu_time: dict = {}, 
-                   remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = ''):
+                   remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = '',
+                   run_all = False):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -109,7 +110,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
 
     path = os.path.join(measurements_directory, c)
     directories = remove_already_computed_directories(path, sanity = False, PDDN = PDDN, wavelengths = wavelengths,
-                                                      Flag = True, processing_mode = processing_mode)
+                                                      Flag = True, processing_mode = processing_mode, run_all = run_all)
     
     try:
         with open(os.path.join(path, 'annotation', 'rotation_MM.txt')) as f:
@@ -122,7 +123,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
     calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, folder_eu_time = folder_eu_time, Flag = Flag)
     
     for d in directories:
-                        
+        
         # get the wavelength for the folder name
         wavelength = get_wavelength(d)
         calibration_directory_wl = os.path.join(calibration_directory_closest, str(wavelength) + 'nm')
@@ -182,36 +183,30 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         # remove the NaNs from the atzimuth measurements
         MM_new['azimuth'] = curate_azimuth(MM_new['azimuth'], d.replace('raw_data', 'polarimetry'))
         
+        parameter_names = load_parameter_names()
+        
+        if processing_mode == 'full' or processing_mode == 'no_visualization':                    
+            azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', polarimetry_fname)], 4, azimuth = MM_new['azimuth'], 
+                                                            MM_computation = True, angle_correction = angle_correction)
+            MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', polarimetry_fname)]
+            parameter_names.append('azimuth_local_var')
+            
+    
         # apply a rotation corrections if necessary 
         if angle_correction != 0:
             
-            parameter_names = load_parameter_names()
-            
             for parameter in parameter_names:
-                if parameter == 'azimuth':
+                if parameter == 'azimuth_local_var':
+                    pass
+                elif parameter == 'azimuth':
                     if angle_correction == 90:
                         MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter], azimuth = True)
                     else:
                         MM_new[parameter] = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
                         MM_new[parameter] = (MM_new[parameter] - angle_correction) % 180
                 else:
-                    if angle_correction == 90:
-                        MM_new[parameter] = rotate_maps_90_deg(MM_new[parameter])
-                    elif angle_correction == 180:
-                        MM_new[parameter] = MM_new[parameter][::-1,::-1]
-                    else:
-                        if parameter == 'Msk':
-                            rotated = ndimage.rotate(MM_new[parameter].astype(float), angle = angle_correction, reshape = False)
-                            MM_new[parameter] = rotated > 0.5
-                        else:
-                            rotated = ndimage.rotate(MM_new[parameter], angle = angle_correction, reshape = False)
-                            MM_new[parameter] = rotated
-        
-        if processing_mode == 'full' or processing_mode == 'no_visualization':                    
-            azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', polarimetry_fname)], 4, azimuth = MM_new['azimuth'], 
-                                                            MM_computation = True)
-            MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', polarimetry_fname)]
-        
+                    MM_new[parameter] = rotate_parameter(parameter, angle_correction, MM_new = MM_new)
+    
         MuellerMatrices[d.replace('raw_data', polarimetry_fname)] = MM_new
         MM = MuellerMatrices[d.replace('raw_data', polarimetry_fname)]
         
@@ -225,6 +220,9 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
     
     return calibration_directory_closest
 
+
+
+                            
 
 def get_intensity(d: str, wavelength: int):
     try:

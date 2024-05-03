@@ -56,7 +56,6 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
     directories_computable : list
         the list of directories to be computed (i.e. the folders that have not been computed yet)
     """
-
     # get the directories for which raw data is available
     path_raw_data = os.path.join(path, 'raw_data')
     directories = get_data_containing_folder(path_raw_data, wavelengths = wavelengths)
@@ -67,11 +66,10 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
         if sanity or run_all:
             directories_computable.append(os.path.join(path_raw_data, d))
         else:
-            if is_processed(path, d, PDDN = PDDN, processing_mode = processing_mode) or sanity and not run_all:
+            if is_processed(path, d, PDDN = PDDN, processing_mode = processing_mode):
                 pass
             else:
                 directories_computable.append(os.path.join(path_raw_data, d))
-    
     
     directories_computable = list(set(directories_computable))
     

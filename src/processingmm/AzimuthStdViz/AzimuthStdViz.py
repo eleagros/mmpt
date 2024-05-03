@@ -16,9 +16,10 @@ import copy
 import warnings
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
+from processingmm.helpers import rotate_parameter
 
 
-def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array = None, MM_computation: bool = False):
+def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array = None, MM_computation: bool = False, angle_correction = 0):
     """
     get_and_plots_stds is the master function to create the plots to visualize the azimuth noise
 
@@ -66,6 +67,8 @@ def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array =
                 except:
                     pass
         
+        azimuth_std = rotate_parameter(azimuth_std, angle_correction)
+                            
         # remove the std > 40 for visualization purposes
         azimuth_stds[folder] = copy.deepcopy(azimuth_std)
         azimuth_std[azimuth_std > 40] = 40

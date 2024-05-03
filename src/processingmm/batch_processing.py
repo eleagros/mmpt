@@ -283,7 +283,6 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
                                         run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN,
                                         wavelengths = wavelengths, processing_mode = processing_mode)
     
-    print(MuellerMatrices.keys())
     MuellerMatrices_raw = MuellerMatrices
     
 
@@ -342,7 +341,6 @@ def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', proc
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wl = find_processed_folders(data_folder, PDDN = PDDN, 
                                                     wavelengths = wavelengths, processing_mode = processing_mode)
-
     df = create_folders_df(data_folder, processed, data_folder_nm,
                            wavelengths = wl)
     return df, wl
