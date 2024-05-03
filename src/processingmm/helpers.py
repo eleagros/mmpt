@@ -500,9 +500,10 @@ def rotate_parameter(parameter, angle_correction, MM_new = None):
     elif angle_correction == 180:
         value_rotated = value[::-1,::-1]
     else:
-        if parameter == 'Msk':
-            rotated = ndimage.rotate(value.astype(float), angle = angle_correction, reshape = False)
-            value_rotated = rotated > 0.5
+        if not MM_new is None:
+            if parameter == 'Msk':
+                rotated = ndimage.rotate(value.astype(float), angle = angle_correction, reshape = False)
+                value_rotated = rotated > 0.5
         else:
             rotated = ndimage.rotate(value, angle = angle_correction, reshape = False)
             value_rotated = rotated
