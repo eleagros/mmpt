@@ -364,13 +364,13 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
         tick.label1.set_fontweight('bold')
             
 
-            
+    ax = plt.gca()        
     cbar_max = 180
     cbar_min = 0
     cbar_step = 30
     formatter = '{:.0f}'
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap_azi), pad = 0.02, 
-                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
+                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06, ax = ax)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=40, weight='bold')
         

@@ -187,7 +187,7 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
 
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.02, 
-                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
+                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06, ax = ax)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=40, weight='bold')
     
@@ -395,10 +395,10 @@ def show_MM(X3D, folder):
                                      facecolor = (1,0,0,0),
                                      fill=True,
                                      lw=lw_color))
-            
+    ax = plt.gca()        
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.025, location='right', shrink = 0.65,
-                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step))
+                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), ax = ax)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=30, weight='bold')
     cbar.ax.tick_params(size=0)
@@ -408,7 +408,7 @@ def show_MM(X3D, folder):
     
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.04, location='left', shrink = 0.65,
-                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step))
+                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), ax = ax)
     cbar.ax.set_yticklabels([formatter_v2.format(a/5) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
                             fontsize=30, weight='bold')
     cbar.ax.tick_params(size=0)

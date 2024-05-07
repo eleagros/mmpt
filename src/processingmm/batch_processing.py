@@ -370,14 +370,14 @@ def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = Fals
 
 
 def batch_process_master(directories, calib_directory, run_all = False, parameter_set = 'TheoniPics', PDDN = 'no',
-                         wavelengths = 'all', processing_mode = 'full'):
+                         wavelengths = 'all', processing_mode = 'full', remove_reflection = True):
     
     assert PDDN in ['no', 'pddn', 'both'], ("PDDN_mode should be one of the following: ['no', 'pddn', 'both'].")
 
     if PDDN == 'no':
         print('processing without PDDN...')
         batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
-                      wavelengths = wavelengths, processing_mode = processing_mode)
+                      wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection)
         print('processing without PDDN done.')
         
     else:
@@ -385,17 +385,20 @@ def batch_process_master(directories, calib_directory, run_all = False, paramete
         if PDDN == 'pddn':
             print('processing with PDDN...')
             batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
-                        wavelengths = wavelengths, processing_mode = processing_mode)
+                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection)
+
             print('processing with PDDN done.')
         else:
             print('1. processing without PDDN...')
             batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
-                        wavelengths = wavelengths, processing_mode = processing_mode)
+                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection)
+
             print('processing without PDDN done.')
             print()
             print('2. processing with PDDN.')
             batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
-                        wavelengths = wavelengths, processing_mode = processing_mode)
+                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection)
+
             print('processing with PDDN done.')
     
     

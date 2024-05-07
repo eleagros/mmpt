@@ -14,7 +14,6 @@ import pickle
 import copy
 
 import warnings
-warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
 from processingmm.helpers import rotate_parameter
 
@@ -166,7 +165,7 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
 
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm_colorbar, cmap=cmap_colorbar), pad = 0.02, 
-                        ticks=np.arange(0, 41, 10), fraction=0.06)
+                        ticks=np.arange(0, 41, 10), fraction=0.06, ax=ax)
     cbar.ax.set_yticklabels(["{:.0f}".format(a) for a in np.arange(0, 41, 10)], 
                             fontsize=40, weight='bold')
 
