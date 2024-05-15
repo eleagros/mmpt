@@ -11,6 +11,7 @@ from processingmm.helpers import load_filenames, add_path, chunks, load_waveleng
 from processingmm import reorganize_folders, multi_img_processing, MM_processing, plot_polarimetry, visualization_lines
 from processingmm import libmpMuelMat
 import processingmm
+import time
 
 def f7(seq):
     seen = set()
@@ -226,7 +227,7 @@ def create_folders_df(data_folder: list, processed: dict, data_folder_nm: dict, 
 
 def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, 
                parameter_set: str = None, PDDN = False, remove_reflection: bool = False, wavelengths = [],
-               processing_mode = 'full'):
+               processing_mode = 'full', time_mode = False):
     """
     master function allowing to reogranize the folders, compute the MMs, generate the plots and the visualizations for one directory
 
@@ -244,7 +245,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     parameters_set : str
         the name of the parameters_set used for the line visualization
     """
-
+    
     # obtain the directories that we should reorganize the data for
     all_directories = os.listdir(measurement_directory)
 
@@ -277,15 +278,19 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     calib_directory_dates_num = multi_img_processing.get_calibration_dates(calib_directory)
     
     # compute the MMs
-    MuellerMatrices, calibration_directories = MM_processing.compute_analysis_python(measurement_directory, 
+    MuellerMatrices, calibration_directories, times = MM_processing.compute_analysis_python(measurement_directory, 
                                         calib_directory_dates_num, calib_directory, to_compute, 
                                         remove_reflection = remove_reflection, folder_eu_time = folder_eu_time, 
                                         run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN,
-                                        wavelengths = wavelengths, processing_mode = processing_mode)
+                                        wavelengths = wavelengths, processing_mode = processing_mode, time_mode = time_mode)
+    
+    [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing] = times
     
     MuellerMatrices_raw = MuellerMatrices
     
 
+    start = time.time()
+    
     # and generate the different plots
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.parameters_histograms(MuellerMatrices_raw, folder)
@@ -296,6 +301,10 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
         plot_polarimetry.MM_histogram(MuellerMatrices, folder)
         plot_polarimetry.save_batch(folder)
 
+    end = time.time()
+    time_plotting = end - start
+    
+    start = time.time()
     if processing_mode == 'full':
         
         # finally, generate the visuazation with the lines
@@ -308,8 +317,11 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
 
         for folder, _ in MuellerMatrices.items():
             plot_polarimetry.save_batch(folder, viz = True)
+    end = time.time()
+    time_viz = end - start
+    
+    return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing, time_plotting, time_viz]
 
-    return calibration_directories, parameter_set
 
 
 def move_folders_temp(directories, target_temp, to_process, put_back: bool = False):
@@ -370,46 +382,50 @@ def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = Fals
 
 
 def batch_process_master(directories, calib_directory, run_all = False, parameter_set = 'TheoniPics', PDDN = 'no',
-                         wavelengths = 'all', processing_mode = 'full', remove_reflection = True, folder_eu_time = {}):
+                         wavelengths = 'all', processing_mode = 'full', remove_reflection = True, folder_eu_time = {},
+                         time_mode = True):
     
     assert PDDN in ['no', 'pddn', 'both'], ("PDDN_mode should be one of the following: ['no', 'pddn', 'both'].")
 
     if PDDN == 'no':
         print('processing without PDDN...')
-        batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
+        times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
                       wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                      folder_eu_time = folder_eu_time)
+                      folder_eu_time = folder_eu_time, time_mode = time_mode)
         print('processing without PDDN done.')
         
     else:
         assert Version(processingmm.__version__) >= Version('1.1'), ("Please update the processingmm package to version 1.1 or higher to use PDDN.")
         if PDDN == 'pddn':
             print('processing with PDDN...')
-            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
+            times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
                         wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                        folder_eu_time = folder_eu_time)
+                        folder_eu_time = folder_eu_time, time_mode = time_mode)
 
             print('processing with PDDN done.')
         else:
             print('1. processing without PDDN...')
-            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
+            times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
                         wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                        folder_eu_time = folder_eu_time)
+                        folder_eu_time = folder_eu_time, time_mode = time_mode)
 
             print('processing without PDDN done.')
             print()
             print('2. processing with PDDN.')
             batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
                         wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                        folder_eu_time = folder_eu_time)
+                        folder_eu_time = folder_eu_time, time_mode = time_mode)
 
             print('processing with PDDN done.')
+            
+    return times, time_complete
     
     
     
 def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, 
                   parameter_set: str = None,  max_nb: int = None, target_temp: list = None, 
-                  PDDN = False, remove_reflection = True, wavelengths = 'all', processing_mode = 'full'):
+                  PDDN = False, remove_reflection = True, wavelengths = 'all', processing_mode = 'full',
+                  time_mode = False):
     """
     master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
 
@@ -421,6 +437,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         the path to the calibration directory
     """    
     
+    start = time.time()
     # get all the names of the measurement folders
     df, wl = get_df_processing(directories, PDDN = PDDN, wavelengths = wavelengths, 
                                processing_mode = processing_mode)
@@ -437,7 +454,11 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         pass
 
     # get the different chunks that are used to split the processing of the data
-    all_chunks = chunks(to_process, 2)
+    if time_mode:
+        all_chunks = chunks(to_process, 2)
+    else:
+        all_chunks = chunks(to_process, 1)
+        
     all_chunks = list(all_chunks)
 
     for chunk in tqdm(all_chunks):
@@ -464,11 +485,12 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         
         # process the mueller matrix and generate the visualizations
         measurements_directory = './temp_processing'
-        calibration_directories, parameters_set = process_MM(measurements_directory, calib_directory, 
+        calibration_directories, parameters_set, times = process_MM(measurements_directory, calib_directory, 
                                                 folder_eu_time = folder_eu_time, run_all = run_all, 
                                                 parameter_set = parameter_set, PDDN = PDDN, 
                                                 remove_reflection = remove_reflection, wavelengths = wl,
-                                                processing_mode = processing_mode)
+                                                processing_mode = processing_mode, time_mode = time_mode)
+    
         
         for folder in to_process_temp:
             try:
@@ -500,4 +522,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         except:
             traceback.print_exc()
 
-    return to_process
+    end = time.time()
+    time_complete = end - start
+    
+    return times, time_complete
