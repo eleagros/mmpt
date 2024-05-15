@@ -284,7 +284,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
                                         run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN,
                                         wavelengths = wavelengths, processing_mode = processing_mode, time_mode = time_mode)
     
-    [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing] = times
+    [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing] = times
     
     MuellerMatrices_raw = MuellerMatrices
     
@@ -320,7 +320,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     end = time.time()
     time_viz = end - start
     
-    return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing, time_plotting, time_viz]
+    return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing, time_plotting, time_viz]
 
 
 

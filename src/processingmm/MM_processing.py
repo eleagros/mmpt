@@ -57,7 +57,7 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
         with tqdm(total = len(to_compute)) as pbar:
             for c in to_compute:
                 
-                calibration_directory_closest, [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing] = compute_one_MM(measurements_directory,
+                calibration_directory_closest, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing] = compute_one_MM(measurements_directory,
                                             calib_directory_dates_num, 
                                             calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
                                             folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
@@ -67,7 +67,7 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
 
     else:
         for c in to_compute:
-            calibration_directory_closest, [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing] = compute_one_MM(measurements_directory, 
+            calibration_directory_closest, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing] = compute_one_MM(measurements_directory, 
                                                 calib_directory_dates_num, 
                                                 calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
                                                 folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
@@ -75,7 +75,7 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
                                                 processing_mode = processing_mode, run_all = run_all, time_mode = time_mode)
             calibration_directories[c] = calibration_directory_closest
             
-    return MuellerMatrices, calibration_directories, [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing]
+    return MuellerMatrices, calibration_directories, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing]
 
 
 def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
@@ -154,21 +154,33 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         if PDDN and os.path.exists(path_PDDN_model):
             polarimetry_fname = 'polarimetry_PDDN'
             
-            try:
-                I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), isRawFlag = 0)
-            except:
+            if time_mode:
+                I = get_intensity(d, wavelength)
+                start_denoising = time.time()
+                PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
+                end = time.time()
+                time_denoising = end - start_denoising
+                I, _ = PDDN.Denoise(I)
+                libmpMuelMat.write_cod_data_X3D(I, os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), VerboseFlag=1)
+                
+            else:
+                time_denoising = 0
                 try:
-                    I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), isRawFlag = 1)
+                    I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), isRawFlag = 0)
                 except:
-                    print('No PDDN file found - denoising the raw data')
-                    
-                    I = get_intensity(d, wavelength)
-                    PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
-                    I, _ = PDDN.Denoise(I)
-                    
-                    libmpMuelMat.write_cod_data_X3D(I, os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), VerboseFlag=1)                       
+                    try:
+                        I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), isRawFlag = 1)
+                    except:
+                        print('No PDDN file found - denoising the raw data')
+                        
+                        I = get_intensity(d, wavelength)
+                        PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
+                        I, _ = PDDN.Denoise(I)
+                        
+                        libmpMuelMat.write_cod_data_X3D(I, os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), VerboseFlag=1)                       
             
         else:
+            time_denoising = 0
             polarimetry_fname = 'polarimetry'
             I = get_intensity(d, wavelength)
 
@@ -246,7 +258,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
     else:
         pbar.update(1)
     
-    return calibration_directory_closest, [time_MM_processing, time_azimuth_std_processing, time_save_npz, time_full_processing]
+    return calibration_directory_closest, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing]
 
 
 
