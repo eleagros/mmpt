@@ -13,13 +13,174 @@ from processingmm import libmpMuelMat
 import processingmm
 import time
 
-def f7(seq):
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
+def batch_process_master(directories, calib_directory, run_all = False, parameter_set = 'TheoniPics', PDDN = 'no',
+                         wavelengths = 'all', processing_mode = 'full', remove_reflection = True, folder_eu_time = {},
+                         time_mode = True):
+    
+    assert PDDN in ['no', 'pddn', 'both'], ("PDDN_mode should be one of the following: ['no', 'pddn', 'both'].")
+
+    if PDDN == 'no':
+        print('processing without PDDN...')
+        times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
+                      wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
+                      folder_eu_time = folder_eu_time, time_mode = time_mode)
+        print('processing without PDDN done.')
+        
+    else:
+        assert Version(processingmm.__version__) >= Version('1.1'), ("Please update the processingmm package to version 1.1 or higher to use PDDN.")
+        if PDDN == 'pddn':
+            print('processing with PDDN...')
+            times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
+                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
+                        folder_eu_time = folder_eu_time, time_mode = time_mode)
+
+            print('processing with PDDN done.')
+        else:
+            print('1. processing without PDDN...')
+            times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
+                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
+                        folder_eu_time = folder_eu_time, time_mode = time_mode)
+
+            print('processing without PDDN done.')
+            print()
+            print('2. processing with PDDN.')
+            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
+                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
+                        folder_eu_time = folder_eu_time, time_mode = time_mode)
+
+            print('processing with PDDN done.')
+            
+    return times, time_complete
 
 
-def find_all_folders(directories: list, win7: bool = False):
+def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, 
+                  parameter_set: str = None, PDDN = False, remove_reflection = True, wavelengths = 'all', processing_mode = 'full',
+                  time_mode = False):
+    """
+    master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
+
+    Parameters
+    ----------
+    directories : list
+        the list of the directories in which the measurement folders are located
+    calib_directory : str
+        the path to the calibration directory
+    folder_eu_time : dict
+        used to remap the times to the correct ones (for the measurements made in Chicago)
+    run_all : bool
+        wether the processed folders should be reprocessed (default is False)
+    parameter_set : str
+        the name of the set of the parameters to be used for the visualization
+    max_nb
+    """    
+    
+    # start recording time for the whole processing
+    start = time.time()
+    
+    # get all the names of the measurement folders
+    df, wl = get_df_processing(directories, PDDN = PDDN, wavelengths = wavelengths, processing_mode = processing_mode)
+    to_process = get_to_process(df, run_all = run_all)
+
+    try:
+        os.mkdir('./temp_processing')
+    except FileExistsError:
+        pass
+
+    # get the different chunks that are used to split the processing of the data
+    if time_mode:
+        all_chunks = chunks(to_process, 2)
+    else:
+        all_chunks = chunks(to_process, 1)
+        
+    all_chunks = list(all_chunks)
+
+    for chunk in tqdm(all_chunks):
+    
+        to_process_temp = []
+        
+        try:
+            shutil.rmtree('./temp_processing')
+        except FileNotFoundError:
+            pass
+        except:
+            traceback.print_exc()
+        try:
+            os.mkdir('./temp_processing')
+        except FileExistsError:
+            pass
+
+        # move the measurement folders to the temp_processing folder
+        links_folders = {}
+        for folder in chunk:
+            links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
+            shutil.copytree(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
+            to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
+        
+        # process the mueller matrix and generate the visualizations
+        measurements_directory = './temp_processing'
+        calibration_directories, parameters_set, times = process_MM(measurements_directory, calib_directory, 
+                                                folder_eu_time = folder_eu_time, run_all = run_all, 
+                                                parameter_set = parameter_set, PDDN = PDDN, 
+                                                remove_reflection = remove_reflection, wavelengths = wl,
+                                                processing_mode = processing_mode, time_mode = time_mode)
+    
+        
+        for folder in to_process_temp:
+            try:
+                logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
+                logbook_MM_processing.write('Processed: true\n')
+                logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
+                logbook_MM_processing.write(parameters_set + '\n')
+                logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
+                import processingmm
+                logbook_MM_processing.write(processingmm.__version__)
+                logbook_MM_processing.close()
+            except:
+                logbook_MM_processing.close()
+                traceback.print_exc()
+
+        # put back the folders in the original folder
+        links_folders = {v: k for k, v in links_folders.items()}
+        for folder, temp_folder in links_folders.items():
+            try:
+                shutil.rmtree(folder, ignore_errors=True)
+            except FileNotFoundError:
+                pass
+            shutil.move(temp_folder, folder)
+    
+        try:
+            shutil.rmtree('./temp_processing')
+        except FileNotFoundError:
+            pass
+        except:
+            traceback.print_exc()
+
+    end = time.time()
+    time_complete = end - start
+    
+    try:
+        return times, time_complete
+    except UnboundLocalError:
+        return None, time_complete
+    
+def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', processing_mode = 'full'):
+    data_folder, _ = get_all_folders(directories)
+    
+    # remove the processing_logbook (old version)
+    for folder in data_folder:
+        try:
+            os.remove(os.path.join(folder, 'processing_logbook.txt'))
+        except:
+            pass
+        
+    # return two list booleans and a dict linking folders and the indication of if the folders have been processed
+    processed, data_folder_nm, wl = find_processed_folders(data_folder, PDDN = PDDN, 
+                                                    wavelengths = wavelengths, processing_mode = processing_mode)
+    df = create_folders_df(data_folder, processed, data_folder_nm,
+                           wavelengths = wl)
+    return df, wl
+
+def get_all_folders(directories: list, win7: bool = False):
     """
     walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 202x-xx-xx name format 
     and return the list of folders.
@@ -41,20 +202,21 @@ def find_all_folders(directories: list, win7: bool = False):
     
     for directory in directories:
 
-        for root, dirs, files in os.walk(directory, topdown=False):
+        for root, _, _ in os.walk(directory, topdown=False):
+
             # remove the transmission measurements
             if 'TRANSMISSION' in root:
                 pass
             else:
-                find_folder_name(root, data_folder, folder_names)
+                get_folder_name(root, data_folder, folder_names)
     
     if win7:
         return f7(data_folder), f7(folder_names)
     else:
         return list(set(data_folder)), list(set(folder_names))
-
-
-def find_folder_name(root: str, data_folder: list, folder_names: list):
+    
+    
+def get_folder_name(root: str, data_folder: list, folder_names: list):
     """
     check if a folder has the correct format: 202x-xx-xx. if yes, add it to the list of folders
 
@@ -79,6 +241,12 @@ def find_folder_name(root: str, data_folder: list, folder_names: list):
                     
     except Exception as e:
         pass
+    
+    
+def f7(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
 
 
 def find_processed_folders(data_folder: list, PDDN = False, wavelengths = 'all', processing_mode = 'full'):
@@ -87,8 +255,13 @@ def find_processed_folders(data_folder: list, PDDN = False, wavelengths = 'all',
 
     Parameters
     ----------
-    transmission : 
-        boolean indicating whether or not we are processing transmission data
+    data_folder
+    PDDN : bool
+        indicates wether denosing is used (default is False)
+    wavelengths : str or list
+        indicates which wavelenghts should be processed (default is 'all')
+    processing_mode : str
+        indicates the processing mode ('full', 'no_visualization' or 'fast', default is 'full')
     
     Returns
     -------
@@ -100,13 +273,42 @@ def find_processed_folders(data_folder: list, PDDN = False, wavelengths = 'all',
         the list of the wavelengths usable with the IMP
     
     """
-    wls = load_wavelengths()
+    
+    processed_nm, data_folder_nm = {}, {}
+    wavelengths_compare = get_wavelenghts_processing(wavelengths)
+    
+    # iterate over each folder containing data
+    for path in data_folder:
+        data, processed = [], []
 
-    processed_nm = {}
-    data_folder_nm = {}
+        for wl in wavelengths_compare:
+    
+            path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
 
+            path_polarimetry = 'polarimetry_PDDN'  if PDDN and os.path.exists(path_PDDN_model) else 'polarimetry'
+            
+            # check if raw data is available for the different measurements
+            path_wl = os.path.join(path, 'raw_data', wl) if os.path.exists(os.path.join(path, 'raw_data')) else os.path.join(path, wl)
+            data.append(is_there_data(path_wl))
+
+            if os.path.exists(os.path.join(path, path_polarimetry)):
+                try:
+                    os.mkdir(os.path.join(os.path.join(path, path_polarimetry, wl)))
+                except FileExistsError:
+                    pass
+                processed.append(is_processed(path, wl, path_polarimetry, processing_mode = processing_mode))
+            else:
+                processed.append(False)
+        
+        # add the information to lists
+        processed_nm[path] = processed
+        data_folder_nm[path] = data
+    return processed_nm, data_folder_nm, wavelengths_compare
+
+
+def get_wavelenghts_processing(wavelengths):
     if wavelengths == 'all':
-        wavelengths_compare = wls
+        wavelengths_compare = load_wavelengths()
     else:
         assert type(wavelengths) == list, ("Wavelengths should be a list of int (or string).")
         wavelengths_compare = []
@@ -117,45 +319,7 @@ def find_processed_folders(data_folder: list, PDDN = False, wavelengths = 'all',
                 if 'nm' not in wl:
                     wl = wl + 'nm'
                 wavelengths_compare.append(wl)
-    
-    # iterate over each folder containing data
-    for path in data_folder:
-        data = []
-        processed = []
-        for wl in wls:
-            if wl in wavelengths_compare:
-    
-                path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
-
-                if PDDN and os.path.exists(path_PDDN_model):
-                    path_polarimetry = 'polarimetry_PDDN'
-                else:
-                    path_polarimetry = 'polarimetry'
-                    
-                # check if raw data is available for the different measurements
-                if os.path.exists(os.path.join(path, 'raw_data')):
-                    data.append(is_there_data(os.path.join(path, 'raw_data', wl)))
-                else:
-                    data.append(is_there_data(os.path.join(path, wl)))
-                    
-                if os.path.exists(os.path.join(path, path_polarimetry)):
-                    try:
-                        os.mkdir(os.path.join(os.path.join(path, path_polarimetry, wl)))
-                    except FileExistsError:
-                        pass
-                    processed.append(is_processed(path, wl, path_polarimetry, processing_mode = processing_mode))
-                else:
-                    processed.append(False)
-            
-            else:
-                
-                pass
-        
-        # add the information to lists
-        processed_nm[path] = processed
-        data_folder_nm[path] = data
-    return processed_nm, data_folder_nm, wavelengths_compare
-
+    return wavelengths_compare
 
 def is_processed(path: str, wl: str, path_polarimetry: str, processing_mode = 'full'):
     """
@@ -288,9 +452,6 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     
     MuellerMatrices_raw = MuellerMatrices
     
-
-    start = time.time()
-    
     # and generate the different plots
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.parameters_histograms(MuellerMatrices_raw, folder)
@@ -300,11 +461,8 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
         _ = plot_polarimetry.show_MM(MuellerMatrices[folder]['nM'], folder)
         plot_polarimetry.MM_histogram(MuellerMatrices, folder)
         plot_polarimetry.save_batch(folder)
-
-    end = time.time()
-    time_plotting = end - start
     
-    start = time.time()
+
     if processing_mode == 'full':
         
         # finally, generate the visuazation with the lines
@@ -317,48 +475,10 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
 
         for folder, _ in MuellerMatrices.items():
             plot_polarimetry.save_batch(folder, viz = True)
-    end = time.time()
-    time_viz = end - start
     
     return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing, time_plotting, time_viz]
-
-
-
-def move_folders_temp(directories, target_temp, to_process, put_back: bool = False):
-    to_process_new = []
-    for folder in to_process:
-        try:
-            if type(directories) == list:
-                directories = directories[0]
-            if type(target_temp) == list:
-                target_temp = target_temp[0]
-            to_process_new.append(folder.replace(directories, target_temp))
-            if put_back:
-                shutil.rmtree(folder.replace(directories, target_temp), ignore_errors=True)
-            shutil.copytree(folder, folder.replace(directories, target_temp))
-        except FileExistsError:
-            pass
-    return to_process_new
-
-
-def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', processing_mode = 'full'):
-    data_folder, _ = find_all_folders(directories)
     
-    for folder in data_folder:
-        try:
-            os.remove(os.path.join(folder, 'processing_logbook.txt'))
-        except:
-            pass
-        
-    # return two list booleans and a dict linking folders and the indication of if the folders have been processed
-    processed, data_folder_nm, wl = find_processed_folders(data_folder, PDDN = PDDN, 
-                                                    wavelengths = wavelengths, processing_mode = processing_mode)
-    df = create_folders_df(data_folder, processed, data_folder_nm,
-                           wavelengths = wl)
-    return df, wl
-
-def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = False,
-                   wavelenghts = []):
+def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = False):
     # get the files that needs to be processed
     if len(df) == 0:
         to_process = []
@@ -377,152 +497,3 @@ def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = Fals
         to_process = list(set(list(to_process.reset_index(level=0).apply(add_path, axis = 1))))
 
     return to_process
-    
-    
-
-
-def batch_process_master(directories, calib_directory, run_all = False, parameter_set = 'TheoniPics', PDDN = 'no',
-                         wavelengths = 'all', processing_mode = 'full', remove_reflection = True, folder_eu_time = {},
-                         time_mode = True):
-    
-    assert PDDN in ['no', 'pddn', 'both'], ("PDDN_mode should be one of the following: ['no', 'pddn', 'both'].")
-
-    if PDDN == 'no':
-        print('processing without PDDN...')
-        times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
-                      wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                      folder_eu_time = folder_eu_time, time_mode = time_mode)
-        print('processing without PDDN done.')
-        
-    else:
-        assert Version(processingmm.__version__) >= Version('1.1'), ("Please update the processingmm package to version 1.1 or higher to use PDDN.")
-        if PDDN == 'pddn':
-            print('processing with PDDN...')
-            times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
-                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                        folder_eu_time = folder_eu_time, time_mode = time_mode)
-
-            print('processing with PDDN done.')
-        else:
-            print('1. processing without PDDN...')
-            times, time_complete = batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = False,
-                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                        folder_eu_time = folder_eu_time, time_mode = time_mode)
-
-            print('processing without PDDN done.')
-            print()
-            print('2. processing with PDDN.')
-            batch_process(directories, calib_directory, run_all = run_all, parameter_set = parameter_set, PDDN = True,
-                        wavelengths = wavelengths, processing_mode = processing_mode, remove_reflection = remove_reflection,
-                        folder_eu_time = folder_eu_time, time_mode = time_mode)
-
-            print('processing with PDDN done.')
-            
-    return times, time_complete
-    
-    
-    
-def batch_process(directories: list, calib_directory: str, folder_eu_time: dict = {}, run_all: bool = False, 
-                  parameter_set: str = None,  max_nb: int = None, target_temp: list = None, 
-                  PDDN = False, remove_reflection = True, wavelengths = 'all', processing_mode = 'full',
-                  time_mode = False):
-    """
-    master function allowing to apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories
-
-    Parameters
-    ----------
-    directories : list
-        the list of the directories in which the measurement folders are located
-    calib_directory : str
-        the path to the calibration directory
-    """    
-    
-    start = time.time()
-    # get all the names of the measurement folders
-    df, wl = get_df_processing(directories, PDDN = PDDN, wavelengths = wavelengths, 
-                               processing_mode = processing_mode)
-
-    to_process = get_to_process(df, run_all = run_all, wavelenghts = wl)
-    
-    if max_nb != None and target_temp != None:
-        to_process = to_process[0:max_nb]
-        to_process = move_folders_temp(directories, target_temp, to_process)
-
-    try:
-        os.mkdir('./temp_processing')
-    except FileExistsError:
-        pass
-
-    # get the different chunks that are used to split the processing of the data
-    if time_mode:
-        all_chunks = chunks(to_process, 2)
-    else:
-        all_chunks = chunks(to_process, 1)
-        
-    all_chunks = list(all_chunks)
-
-    for chunk in tqdm(all_chunks):
-    
-        to_process_temp = []
-        
-        try:
-            shutil.rmtree('./temp_processing')
-        except FileNotFoundError:
-            pass
-        except:
-            traceback.print_exc()
-        try:
-            os.mkdir('./temp_processing')
-        except FileExistsError:
-            pass
-
-        # move the measurement folders to the temp_processing folder
-        links_folders = {}
-        for folder in chunk:
-            links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
-            shutil.copytree(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
-            to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
-        
-        # process the mueller matrix and generate the visualizations
-        measurements_directory = './temp_processing'
-        calibration_directories, parameters_set, times = process_MM(measurements_directory, calib_directory, 
-                                                folder_eu_time = folder_eu_time, run_all = run_all, 
-                                                parameter_set = parameter_set, PDDN = PDDN, 
-                                                remove_reflection = remove_reflection, wavelengths = wl,
-                                                processing_mode = processing_mode, time_mode = time_mode)
-    
-        
-        for folder in to_process_temp:
-            try:
-                logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
-                logbook_MM_processing.write('Processed: true\n')
-                logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
-                logbook_MM_processing.write(parameters_set + '\n')
-                logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
-                import processingmm
-                logbook_MM_processing.write(processingmm.__version__)
-                logbook_MM_processing.close()
-            except:
-                logbook_MM_processing.close()
-                traceback.print_exc()
-
-        # put back the folders in the original folder
-        links_folders = {v: k for k, v in links_folders.items()}
-        for folder, temp_folder in links_folders.items():
-            try:
-                shutil.rmtree(folder, ignore_errors=True)
-            except FileNotFoundError:
-                pass
-            shutil.move(temp_folder, folder)
-    
-        try:
-            shutil.rmtree('./temp_processing')
-        except FileNotFoundError:
-            pass
-        except:
-            traceback.print_exc()
-
-    end = time.time()
-    time_complete = end - start
-    
-    return times, time_complete

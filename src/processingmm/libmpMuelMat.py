@@ -360,6 +360,7 @@ def _get_validDataMAT():
 
     return validDataMAT
 
+import time
 
 def read_cod_data_X3D(input_cod_Filename, CamType=None, isRawFlag=0, VerboseFlag=0):
     '''# Function to read (load) stacked 3D data from the camera acquisition or other exported dataset in '.cod' binary format.
@@ -397,7 +398,8 @@ def read_cod_data_X3D(input_cod_Filename, CamType=None, isRawFlag=0, VerboseFlag
 
     # Reading the Data (loading) NB: binary data is float, but the output array is *cast* to double
     with open(input_cod_Filename, "rb") as f:
-        X3D = np.fromfile(f, dtype=np.single).astype(np.double)
+        X3D = np.fromfile(f, dtype=np.single)
+        X3D = X3D.astype(np.double)
         f.close()
 
     if isRawFlag:
@@ -486,9 +488,10 @@ def read_cod_data_X2D(input_cod_Filename, CamType=None, VerboseFlag=0):
 
     # Reading the Data (loading) NB: binary data is float, but the output array is *cast* to double
     with open(input_cod_Filename, "rb") as f:
-        X2D = np.fromfile(f, dtype=np.single).astype(np.double)
+        X3D = np.fromfile(f, dtype=np.single)
+        X3D = X3D.astype(np.double)
         f.close()
-
+        
     # Reshaping the imported array (already C-like)
     X2D = X2D.reshape(shp2)
 

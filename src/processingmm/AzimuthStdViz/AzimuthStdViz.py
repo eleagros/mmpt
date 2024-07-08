@@ -1,22 +1,27 @@
 import os
-from tqdm import tqdm
 
 import numpy as np
-from scipy.stats import circstd
+from numpy import pi
+
+import time
+
+import io
 
 from PIL import Image
 import cv2
 import matplotlib.pyplot as plt
 from matplotlib import cm
-import matplotlib.cbook
 import matplotlib.colors as clr
 import pickle
 import copy
 
-import warnings
+import traceback
+
+from scipy.stats import circstd
 
 from processingmm.helpers import rotate_parameter
 
+from numba import jit
 
 def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array = None, MM_computation: bool = False, angle_correction = 0):
     """
@@ -44,50 +49,80 @@ def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array =
         else:
             pass
         
-        # initialize the azimuth std
-        azimuth_std = np.zeros((round(azimuth.shape[0]), round(azimuth.shape[1])))
-        
-        # iterate over the pixels
-        for idx in range(0, len(azimuth), 1):
-            for idy in range(0, len(azimuth[0]), 1):
-                try:
-                    # extract the azimuth in a square around the pixel and compute the std
-                    if (sq_size % 2) == 0:
-                        neighbors = azimuth[idx-sq_size//2:idx+sq_size//2,idy-sq_size//2:idy+sq_size//2]
-                    else:
-                        neighbors = azimuth[idx-sq_size//2:idx+sq_size//2+1,idy-sq_size//2-1:idy+sq_size//2]
-
-                    assert neighbors.shape == ((sq_size,sq_size))
-                    std = circstd(neighbors, high=180, low=0)
-                    try:
-                        azimuth_std[idx, idy] = std
-                    except:
-                        pass
-                except:
-                    pass
-        
-        azimuth_std = rotate_parameter(azimuth_std, angle_correction)
+        # implementation using jit - improvement of a factor 7
+        result = apply_circular_std(azimuth * 2 * pi / 180)
+        azimuth_std = result * 180 / (2 * pi)
+                
+        if angle_correction != 0:
+            azimuth_std = rotate_parameter(azimuth_std, angle_correction)
                             
         # remove the std > 40 for visualization purposes
         azimuth_stds[folder] = copy.deepcopy(azimuth_std)
         azimuth_std[azimuth_std > 40] = 40
 
         # load the GM/WM mask and plot the azimuth noise
-        try:
-            path_mask = os.path.join(folder, 'histology', 'labels_augmented_GM_WM_masked.png')
-            mask = np.asarray(Image.open(path_mask))
-            plot_azimuth_noise(azimuth_std, folder, mask)
-        except:
-            try:
-                path_mask = os.path.join(folder, 'annotation', 'merged.png')
-                mask = np.asarray(Image.open(path_mask))
-                plot_azimuth_noise(azimuth_std, folder, mask, healthy= True, plot = MM_computation)
-            except:
-                plot_azimuth_noise(azimuth_std, folder, mask = None, plot = MM_computation)
-                
+        if os.path.exists(os.path.join(folder, 'histology', 'labels_augmented_GM_WM_masked.png')):
+            healthy = False
+            mask = np.asarray(Image.open(os.path.join(folder, 'histology', 'labels_augmented_GM_WM_masked.png')))
+        elif os.path.exists(os.path.join(folder, 'annotation', 'merged.png')):
+            healthy = True
+            mask = np.asarray(Image.open(os.path.join(folder, 'annotation', 'merged.png')))
+        else:
+            healthy = False
+            mask = None
+            
+        plot_azimuth_noise(azimuth_std, folder, mask = mask, healthy = healthy, plot = MM_computation) 
+        
         plt.close()
         
     return azimuth_stds
+
+@jit(nopython=True)
+def circular_mean(angles):
+    """
+    Calculate the circular mean of angles in radians.
+    """
+    sin_sum = 0.0
+    cos_sum = 0.0
+    for angle in angles:
+        sin_sum += np.sin(angle)
+        cos_sum += np.cos(angle)
+    return np.arctan2(sin_sum, cos_sum)
+
+@jit(nopython=True)
+def circular_standard_deviation(angles):
+    """
+    Calculate the circular standard deviation for a set of angles in radians.
+    """
+    mean_angle = circular_mean(angles)
+    sin_sum = 0.0
+    cos_sum = 0.0
+    for angle in angles:
+        sin_sum += np.sin(angle - mean_angle)
+        cos_sum += np.cos(angle - mean_angle)
+    R = np.sqrt(sin_sum**2 + cos_sum**2) / len(angles)
+    circ_std_dev = np.sqrt(-2 * np.log(R))
+    return circ_std_dev
+
+@jit(nopython=True)
+def apply_circular_std(arr):
+    """
+    Apply the circular standard deviation function over a 2D array.
+    """
+    rows, cols = arr.shape
+    result = np.zeros_like(arr)
+    for i in range(rows):
+        for j in range(cols):
+
+            window = []
+            for di in range(-2, 2):
+                for dj in range(-2, 2):
+                    ni, nj = i + di, j + dj
+                    if 0 <= ni < rows and 0 <= nj < cols:
+                        window.append(arr[ni, nj])
+            window = np.array(window)
+            result[i, j] = circular_standard_deviation(window)
+    return result
 
 
 def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healthy: bool = False, plot: bool = False):
@@ -153,11 +188,12 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
         
     
     
+    fig, ax = plt.subplots()
+    
     # plot the azimuth std
     if plot:
         path_save_img = os.path.join(folder, 'azimuth_noise_img.png')
         plt.imsave(path_save_img, azimuth_std, cmap = cmap_colorbar, vmin = 0, vmax = 40)
-    
         ax.imshow(azimuth_std, cmap = cmap_colorbar, norm = norm_colorbar)
     else:
         ax.imshow(azimuth_std, cmap = cmap_plt)
@@ -175,6 +211,7 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
     plt.xticks([])
     plt.yticks([])
     
+
     if plot:
         plt.savefig(os.path.join(folder, 'azimuth_noise.pdf'))
         plt.savefig(os.path.join(folder, 'azimuth_noise.png'))
@@ -187,6 +224,7 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
         with open(os.path.join(folder, 'histology', 'azimuth_noise.pickle'), 'wb') as handle:
             pickle.dump(azimuth_std, handle, protocol=pickle.HIGHEST_PROTOCOL)
         plt.savefig(os.path.join(folder, 'histology', 'azimuth_noise.pdf'))
+        
     
     
 def get_edges(mask: np.array, healthy: bool = False):
