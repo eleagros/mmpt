@@ -163,7 +163,7 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
     # create and normalize the colormap
     cmap_plt = clr.LinearSegmentedColormap.from_list('azimuth_std_plt', colors, n_bins)    
     
-    _, ax = plt.subplots(figsize = (15,10))
+    fig, ax = plt.subplots(figsize = (15,11))
     
     if mask is None:
         pass
@@ -185,10 +185,6 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
             for idy, y in enumerate(x):
                 if y != 0:
                     azimuth_std[idx, idy] = 45
-        
-    
-    
-    fig, ax = plt.subplots()
     
     # plot the azimuth std
     if plot:
@@ -197,7 +193,6 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
         ax.imshow(azimuth_std, cmap = cmap_colorbar, norm = norm_colorbar)
     else:
         ax.imshow(azimuth_std, cmap = cmap_plt)
-    ax = plt.gca()
 
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm_colorbar, cmap=cmap_colorbar), pad = 0.02, 
@@ -213,8 +208,8 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
     
 
     if plot:
-        plt.savefig(os.path.join(folder, 'azimuth_noise.pdf'))
-        plt.savefig(os.path.join(folder, 'azimuth_noise.png'))
+        plt.savefig(os.path.join(folder, 'azimuth_noise.pdf'), dpi = 20)
+        plt.savefig(os.path.join(folder, 'azimuth_noise.png'), dpi = 80)
     else:
         try:
             os.remove(os.path.join(folder, 'annotation', 'azimuth_noise.pdf'))

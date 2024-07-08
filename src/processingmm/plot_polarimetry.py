@@ -2,12 +2,16 @@ import numpy as np
 import os
 import cv2
 
+import time
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib import cm
 
 from processingmm.helpers import load_parameter_maps, get_cmap, load_plot_parameters, load_combined_plot_name, load_filenames_combined_plot
 
+from matplotlib import rcParams
+rcParams['backend'] = 'Agg'
 
 def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
     """
@@ -24,12 +28,9 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
     """
     parameters_map = load_parameter_maps()
 
-    try:
-        parameters_map.pop('M11')
-    except:
-        pass
+    parameters_map.pop('M11', None)
     
-    _, axes = plt.subplots(nrows=2, ncols=2, figsize=(15,11))
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(15, 11))
     
     for i, (key, param) in zip(range(0,4), parameters_map.items()):
         row = i%2
@@ -46,23 +47,19 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
         else:
             range_hist = (0, 60)
         
+        data = MuellerMatrices[folder][key]
         y, x = np.histogram(
-            MuellerMatrices[folder][key],
+            data,
             bins=500,
             density=False,
             range = range_hist)
         
-        x_plot = []
-        for idx, x_ in enumerate(x):
-            try: 
-                x_plot.append((x[idx] + x[idx + 1]) / 2)
-            except:
-                assert len(x_plot) == 500
+        x_plot = (x[:-1] + x[1:]) / 2
         
         # get the mean, max and std
-        max_ = x[np.argmax(y)]
-        mean = np.nanmean(MuellerMatrices[folder][key])
-        std = np.nanstd(MuellerMatrices[folder][key])
+        max_val = x[np.argmax(y)]
+        mean = np.nanmean(data)
+        std = np.nanstd(data)
         
         y = y / np.max(y)
         
@@ -73,13 +70,13 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
         ax.locator_params(axis='x', nbins=5)
     
         if max_:
-            ax.text(0.75, 0.85, '$\mu$ = {:.3f}\n$\sigma$ = {:.3f}'.format(mean, std, max_), 
-                    horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, 
-                    fontsize=25, fontweight = 'bold')
+            text = f'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}\nmax = {max_val:.3f}'
         else:
-            ax.text(0.75, 0.85, '$\mu$ = {:.3f}\n$\sigma$ = {:.3f}'.format(mean, std), 
-                    horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, 
-                    fontsize=25, fontweight = 'bold')
+            text = f'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}'
+            
+        ax.text(0.75, 0.85, text,
+                horizontalalignment='center', verticalalignment='center', transform=ax.transAxes,
+                fontsize=25, fontweight='bold')
         
         for tick in ax.xaxis.get_major_ticks():
             tick.label1.set_fontsize(22)
@@ -93,9 +90,13 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
         
     # save the figures
     plt.tight_layout()
-    plt.savefig(os.path.join(folder, 'parameters_histogram.png'))
-    plt.savefig(os.path.join(folder, 'parameters_histogram.pdf'))
     
+    path_png = os.path.join(folder, 'parameters_histogram.png')
+    path_pdf = os.path.join(folder, 'parameters_histogram.pdf')
+
+    fig.savefig(path_png, dpi=80)  # Adjust DPI as needed
+    fig.savefig(path_pdf, dpi=20)  # Adjust DPI as needed
+        
     plt.close()
 
 
@@ -164,17 +165,8 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     if parameter == 'intensity':
         X2D = X2D / 10000
 
-    # rescale the matrices to have the right color bars
-    X2D[X2D < cbar_min] = cbar_min
-    X2D[X2D > cbar_max] = cbar_max
-    if len(X2D[X2D < cbar_min]) != 0:
-        pass
-    else:
-        X2D[-1, -1] = cbar_min
-    if len(X2D[X2D > cbar_max]) != 0:
-        pass
-    else:
-        X2D[-1, 0] = cbar_max
+    # Rescale the matrices to have the right color bars
+    np.clip(X2D, cbar_min, cbar_max, out=X2D)
 
     # 1. save the plot as an image only
     path_save_img = path_save.replace('.png', '_img.png')
@@ -182,13 +174,12 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
 
     # 2. save the plot with the colorbar and title
     fig, ax = plt.subplots(figsize = (15,10))
-    ax.imshow(X2D, cmap = cmap)
-    ax = plt.gca()
+    cax = ax.imshow(X2D, cmap=cmap, norm=norm)
 
     # format the color bar
-    cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), pad = 0.02, 
-                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06, ax = ax)
-    cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max+cbar_step, cbar_step)], 
+    cbar = fig.colorbar(cax, ax=ax, pad=0.02, 
+                        ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
+    cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max + cbar_step, cbar_step)], 
                             fontsize=40, weight='bold')
     
     if parameter == 'intensity':
@@ -198,10 +189,11 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
     plt.xticks([])
     plt.yticks([])
-    plt.savefig(path_save)
-    plt.savefig(path_save.replace('.png', '.pdf'))
-    plt.close('all')
-
+    
+    fig.savefig(path_save, dpi=80)  # Adjust DPI as needed
+    fig.savefig(path_save.replace('.png', '.pdf'), dpi=20)
+    plt.close(fig)
+    
     # 3. for the intensity, save the realsize image
     if parameter == 'intensity':
         folder = folder.replace('\\', '/')
@@ -424,8 +416,8 @@ def show_MM(X3D, folder):
     plt.xticks([])
     plt.yticks([])
     plt.title('Mueller Matrix', fontsize=40, fontweight="bold", pad=20)
-    plt.savefig(os.path.join(folder, 'MM.' + 'png'))
-    plt.savefig(os.path.join(folder, 'MM.' + 'pdf'))
+    plt.savefig(os.path.join(folder, 'MM.' + 'png'), dpi = 100)
+    plt.savefig(os.path.join(folder, 'MM.' + 'pdf'), dpi = 20)
     plt.close()
     
     return X_montage

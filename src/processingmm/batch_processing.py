@@ -108,13 +108,8 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
             os.mkdir('./temp_processing')
         except FileExistsError:
             pass
-
-        # move the measurement folders to the temp_processing folder
-        links_folders = {}
-        for folder in chunk:
-            links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
-            shutil.copytree(folder, os.path.join('./temp_processing', folder.split('\\')[-1]))
-            to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
+        
+        links_folders, to_process_temp = move_the_folders_pre_processing(chunk, to_process_temp)
         
         # process the mueller matrix and generate the visualizations
         measurements_directory = './temp_processing'
@@ -147,7 +142,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
             except FileNotFoundError:
                 pass
             shutil.move(temp_folder, folder)
-    
+
         try:
             shutil.rmtree('./temp_processing')
         except FileNotFoundError:
@@ -163,6 +158,26 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
     except UnboundLocalError:
         return None, time_complete
     
+    
+def move_the_folders_pre_processing(chunk: list, to_process_temp):
+    
+    # move the measurement folders to the temp_processing folder
+    links_folders = {}
+    for folder in chunk:
+        links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
+        os.mkdir(os.path.join('./temp_processing', folder.split('\\')[-1]))
+        for file in os.listdir(os.path.join(folder, 'raw_data')):
+            src = os.path.join(folder, 'raw_data', file)
+            dst = os.path.join('./temp_processing', folder.split('\\')[-1], file)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy(src, dst)
+        to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
+        
+    return links_folders, to_process_temp
+            
+            
 def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', processing_mode = 'full'):
     data_folder, _ = get_all_folders(directories)
     
@@ -448,22 +463,23 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
                                         run_all = run_all, batch_processing = True, Flag = False, PDDN = PDDN,
                                         wavelengths = wavelengths, processing_mode = processing_mode, time_mode = time_mode)
     
-    [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing] = times
-    
     MuellerMatrices_raw = MuellerMatrices
     
     start = time.time()
+    
     # and generate the different plots
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.parameters_histograms(MuellerMatrices_raw, folder)
-
+    
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.generate_plots(MuellerMatrices, folder)
         _ = plot_polarimetry.show_MM(MuellerMatrices[folder]['nM'], folder)
         plot_polarimetry.MM_histogram(MuellerMatrices, folder)
         plot_polarimetry.save_batch(folder)
+        
     end = time.time()
     time_plotting = end - start
+    times['plotting'] = time_plotting
 
     if processing_mode == 'full':
         
@@ -478,7 +494,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
         for folder, _ in MuellerMatrices.items():
             plot_polarimetry.save_batch(folder, viz = True)
     
-    return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing, time_plotting]
+    return calibration_directories, parameter_set, times
     
 def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = False):
     # get the files that needs to be processed

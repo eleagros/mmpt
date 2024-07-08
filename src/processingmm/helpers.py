@@ -365,7 +365,8 @@ def save_file_as_npz(variable: dict, path: str, processing_mode = 'full'):
     path : str
         the path in which the MM should be saved
     """
-    if processing_mode == 'full' or processing_mode == 'no_visualization':
+    np.savez(path, **variable)
+    """if processing_mode == 'full' or processing_mode == 'no_visualization':
         np.savez_compressed(path, 
                             Intensity = variable['Intensity'],
                             M11 = variable['M11'],
@@ -383,7 +384,7 @@ def save_file_as_npz(variable: dict, path: str, processing_mode = 'full'):
                             totD = variable['totD'],
                             linR = variable['linR'],
                             azimuth = variable['azimuth'],
-                            totP = variable['totP'])
+                            totP = variable['totP'])"""
     
 
 def rotate_maps_90_deg(map_resize: np.ndarray, azimuth = False):
