@@ -95,7 +95,7 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
     path_pdf = os.path.join(folder, 'parameters_histogram.pdf')
 
     fig.savefig(path_png, dpi=80)  # Adjust DPI as needed
-    fig.savefig(path_pdf, dpi=20)  # Adjust DPI as needed
+    fig.savefig(path_pdf, dpi=100) # Adjust DPI as needed
         
     plt.close()
 
@@ -191,7 +191,7 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     plt.yticks([])
     
     fig.savefig(path_save, dpi=80)  # Adjust DPI as needed
-    fig.savefig(path_save.replace('.png', '.pdf'), dpi=20)
+    fig.savefig(path_save.replace('.png', '.pdf'), dpi=100)
     plt.close(fig)
     
     # 3. for the intensity, save the realsize image
@@ -417,7 +417,7 @@ def show_MM(X3D, folder):
     plt.yticks([])
     plt.title('Mueller Matrix', fontsize=40, fontweight="bold", pad=20)
     plt.savefig(os.path.join(folder, 'MM.' + 'png'), dpi = 100)
-    plt.savefig(os.path.join(folder, 'MM.' + 'pdf'), dpi = 20)
+    plt.savefig(os.path.join(folder, 'MM.' + 'pdf'), dpi = 100)
     plt.close()
     
     return X_montage
