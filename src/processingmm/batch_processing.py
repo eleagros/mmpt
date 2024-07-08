@@ -452,6 +452,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
     
     MuellerMatrices_raw = MuellerMatrices
     
+    start = time.time()
     # and generate the different plots
     for folder, _ in MuellerMatrices.items():
         plot_polarimetry.parameters_histograms(MuellerMatrices_raw, folder)
@@ -461,7 +462,8 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
         _ = plot_polarimetry.show_MM(MuellerMatrices[folder]['nM'], folder)
         plot_polarimetry.MM_histogram(MuellerMatrices, folder)
         plot_polarimetry.save_batch(folder)
-    
+    end = time.time()
+    time_plotting = end - start
 
     if processing_mode == 'full':
         
@@ -476,7 +478,7 @@ def process_MM(measurement_directory: str, calib_directory: str, folder_eu_time:
         for folder, _ in MuellerMatrices.items():
             plot_polarimetry.save_batch(folder, viz = True)
     
-    return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing, time_plotting, time_viz]
+    return calibration_directories, parameter_set, [time_MM_processing, time_azimuth_std_processing, time_denoising, time_save_npz, time_full_processing, time_plotting]
     
 def get_to_process(df: pd.DataFrame, run_all: bool = False, inverse: bool = False):
     # get the files that needs to be processed
