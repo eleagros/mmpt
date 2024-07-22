@@ -208,7 +208,7 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
     
 
     if plot:
-        plt.savefig(os.path.join(folder, 'azimuth_noise.pdf'), dpi = 20)
+        plt.savefig(os.path.join(folder, 'azimuth_noise.pdf'), dpi = 100)
         plt.savefig(os.path.join(folder, 'azimuth_noise.png'), dpi = 80)
     else:
         try:

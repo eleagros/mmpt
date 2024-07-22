@@ -137,11 +137,27 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
         # put back the folders in the original folder
         links_folders = {v: k for k, v in links_folders.items()}
         for folder, temp_folder in links_folders.items():
-            try:
-                shutil.rmtree(folder, ignore_errors=True)
-            except FileNotFoundError:
-                pass
-            shutil.move(temp_folder, folder)
+            if PDDN:
+                to_remove = ['polarimetry']
+            else:
+                to_remove = ['polarimetry_PDDN']
+                    
+            for fold in os.listdir(temp_folder):
+                
+                if fold == to_remove[0]:
+                    pass
+                elif fold == 'MMProcessing.txt':
+                    shutil.copy(os.path.join(temp_folder, fold), os.path.join(folder, fold))
+                else:
+                    try:
+                        shutil.rmtree(os.path.join(folder, fold))
+                    except FileNotFoundError:
+                        pass
+                    except:
+                        traceback.print_exc()
+                    
+                    shutil.move(os.path.join(temp_folder, fold), os.path.join(folder, fold))
+            
 
         try:
             shutil.rmtree('./temp_processing')
