@@ -144,7 +144,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
                     
             for fold in os.listdir(temp_folder):
                 
-                if fold == to_remove[0]:
+                if fold == to_remove[0] or fold == 'annotation' or fold == 'histology':
                     pass
                 elif fold == 'MMProcessing.txt':
                     shutil.copy(os.path.join(temp_folder, fold), os.path.join(folder, fold))
