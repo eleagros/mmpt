@@ -180,8 +180,20 @@ def move_the_folders_pre_processing(chunk: list, to_process_temp):
     # move the measurement folders to the temp_processing folder
     links_folders = {}
     for folder in chunk:
+
         links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
         os.mkdir(os.path.join('./temp_processing', folder.split('\\')[-1]))
+
+        if 'raw_data' in os.listdir(folder):
+            pass
+        else:
+            os.mkdir(os.path.join(folder, 'raw_data'))
+            for file in os.listdir(folder):
+                if file != 'raw_data':
+                    src = os.path.join(folder, file)
+                    dst = os.path.join(folder, 'raw_data', file)
+                    shutil.move(src, dst)
+            
         for file in os.listdir(os.path.join(folder, 'raw_data')):
             src = os.path.join(folder, 'raw_data', file)
             dst = os.path.join('./temp_processing', folder.split('\\')[-1], file)
@@ -189,6 +201,7 @@ def move_the_folders_pre_processing(chunk: list, to_process_temp):
                 shutil.copytree(src, dst)
             else:
                 shutil.copy(src, dst)
+
         to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
         
     return links_folders, to_process_temp
