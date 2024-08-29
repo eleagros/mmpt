@@ -143,7 +143,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
                 to_remove = ['polarimetry_PDDN']
                     
             for fold in os.listdir(temp_folder):
-                
+                                
                 if fold == to_remove[0] or fold == 'annotation' or fold == 'histology':
                     pass
                 elif fold == 'MMProcessing.txt':
@@ -158,7 +158,6 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
                     
                     shutil.move(os.path.join(temp_folder, fold), os.path.join(folder, fold))
             
-
         try:
             shutil.rmtree('./temp_processing')
         except FileNotFoundError:
@@ -209,7 +208,7 @@ def move_the_folders_pre_processing(chunk: list, to_process_temp):
             
 def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', processing_mode = 'full'):
     data_folder, _ = get_all_folders(directories)
-    
+
     # remove the processing_logbook (old version)
     for folder in data_folder:
         try:
@@ -220,6 +219,7 @@ def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', proc
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
     processed, data_folder_nm, wl = find_processed_folders(data_folder, PDDN = PDDN, 
                                                     wavelengths = wavelengths, processing_mode = processing_mode)
+
     df = create_folders_df(data_folder, processed, data_folder_nm,
                            wavelengths = wl)
     return df, wl

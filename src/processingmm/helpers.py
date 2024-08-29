@@ -438,8 +438,16 @@ def is_there_data(path: str):
     """
 
     data_exist = False
+    all_files = os.listdir(path)
+    files = []
+    for f in all_files:
+        if 'PDDN' in f or 'aligned' in f:
+            pass
+        else:
+            files.append(f)
+    
     try:
-        data_exist = len(os.listdir(path)) == 2 or len(os.listdir(path)) == 3
+        data_exist = len(files) == 2
     except FileNotFoundError:
         data_exist = False
 

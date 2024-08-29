@@ -107,3 +107,5 @@ ENV/
 temp_processing/
 
 src/processingmm/PDDN_model
+superglue/
+Fiji.app/
