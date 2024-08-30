@@ -29,13 +29,17 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
         condition_process = exists < len(paths) or run_all
 
         if condition_process:
-
+            
+            fixed_intensities = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '550nm', '550_Intensite.cod'), isRawFlag = 1)
+            moving_intensities = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod'), isRawFlag = 1)
+            img = (fixed_intensities[:,:,0] / np.max(fixed_intensities[:,:,0]) * 255).astype(np.uint8)
+            moving = (moving_intensities[:,:,0] / np.max(moving_intensities[:,:,0]) * 255).astype(np.uint8)
             # get the paths to the 550nm and 600nm grayscale image and load the 550nm image
-            image_550nm_path = os.path.join(folder, 'polarimetry', '550nm', 'Intensity_img.png')
-            image_600nm_path = os.path.join(folder, 'polarimetry', '600nm', 'Intensity_img.png')
-            img = np.array(Image.open(image_550nm_path).convert('L'))
-            moving = np.array(Image.open(image_600nm_path).convert('L'))
-
+            # image_550nm_path = os.path.join(folder, 'polarimetry', '550nm', 'Intensity_img.png')
+            # image_600nm_path = os.path.join(folder, 'polarimetry', '600nm', 'Intensity_img.png')
+            # img = np.array(Image.open(image_550nm_path).convert('L'))
+            # moving = np.array(Image.open(image_600nm_path).convert('L'))
+            
             try:
                 shutil.rmtree('temp')
             except FileNotFoundError:
@@ -43,12 +47,15 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
             os.mkdir('temp')
 
             # copy the images into a temporary folder
-            source = image_550nm_path
-            dst = os.path.join('temp', '550nm_intensity.png')
-            shutil.copy(source, dst)
-            source = image_600nm_path
-            dst = os.path.join('temp', '600nm_intensity.png')
-            shutil.copy(source, dst)
+            # source = image_550nm_path
+            # dst = os.path.join('temp', '550nm_intensity.png')            
+            # shutil.copy(source, dst)
+            Image.fromarray(img).save(os.path.join('temp', '550nm_intensity.png'))
+
+            # source = image_600nm_path
+            # dst = os.path.join('temp', '600nm_intensity.png')
+            # shutil.copy(source, dst)
+            Image.fromarray(moving).save(os.path.join('temp', '600nm_intensity.png'))
 
             # run superglue to get matching points between 550nm and 600nm grayscale image
             path_superglue = os.path.join('superglue', 'demo_superglue.py')
