@@ -6,8 +6,10 @@ import cv2
 from processingmm import libmpMuelMat, batch_processing
 import matplotlib.pyplot as plt
 import imageio
+import sys
+import SimpleITK as sitk
 
-def align_wavelenghts(directories, PDDN, run_all):
+def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
     data_folder, _ = batch_processing.get_all_folders(directories)
 
     for folder in data_folder:
@@ -26,13 +28,13 @@ def align_wavelenghts(directories, PDDN, run_all):
             exists += os.path.exists(path)
         condition_process = exists < len(paths) or run_all
 
-
         if condition_process:
 
             # get the paths to the 550nm and 600nm grayscale image and load the 550nm image
             image_550nm_path = os.path.join(folder, 'polarimetry', '550nm', 'Intensity_img.png')
             image_600nm_path = os.path.join(folder, 'polarimetry', '600nm', 'Intensity_img.png')
             img = np.array(Image.open(image_550nm_path).convert('L'))
+            moving = np.array(Image.open(image_600nm_path).convert('L'))
 
             try:
                 shutil.rmtree('temp')
@@ -55,7 +57,7 @@ def align_wavelenghts(directories, PDDN, run_all):
             except FileNotFoundError:
                 pass
             os.mkdir('temp_output')
-            cmd = r'python ' + path_superglue + r' --input temp/ --output_dir temp_output --no_display'
+            cmd = r'python ' + path_superglue + r' --input temp/ --output_dir temp_output --no_display --resize -1'
             os.system(cmd)
 
             # recover the matching points and save them into a text file
@@ -70,10 +72,15 @@ def align_wavelenghts(directories, PDDN, run_all):
 
             # create and save the indexes image to propagate and run the imagej macro
             to_propagate = create_propagation_img(img)
-            cv2.imwrite(os.path.join('temp', 'to_align_x.tif'), to_propagate[0])
-            cv2.imwrite(os.path.join('temp', 'to_align_y.tif'), to_propagate[1])
-            os.system('python processing_ij.py ' + os.path.abspath(""))
-
+            if imgj_processing:
+                cv2.imwrite(os.path.join('temp', 'to_align_x.tif'), to_propagate[0])
+                cv2.imwrite(os.path.join('temp', 'to_align_y.tif'), to_propagate[1])
+                os.system('python processing_ij.py ' + os.path.abspath(""))
+            else:
+                # processing with python wrapper for simple elastix
+                resampled_imgs = align_with_sitk(img, moving, to_propagate, matching_points)
+            
+            
             intensities = []
             if PDDN == 'both':
                 intensities.append(libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN.cod'), isRawFlag = 0))
@@ -84,8 +91,13 @@ def align_wavelenghts(directories, PDDN, run_all):
                 intensities.append(libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod'), isRawFlag = 1))
 
             # load the remapping matrices
-            remapping_x = np.array(Image.open(os.path.join('temp', 'registered_img_brightfield_x.tif')))
-            remapping_y = np.array(Image.open(os.path.join('temp', 'registered_img_brightfield_y.tif')))
+            if imgj_processing:
+                remapping_x = np.array(Image.open(os.path.join('temp', 'registered_img_brightfield_x.tif')))
+                remapping_y = np.array(Image.open(os.path.join('temp', 'registered_img_brightfield_y.tif')))
+            else:
+                remapping_x = resampled_imgs[0]
+                remapping_y = resampled_imgs[1]
+                
             intensities_remapped = []
             for id_remapped in range(len(intensities)):
                 intensities_remapped.append(np.zeros(intensities[0].shape))
@@ -120,7 +132,7 @@ def align_wavelenghts(directories, PDDN, run_all):
                 final = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'), isRawFlag = 0)
             target = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '550nm', '550_Intensite.cod'), isRawFlag = 1)
 
-            show_output(initial, final, target, folder)
+            show_output(initial, final, target, folder, imgj_processing = imgj_processing)
 
     try:
         shutil.rmtree('temp')
@@ -132,7 +144,35 @@ def align_wavelenghts(directories, PDDN, run_all):
     except FileNotFoundError:
         pass
     
+def align_with_sitk(fixed_arr, moving_arr, to_propagate, matching_points):
+    fixed_image = sitk.GetImageFromArray(fixed_arr)
     
+    # set up the matching points
+    fixed_points = matching_points[0]
+    moving_points = matching_points[1]
+    fixed_landmarks = fixed_points.astype(np.uint16).flatten().tolist()
+    moving_landmarks = moving_points.astype(np.uint16).flatten().tolist()
+    
+    # set up the bspline transform
+    transform = sitk.BSplineTransformInitializer(fixed_image, (2, 2), 3)
+    landmark_initializer = sitk.LandmarkBasedTransformInitializerFilter()
+    landmark_initializer.SetFixedLandmarks(fixed_landmarks)
+    landmark_initializer.SetMovingLandmarks(moving_landmarks)
+    landmark_initializer.SetBSplineNumberOfControlPoints(8)
+    landmark_initializer.SetReferenceImage(fixed_image)
+    landmark_initializer.Execute(transform)
+    output_transform = landmark_initializer.Execute(transform)
+
+    # resample the moving images
+    interpolator = sitk.sitkNearestNeighbor
+    moving_images = [sitk.GetImageFromArray(to_propagate[0]), sitk.GetImageFromArray(to_propagate[1]),
+                     sitk.GetImageFromArray(moving_arr)]
+    resampled_images = []
+    for moving_img in moving_images:
+        resampled_images.append(sitk.GetArrayFromImage(sitk.Resample(moving_img, fixed_image, output_transform, interpolator, 0)))
+                                
+    return resampled_images
+                                
 def write_mp_fp_txt_format(mp_fp):
 
     # write the header
@@ -209,7 +249,7 @@ def generate_gif_reconstruction(img1 = None, img2 = None, gif_save_path = None):
         print('The folder tmp_gif could not be removed. Please remove it manually.')
         
 
-def show_output(initial, final, target, folder):
+def show_output(initial, final, target, folder, imgj_processing = False):
     
     folder_save_alignment = os.path.join(folder, 'annotation', 'alignment')
     try:
@@ -233,7 +273,13 @@ def show_output(initial, final, target, folder):
     final = (final[:,:,0] / np.max(final[:,:,0]) * 255).astype(np.uint8)
     target = (target[:,:,0] / np.max(target[:,:,0]) * 255).astype(np.uint8)
     
-    generate_gif_reconstruction(Image.fromarray(initial), Image.fromarray(target), 
-                                os.path.join(folder_save_alignment, 'initial_vs_target.gif'))
-    generate_gif_reconstruction(Image.fromarray(final), Image.fromarray(target), 
-                                os.path.join(folder_save_alignment, 'final_vs_target.gif'))
+    if imgj_processing:
+        generate_gif_reconstruction(Image.fromarray(initial), Image.fromarray(target), 
+                                    os.path.join(folder_save_alignment, 'initial_vs_target_imgj.gif'))
+        generate_gif_reconstruction(Image.fromarray(final), Image.fromarray(target), 
+                                    os.path.join(folder_save_alignment, 'final_vs_target_imgj.gif'))
+    else:
+        generate_gif_reconstruction(Image.fromarray(initial), Image.fromarray(target), 
+                                    os.path.join(folder_save_alignment, 'initial_vs_target_python.gif'))
+        generate_gif_reconstruction(Image.fromarray(final), Image.fromarray(target), 
+                                    os.path.join(folder_save_alignment, 'final_vs_target_python.gif'))
