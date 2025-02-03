@@ -163,8 +163,8 @@ def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_
         the path to the calibration directory with the date closest to the folder given as in input
     """
     # get the date of the measurement of the folder that is currently being processed
-    if path.split('temp_processing\\')[1] in folder_eu_time.keys():
-        date_measurement = folder_eu_time[path.split('temp_processing\\')[1]]
+    if path.split('temp_processing/')[1] in folder_eu_time.keys():
+        date_measurement = folder_eu_time[path.split('temp_processing/')[1]]
     else:
         date_measurement = get_date_measurement(path, idx)
 
@@ -182,8 +182,8 @@ def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_
             
             all_wl = True
             for d in directories:
-                path_A = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_B0.cod')
-                path_W = os.path.join(calib_directory, directory, d.split('\\')[-1], d.split('\\')[-1].split('nm')[0] + '_Bruit.cod')
+                path_A = os.path.join(calib_directory, directory, d.split('/')[-1], d.split('/')[-1].split('nm')[0] + '_B0.cod')
+                path_W = os.path.join(calib_directory, directory, d.split('/')[-1], d.split('/')[-1].split('nm')[0] + '_Bruit.cod')
                 if os.path.isfile(path_A) and os.path.isfile(path_W):
                     pass
                 else:
@@ -240,7 +240,7 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, di
     # get the list of the wavelengths that needs to be checked
     wavelenghts_check = []
     for d in directories:
-        wavelenghts_check.append(d.split('\\')[-1])
+        wavelenghts_check.append(d.split('/')[-1])
 
     while not found:
         date_calibration = None
@@ -347,7 +347,7 @@ def get_date_measurement(path: str, idx = -1):
         the date corresponding to the folder given as an input
     """
     try:
-        date = datetime.strptime(path.split('\\')[idx].split('_')[0], '%Y-%m-%d')
+        date = datetime.strptime(path.split('/')[idx].split('_')[0], '%Y-%m-%d')
     except:
         date = datetime.strptime(path.split('/')[idx].split('_')[0], '%Y-%m-%d')
     return date

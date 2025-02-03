@@ -1,7 +1,7 @@
 #!/bin/bash
 # [Multi-Platform] This code requires gcc with openMP!
 # Please check the available documentation to correctly configure and run the compilation
-# Default configuration: UNIX OS (Linux, Mac) -- Comment/Uncomment lines (12,13) and (22,23) for WINDOWS OS
+# Default configuration: UNIX OS (LINUX, MAX) -- Comment/Uncomment lines (12,13) and (23,24) for WINDOWS OS
 
 # Cleaning-up the folder from existing compiled files (*.o)
 for i in *.o; do
@@ -20,7 +20,7 @@ for i in *.c; do
 done
 
 # Building the Shared Library
-# gcc -fopenmp -shared -o libmpMuelMat.so *.o ## << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
-gcc -fopenmp -shared -o libmpMuelMat.dll *.o ## << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
+gcc -fopenmp -shared -o libmpMuelMat.so *.o ## << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
+# gcc -fopenmp -shared -o libmpMuelMat.dll *.o ## << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
 
-# Remember to add the gcc compiler shared libraries to the PATHS of the System!
+# Remember to add the gcc compiler shared libraries to the PATHS of the System! 

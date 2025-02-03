@@ -70,9 +70,9 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
         ax.locator_params(axis='x', nbins=5)
     
         if max_:
-            text = f'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}\nmax = {max_val:.3f}'
+            text = fr'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}\nmax = {max_val:.3f}'
         else:
-            text = f'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}'
+            text = fr'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}'
             
         ax.text(0.75, 0.85, text,
                 horizontalalignment='center', verticalalignment='center', transform=ax.transAxes,
@@ -501,9 +501,9 @@ def MM_histogram(MuellerMatrices: dict, folder: str):
         std = np.std(MuellerMatrices[folder]['nM'][:,:,i].flatten())
 
         if row == 0 and col ==0:
-            ax.text(-1, 0.8, '$\mu$ = {:.0f}\n$\sigma$ = {:.0f}\nmax = {:.3f}'.format(mean, std, max_), fontsize=16, fontweight = 'bold')
+            ax.text(-1, 0.8, r"$\mu$ = {:.0f}\n$\sigma$ = {:.0f}\nmax = {:.3f}".format(mean, std, max_), fontsize=16, fontweight = 'bold')
         else:
-            ax.text(-1, 0.8, '$\mu$ = {:.3f}\n$\sigma$ = {:.3f}\nmax = {:.3f}'.format(mean, std, max_), fontsize=16, fontweight = 'bold')
+            ax.text(-1, 0.8, r"$\mu$ = {:.3f}\n$\sigma$ = {:.3f}\nmax = {:.3f}".format(mean, std, max_), fontsize=16, fontweight = 'bold')
 
     # actually save the Mueller Matrix
     fig.suptitle('Mueller Matrix histogram', fontsize=40, fontweight = 'bold', y = 1)
@@ -531,6 +531,7 @@ def save_batch(folder: str, viz = False):
         figures = load_filenames_combined_plot()
 
     # load the four images
+    print(folder, figures)
     img_3 = cv2.imread(os.path.join(folder, figures[0]))[40:960, 160:1450]
     img_2 = cv2.imread(os.path.join(folder, figures[1]))[40:960, 160:1450]
     img_1 = cv2.imread(os.path.join(folder, figures[2]))[40:960, 160:1450]

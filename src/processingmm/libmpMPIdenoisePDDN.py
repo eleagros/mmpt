@@ -67,7 +67,7 @@ from functools import partial
 
 from torch.utils import data
 from multiprocessing import cpu_count
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler # autocast, 
 
 from pathlib import Path
 from torch.optim import Adam
@@ -1185,7 +1185,7 @@ class MPI_PDDN_Trainer(object): #REF
         print(' ')
 
 
-    def train(self): #REF
+    """ def train(self): #REF
         # Routine to TRAIN a * NEW MODEL * or 
         # to keep training an existing model (after loading it)
 
@@ -1293,7 +1293,7 @@ class MPI_PDDN_Trainer(object): #REF
         writer.close()
         print(' ')
         print(' >> PDDN Training: Complete')
-        print('**** ***** ***** ***** ****')
+        print('**** ***** ***** ***** ****') """
 
 
 ### UTILITY FUNCTIONS (Other HELPERS) by STEFANO

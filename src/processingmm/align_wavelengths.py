@@ -8,11 +8,13 @@ import matplotlib.pyplot as plt
 import imageio
 import sys
 import SimpleITK as sitk
+from tqdm import tqdm
 
 def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
     data_folder, _ = batch_processing.get_all_folders(directories)
-
-    for folder in data_folder:
+    
+    print(data_folder)
+    for folder in tqdm(data_folder):
 
         paths = []
         if PDDN == 'both':
@@ -22,16 +24,19 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
             paths.append(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'))
         elif PDDN == 'no':
             paths.append(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_aligned.cod'))
-
+        
+        moving_intensities_path = os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod')
+        
         exists = 0
+        print(paths)
         for path in paths:
             exists += os.path.exists(path)
-        condition_process = exists < len(paths) or run_all
+        condition_process = (exists < len(paths) or run_all) and os.path.exists(moving_intensities_path)
 
         if condition_process:
             
             fixed_intensities = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '550nm', '550_Intensite.cod'), isRawFlag = 1)
-            moving_intensities = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod'), isRawFlag = 1)
+            moving_intensities = libmpMuelMat.read_cod_data_X3D(moving_intensities_path, isRawFlag = 1)
             img = (fixed_intensities[:,:,0] / np.max(fixed_intensities[:,:,0]) * 255).astype(np.uint8)
             moving = (moving_intensities[:,:,0] / np.max(moving_intensities[:,:,0]) * 255).astype(np.uint8)
             # get the paths to the 550nm and 600nm grayscale image and load the 550nm image
@@ -160,6 +165,7 @@ def align_with_sitk(fixed_arr, moving_arr, to_propagate, matching_points):
     fixed_landmarks = fixed_points.astype(np.uint16).flatten().tolist()
     moving_landmarks = moving_points.astype(np.uint16).flatten().tolist()
     
+
     # set up the bspline transform
     transform = sitk.BSplineTransformInitializer(fixed_image, (2, 2), 3)
     landmark_initializer = sitk.LandmarkBasedTransformInitializerFilter()

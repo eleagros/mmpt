@@ -10,6 +10,7 @@ import scipy.ndimage
 import cv2
 from datetime import datetime
 from tqdm import tqdm
+import traceback
 try:
     import win32api
     import win32con
@@ -90,8 +91,8 @@ def _get_CLib_path():
 	# Function to retrieve the global (or local) path to the Compiled C Shared Library
 	'''
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.dll')
-    # Clibs_pth = "./C-libs/libmpMuelMat.so"  # << Change the Global (or Local) path here if necessary!
+    # Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.dll')
+    Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.so')  # << Change the Global (or Local) path here if necessary!
     return Clibs_pth
 
 def _loadClib():
@@ -103,9 +104,11 @@ def _loadClib():
     except:
         try:
             dll_name = _get_CLib_path()
+            print(dll_name)
             dll_handle = win32api.LoadLibraryEx(dll_name, 0, win32con.LOAD_WITH_ALTERED_SEARCH_PATH)
             Clib = ctypes.WinDLL(dll_name, handle=dll_handle)
         except:
+            traceback.print_exc()
             Clib = None
             print(
                 " <!> libmpMuelMat: Cannot Load Shared Library! -- Please check dependencies with: libmpMuelMat.list_Dependencies()")
@@ -1241,7 +1244,7 @@ def compute_MM_eig_REls(M, idx=-1, VerboseFlag=0):
 
 
 def sort_MM_REls(REls, ascendFlag=0):
-    '''# Function to sort the (diagonal) REAL Eigen-Values Components of the Mueller Matrix Eigen-Decomposition
+    r'''# Function to sort the (diagonal) REAL Eigen-Values Components of the Mueller Matrix Eigen-Decomposition
 	# This function sorts the Real eigenvalues in a descending fashion (default)
 	#
 	# Call: srtREls = sort_MM_REls( REls , [ascendFlag] )
@@ -1521,16 +1524,17 @@ def show_Montage(X3D, vmin=None, vmax=None, title=None):
 
 
 def show_REls(REls, vmin=None, vmax=None):
-    '''# Function to display the 4 Real EigenValues components of Mueller Matrix Eigen-Decomposition in a montage form (1x4)
-	# This function is based on matplotlib.
-	#
-	# Call: show_REls( REls )
-	#
-	# *Inputs*
-	# REls: 3D stack of 2D EigenValues Components of shape shp3 = [dim[0],dim[1],4].
-	#
-	# NB: The displayed Real EigenValues are sorted in a descending fashion: \lambda1 >= \lambda2 >= \lambda3 >= \lambda4'''
-
+    r''' #
+    # Show the real EigenValues of the Mueller Matrix in a montage form.
+    # This function is based on matplotlib.
+    #
+    # Call: show_REls( REls )
+    #
+    # *Inputs*
+    # REls: 3D stack of 2D Components of shape shp3 [dim[0],dim[1],4].
+    #
+    # NB: the displayed Real EigenValues are sorted in a descending fashion: \lambda1 >= \lambda2 >= \lambda3 >= \lambda4.
+    '''
     REls = sort_MM_REls(REls)
 
     if vmin == None:

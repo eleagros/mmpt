@@ -95,7 +95,9 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
     all_chunks = list(all_chunks)
 
     for chunk in tqdm(all_chunks):
-    
+        
+        print(chunk)
+        
         to_process_temp = []
         
         try:
@@ -124,7 +126,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
             try:
                 logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
                 logbook_MM_processing.write('Processed: true\n')
-                logbook_MM_processing.write(calibration_directories[folder.split('\\')[-1]] + '\n')
+                logbook_MM_processing.write(calibration_directories[folder.split('/')[-1]] + '\n')
                 logbook_MM_processing.write(parameters_set + '\n')
                 logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
                 import processingmm
@@ -144,7 +146,7 @@ def batch_process(directories: list, calib_directory: str, folder_eu_time: dict 
                     
             for fold in os.listdir(temp_folder):
                                 
-                if fold == to_remove[0] or fold == 'annotation' or fold == 'histology':
+                if fold in {to_remove[0], 'annotation', 'histology', 'rotation_MM.txt'}:
                     pass
                 elif fold == 'MMProcessing.txt':
                     shutil.copy(os.path.join(temp_folder, fold), os.path.join(folder, fold))
@@ -180,8 +182,8 @@ def move_the_folders_pre_processing(chunk: list, to_process_temp):
     links_folders = {}
     for folder in chunk:
 
-        links_folders[os.path.join('./temp_processing', folder.split('\\')[-1])] = folder
-        os.mkdir(os.path.join('./temp_processing', folder.split('\\')[-1]))
+        links_folders[os.path.join('./temp_processing', folder.split('/')[-1])] = folder
+        os.mkdir(os.path.join('./temp_processing', folder.split('/')[-1]))
 
         if 'raw_data' in os.listdir(folder):
             pass
@@ -193,15 +195,20 @@ def move_the_folders_pre_processing(chunk: list, to_process_temp):
                     dst = os.path.join(folder, 'raw_data', file)
                     shutil.move(src, dst)
             
+        if os.path.exists(os.path.join(folder, 'annotation', 'rotation_MM.txt')):
+            src = os.path.join(folder, 'annotation', 'rotation_MM.txt')
+            dst = os.path.join(folder, 'raw_data', 'rotation_MM.txt')
+            shutil.copy(src, dst)
+        
         for file in os.listdir(os.path.join(folder, 'raw_data')):
             src = os.path.join(folder, 'raw_data', file)
-            dst = os.path.join('./temp_processing', folder.split('\\')[-1], file)
+            dst = os.path.join('./temp_processing', folder.split('/')[-1], file)
             if os.path.isdir(src):
                 shutil.copytree(src, dst)
             else:
                 shutil.copy(src, dst)
 
-        to_process_temp.append(os.path.join('./temp_processing', folder.split('\\')[-1]))
+        to_process_temp.append(os.path.join('./temp_processing', folder.split('/')[-1]))
         
     return links_folders, to_process_temp
             
@@ -226,8 +233,8 @@ def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', proc
 
 def get_all_folders(directories: list, win7: bool = False):
     """
-    walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 202x-xx-xx name format 
-    and return the list of folders.
+    walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 
+    202x-xx-xx name format and return the list of folders.
 
     Parameters
     ----------
@@ -275,13 +282,13 @@ def get_folder_name(root: str, data_folder: list, folder_names: list):
     """
     try:
         # check if the folder name format is 202x-xx-xx
-        assert len(re.findall("[\d]{4}-[\d]{2}-[\d]{2}", root)) == 1
-        x = re.search("[\d]{4}-[\d]{2}-[\d]{2}", root).group(0)
+        assert len(re.findall(r"[\d]{4}-[\d]{2}-[\d]{2}", root)) == 1
+        x = re.search(r"[\d]{4}-[\d]{2}-[\d]{2}", root).group(0)
         splitted = root.split(x)
         
         # if yes, append it to the lists containing the folder names
-        data_folder.append(os.path.join(splitted[0],  x + splitted[1].split('\\')[0]))
-        folder_names.append(x + splitted[1].split('\\')[0])
+        data_folder.append(os.path.join(splitted[0],  x + splitted[1].split('/')[0]))
+        folder_names.append(x + splitted[1].split('/')[0])
                     
     except Exception as e:
         pass

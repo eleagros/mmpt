@@ -78,6 +78,8 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
     return MuellerMatrices, calibration_directories, times
 
 
+import traceback
+
 def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
                    MuellerMatrices: dict, treshold: int, c: str, PDDN = False, folder_eu_time: dict = {}, 
                    remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = '',
@@ -119,14 +121,15 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
                                                       Flag = True, processing_mode = processing_mode, run_all = run_all)
     
     try:
-        with open(os.path.join(path, 'annotation', 'rotation_MM.txt')) as f:
+        with open(os.path.join(path, 'rotation_MM.txt')) as f:
             lines = f.readlines()
             angle_correction = int(lines[0])
-    except:
+    except FileNotFoundError:
         angle_correction = 0
     
     # get the corresponding calibration_directory
-    calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, folder_eu_time = folder_eu_time, Flag = Flag)
+    calibration_directory_closest = get_calibration_directory(calib_directory_dates_num, path, calib_directory, directories, 
+                                                              folder_eu_time = folder_eu_time, Flag = Flag)
 
     for d in directories:
         

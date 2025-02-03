@@ -19,7 +19,7 @@ def get_wavelength(fname: str):
     wavelength : int
         the wavelength corresponding to the folder given as an input
     """
-    wavelength = int(str.split(fname, '\\')[-1].split('nm')[0])
+    wavelength = int(str.split(fname, '/')[-1].split('nm')[0])
     return wavelength
 
 
@@ -436,7 +436,6 @@ def is_there_data(path: str):
     data_exist : bool
         boolean indicating the presence of two .cod files
     """
-
     data_exist = False
     all_files = os.listdir(path)
     files = []
