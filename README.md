@@ -15,7 +15,7 @@ Install the processingmm package by using:
 cd processingmm
 pip install -e .
 ```
-If you want to use denoising (Work from [S. Moriconi ](https://github.com/stefanomoriconi)), please contact me to get the models.
+If you want to use denoising (Work from [S. Moriconi](https://github.com/stefanomoriconi)), please contact me to get the models.
 
 ## How to use
 The package is for the moment developped to be used using Jupyter.
