@@ -10,7 +10,10 @@ import sys
 import SimpleITK as sitk
 from tqdm import tqdm
 
-def align_wavelenghts(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
+def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
+    
+    wl_to_align = [600, 650]
+    
     if type(wl_to_align) == int:
         wl_to_align = str(wl_to_align)
         align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False)

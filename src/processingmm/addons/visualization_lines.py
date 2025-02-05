@@ -40,19 +40,17 @@ def visualization_auto(to_process: list, parameters_set: str, batch_processing =
     PDDN : boolean
         indicates if we are using denoising
     """
-    if run_all:
-        to_compute = to_process
-    else:
-        # get the folders to compute if not given as an input
-        to_compute = remove_computed_folders_viz(to_process, run_all = run_all, PDDN = PDDN,
-                                                     wavelengths = wavelengths, save_pdf_figs = save_pdf_figs)
+
+    to_compute = remove_computed_folders_viz(to_process, run_all = run_all, PDDN = PDDN,
+                            wavelengths = wavelengths, save_pdf_figs = save_pdf_figs)
         
     for path in tqdm(to_compute) if batch_processing else to_compute:
         perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN,
                                   wavelength = wavelengths, save_pdf_figs = save_pdf_figs)
 
 
-def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = False, wavelengths= [], save_pdf_figs = False):
+def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = False, wavelengths= [], 
+                                save_pdf_figs = False):
     """
     removes the folders for which the visualization was already obtained
     
@@ -80,23 +78,31 @@ def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = Fal
             if is_there_data(os.path.join(folder, 'raw_data', str(wl) + 'nm')):
                 check_wl.append(wl)
 
-        for wl in check_wl:
-            
-            path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
-            if PDDN and os.path.exists(path_model):
-                path_polarimetry = 'polarimetry_PDDN'
-            else:
-                path_polarimetry = 'polarimetry'
-                
-            path_wl = os.path.join(folder, path_polarimetry, str(wl) + 'nm')
-            if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
-                for file in filename_results:
-                    if file in os.listdir(os.path.join(path_wl, 'results')) :
-                        pass
-                    else:
-                        visualized = False
-            else:
+        if run_all:
+            if check_wl:
                 visualized = False
+            else:
+                pass
+            
+        else:
+            
+            for wl in check_wl:
+                
+                path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
+                if PDDN and os.path.exists(path_model):
+                    path_polarimetry = 'polarimetry_PDDN'
+                else:
+                    path_polarimetry = 'polarimetry'
+                    
+                path_wl = os.path.join(folder, path_polarimetry, str(wl) + 'nm')
+                if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
+                    for file in filename_results:
+                        if file in os.listdir(os.path.join(path_wl, 'results')) :
+                            pass
+                        else:
+                            visualized = False
+                else:
+                    visualized = False
 
         if visualized:
             pass
@@ -131,7 +137,8 @@ def perform_visualisation(path: str, parameters_set: str, run_all: bool = False,
         polarimetry_path = 'polarimetry'
 
     # get wavelength and call line_visualization_routine  
-    line_visualization(os.path.join(path, polarimetry_path, str(wavelength[0]) + 'nm', 'MM.npz'), mask, parameters_set, save_pdf_figs = save_pdf_figs)
+    line_visualization(os.path.join(path, polarimetry_path, str(wavelength[0]) + 'nm', 'MM.npz'), mask, parameters_set, PDDN = PDDN,
+                       save_pdf_figs = save_pdf_figs)
 
 
 def get_mask(path: str):
@@ -162,7 +169,7 @@ def get_mask(path: str):
     return mask
 
 
-def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of optical axis', save_pdf_figs = False):
+def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of optical axis', PDDN = False, save_pdf_figs = False):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -203,6 +210,8 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
     orientation = load_MM(path)
     
     path_results = '/'.join(path.split('/')[:-1]) + '/'
+    if PDDN:
+        path_results = path_results.replace('/polarimetry/', '/polarimetry_PDDN/')
     if os.path.exists(os.path.join(path_results, 'results')):
         if os.path.isdir(os.path.join(path_results, 'results')):
             pass
@@ -210,6 +219,7 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
             raise NameError('Should not happen.')
     else:
         os.mkdir(os.path.join(path_results, 'results'))
+    
     path_results = os.path.join(path_results, 'results')
 
     # load the first element of the Mueller Matrix for each pixel - the M11 element scales the input intensity to the output 
@@ -273,7 +283,7 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
         new_mask = np.logical_and(mask, new_mask)
     else:
         pass
-        
+            
     if normalized:
         # plot the mask image
         fig = plt.figure(figsize = (15, 10))
