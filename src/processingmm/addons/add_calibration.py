@@ -2,10 +2,10 @@ import os, shutil
 
 from tqdm import tqdm
 
-from processingmm import  batch_processing
+from processingmm import utils
 
 def add_calibration(directories):
-    data_folder, _ = batch_processing.get_all_folders(directories)
+    data_folder, _ = utils.get_all_folders(directories)
     
     for folder in tqdm(data_folder):
         

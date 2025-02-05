@@ -67,7 +67,7 @@ from functools import partial
 
 from torch.utils import data
 from multiprocessing import cpu_count
-from torch.cuda.amp import GradScaler # autocast, 
+from torch.amp import GradScaler # autocast, 
 
 from pathlib import Path
 from torch.optim import Adam

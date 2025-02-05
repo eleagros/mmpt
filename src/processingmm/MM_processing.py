@@ -6,15 +6,15 @@ from scipy import ndimage
 import time
 
 from processingmm import libmpMuelMat
-from processingmm.multi_img_processing import remove_already_computed_directories, get_calibration_directory
-from processingmm.helpers import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names, rotate_parameter
-from processingmm.AzimuthStdViz import AzimuthStdViz
+from processingmm.multi_img.multi_img_processing import remove_already_computed_directories, get_calibration_directory
+from processingmm.utils import get_wavelength, save_file_as_npz, rotate_maps_90_deg, load_parameter_names, rotate_parameter
+from processingmm.addons import azimuth_local_var
 from processingmm import libmpMPIdenoisePDDN
 
 def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
                             to_compute: list, PDDN = False, remove_reflection = True, folder_eu_time: dict = {}, 
                             run_all = False, batch_processing = False, Flag = False, wavelengths = [],
-                            processing_mode = '', time_mode = False):
+                            processing_mode = '', time_mode = False, save_pdf_figs = True):
     """
     run the script for all the measurement folders in the directory given as an input
 
@@ -62,7 +62,8 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
                                             calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
                                             folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
                                             wavelengths = wavelengths, pbar = pbar, Flag = Flag,
-                                            processing_mode = processing_mode, run_all = run_all, time_mode = time_mode)
+                                            processing_mode = processing_mode, run_all = run_all, time_mode = time_mode,
+                                            save_pdf_figs = save_pdf_figs)
                 calibration_directories[c] = calibration_directory_closest
 
     else:
@@ -72,7 +73,8 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
                                                 calib_directory, MuellerMatrices, treshold, c, PDDN = PDDN, 
                                                 folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
                                                 wavelengths = wavelengths, Flag = Flag, 
-                                                processing_mode = processing_mode, run_all = run_all, time_mode = time_mode)
+                                                processing_mode = processing_mode, run_all = run_all, time_mode = time_mode,
+                                                save_pdf_figs = save_pdf_figs)
             calibration_directories[c] = calibration_directory_closest
             
     return MuellerMatrices, calibration_directories, times
@@ -83,7 +85,7 @@ import traceback
 def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
                    MuellerMatrices: dict, treshold: int, c: str, PDDN = False, folder_eu_time: dict = {}, 
                    remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = '',
-                   run_all = False, time_mode = False):
+                   run_all = False, time_mode = False, save_pdf_figs = True):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -149,7 +151,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
            A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen = wavelength)[0:2]
 
         
-        path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
+        path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
         
         if PDDN and os.path.exists(path_PDDN_model):
             polarimetry_fname = 'polarimetry_PDDN'
@@ -157,7 +159,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
             if time_mode:
                 I = get_intensity(d, wavelength)
                 start_denoising = time.time()
-                PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
+                PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
                 end = time.time()
                 time_denoising = end - start_denoising
                 I, _ = PDDN.Denoise(I)
@@ -174,7 +176,7 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
                         print('No PDDN file found - denoising the raw data')
                         
                         I = get_intensity(d, wavelength)
-                        PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
+                        PDDN = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
                         I, _ = PDDN.Denoise(I)
                         
                         libmpMuelMat.write_cod_data_X3D(I, os.path.join(d, str(wavelength) +'_Intensite_PDDN.cod'), VerboseFlag=1)                       
@@ -184,7 +186,6 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
             polarimetry_fname = 'polarimetry'
             I = get_intensity(d, wavelength)
 
-                 
         IN = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Bruit.cod'), isRawFlag = 1)
         
         start_MM_processing = time.time()
@@ -213,16 +214,12 @@ def compute_one_MM(measurements_directory: str, calib_directory_dates_num: list,
         
         parameter_names = load_parameter_names()
         
-        start_azi_std_processing = time.time()
-        if processing_mode == 'full' or processing_mode == 'no_visualization':                    
-            azimuth_stds = AzimuthStdViz.get_and_plots_stds([d.replace('raw_data', polarimetry_fname)], 4, azimuth = MM_new['azimuth'], 
-                                                            MM_computation = True, angle_correction = angle_correction)
-            MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', polarimetry_fname)]
-            parameter_names.append('azimuth_local_var')
-        
-        end = time.time()
-        time_azimuth_std_processing = end - start_azi_std_processing
-            
+                           
+        azimuth_stds, time_azimuth_std_processing = azimuth_local_var.get_and_plots_stds([d.replace('raw_data', polarimetry_fname)], 4, azimuth = MM_new['azimuth'], 
+                                                        MM_computation = True, angle_correction = angle_correction, processing_mode = processing_mode,
+                                                        save_pdf_figs = save_pdf_figs)
+        MM_new['azimuth_local_var'] = azimuth_stds[d.replace('raw_data', polarimetry_fname)]
+        parameter_names.append('azimuth_local_var')        
     
         # apply a rotation corrections if necessary 
         if angle_correction != 0:

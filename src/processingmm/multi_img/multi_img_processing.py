@@ -3,11 +3,12 @@ import numpy as np
 from datetime import datetime
 import warnings
 import copy
-from processingmm.helpers import load_wavelengths, is_there_data, is_processed
+from processingmm.utils import load_wavelengths, is_there_data, is_processed
 
 
 def remove_already_computed_folders(measurements_directory: str, sanity = False, run_all: bool = False,
-                                    PDDN = False, wavelengths = [], Flag = False):
+                                    PDDN = False, wavelengths = [], save_pdf_figs: bool = False,
+                                    Flag = False):
     """
     check for each folder if it was already computed - if yes, remove it from the list of folders to compute
 
@@ -29,10 +30,9 @@ def remove_already_computed_folders(measurements_directory: str, sanity = False,
     # iterate over the list of folders to be computed
     for c in to_compute:
         path = os.path.join(measurements_directory, c)
-        
         # get the directories that are not computed yet
         directories = remove_already_computed_directories(path, sanity = sanity, run_all = run_all, PDDN = PDDN,
-                                                          wavelengths = wavelengths, Flag = Flag)
+                                                          wavelengths = wavelengths, save_pdf_figs = save_pdf_figs, Flag = Flag)
 
         if len(directories) >= 1:
             not_computed.append(c)
@@ -41,7 +41,7 @@ def remove_already_computed_folders(measurements_directory: str, sanity = False,
 
 
 def remove_already_computed_directories(path: str, sanity = False, run_all: bool = False, PDDN = False, 
-                                        wavelengths = [], Flag = False, processing_mode = 'full'):
+                                        wavelengths = [], save_pdf_figs = False, Flag = False, processing_mode = 'full'):
     """
     remove the folders and wl that were previsouly computed
 
@@ -66,7 +66,7 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
         if sanity or run_all:
             directories_computable.append(os.path.join(path_raw_data, d))
         else:
-            if is_processed(path, d, PDDN = PDDN, processing_mode = processing_mode):
+            if is_processed(path, d, PDDN = PDDN, processing_mode = processing_mode, save_pdf_figs = save_pdf_figs):
                 pass
             else:
                 directories_computable.append(os.path.join(path_raw_data, d))

@@ -1,5 +1,5 @@
-"""Automatic Mueller Matrix processing and plotting of the different polariemtric parameters."""
+"""Automatic Mueller Matrix processing and plotting of the different polarimetric parameters."""
 
-__version__ = "1.1.2"
-__author__ = "Romain Gros"
-__email__ = "romain.gros@unibe.ch"
+__version__ = "1.2.0"
+__author__ = "Éléa Gros"
+__email__ = "elearomy.gros@unibe.ch"

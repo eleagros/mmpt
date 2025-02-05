@@ -15,13 +15,13 @@ from skimage.restoration import unwrap_phase
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import binary_dilation
 
-from processingmm.helpers import get_cmap, get_wavelength, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, is_there_data, load_combined_plot_name, load_filenames_combined_plot
-from processingmm.multi_img_processing import remove_already_computed_directories
+from processingmm.utils import get_cmap, get_wavelength, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, is_there_data, load_combined_plot_name, load_filenames_combined_plot
+from processingmm.multi_img.multi_img_processing import remove_already_computed_directories
 from processingmm.libmpMuelMat import _isNumStable
 
 
-def visualization_auto(measurements_directory: str, parameters_set: str, batch_processing = False, to_compute = None, 
-                       run_all = True, PDDN = False, wavelengths = []):
+def visualization_auto(to_process: list, parameters_set: str, batch_processing = False,
+                       run_all = True, PDDN = False, wavelengths = [], save_pdf_figs: bool = False):
     """
     master function calling line_visualization_routine for each of the folders in the measurements_directory
     
@@ -40,23 +40,19 @@ def visualization_auto(measurements_directory: str, parameters_set: str, batch_p
     PDDN : boolean
         indicates if we are using denoising
     """
-    if to_compute:
-        pass
+    if run_all:
+        to_compute = to_process
     else:
-        if run_all:
-            to_compute = os.listdir(measurements_directory)
-        else:
-            # get the folders to compute if not given as an input
-            to_compute = remove_computed_folders_viz(measurements_directory, run_all = run_all, PDDN = PDDN,
-                                                     wavelengths = wavelengths)
-    
-    for c in tqdm(to_compute) if batch_processing else to_compute:
-        path = os.path.join(measurements_directory, c)
+        # get the folders to compute if not given as an input
+        to_compute = remove_computed_folders_viz(to_process, run_all = run_all, PDDN = PDDN,
+                                                     wavelengths = wavelengths, save_pdf_figs = save_pdf_figs)
+        
+    for path in tqdm(to_compute) if batch_processing else to_compute:
         perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN,
-                                  wavelengths = wavelengths)
+                                  wavelength = wavelengths, save_pdf_figs = save_pdf_figs)
 
 
-def remove_computed_folders_viz(measurements_directory, run_all: bool = False, PDDN = False, wavelengths= []):
+def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = False, wavelengths= [], save_pdf_figs = False):
     """
     removes the folders for which the visualization was already obtained
     
@@ -70,28 +66,29 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False, P
     to_compute : list
         the list of the folders that need to be computed
     """
-    filename_results = load_filenames_results()
-    folders = os.listdir(measurements_directory)
+    filename_results = load_filenames_results(save_pdf_figs)
+        
     to_compute = []
 
-    for c in folders:
+    for folder in folders:
+        
         visualized = True
 
-        path = os.path.join(measurements_directory, c)
         check_wl = []
         for wl in wavelengths:
-            if is_there_data(os.path.join(path, 'raw_data', wl)):
+
+            if is_there_data(os.path.join(folder, 'raw_data', str(wl) + 'nm')):
                 check_wl.append(wl)
 
         for wl in check_wl:
             
-            path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
+            path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
             if PDDN and os.path.exists(path_model):
                 path_polarimetry = 'polarimetry_PDDN'
             else:
                 path_polarimetry = 'polarimetry'
                 
-            path_wl = os.path.join(path, path_polarimetry, wl)
+            path_wl = os.path.join(folder, path_polarimetry, str(wl) + 'nm')
             if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
                 for file in filename_results:
                     if file in os.listdir(os.path.join(path_wl, 'results')) :
@@ -104,13 +101,13 @@ def remove_computed_folders_viz(measurements_directory, run_all: bool = False, P
         if visualized:
             pass
         else:
-            to_compute.append(c)
+            to_compute.append(folder)
             
     return to_compute
 
 
 def perform_visualisation(path: str, parameters_set: str, run_all: bool = False, PDDN = False,
-                          wavelengths = []):
+                          wavelength = None, save_pdf_figs: bool = False):
     """
     master function running the visualization script for one folder
     
@@ -125,25 +122,16 @@ def perform_visualisation(path: str, parameters_set: str, run_all: bool = False,
     PDDN : boolean
         indicates if we are using denoising
     """
-        
     mask = get_mask(path)
-    
-    # remove_already_computed_directories with sanity = True puts all the wavelengths to be processed
-    directories = remove_already_computed_directories(path, sanity = True, wavelengths = wavelengths, run_all = run_all)
-    
-    for d_ in directories:
-        wavelength = get_wavelength(d_)
-        path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model\PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
+    path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
         
-        if PDDN and os.path.exists(path_PDDN_model):
-            polarimetry_path = 'polarimetry_PDDN'
-        else:
-            polarimetry_path = 'polarimetry'
-        
-        d = d_.replace('raw_data', polarimetry_path)
-        
-        # get wavelength and call line_visualization_routine  
-        line_visualization(os.path.join(d, 'MM.npz'), mask, parameters_set)
+    if PDDN and os.path.exists(path_PDDN_model):
+        polarimetry_path = 'polarimetry_PDDN'
+    else:
+        polarimetry_path = 'polarimetry'
+
+    # get wavelength and call line_visualization_routine  
+    line_visualization(os.path.join(path, polarimetry_path, str(wavelength[0]) + 'nm', 'MM.npz'), mask, parameters_set, save_pdf_figs = save_pdf_figs)
 
 
 def get_mask(path: str):
@@ -160,18 +148,21 @@ def get_mask(path: str):
     mask : 
         the manually created mask, if existing
     """
-    if 'mask-viz.tif' in os.listdir(os.path.join(path, 'annotation')):
-        mask = np.array(Image.open(os.path.join(path, 'annotation', 'mask-viz.tif')))
-        mask = mask != 0
-    elif 'merged.jpeg' in os.listdir(os.path.join(path, 'annotation')):
-        mask = np.array(Image.open(os.path.join(path, 'annotation', 'merged.jpeg')))
-        mask = mask != 128
+    if os.path.exists('annotation') and os.path.isdir('annotation'):
+        if 'mask-viz.tif' in os.listdir(os.path.join(path, 'annotation')):
+            mask = np.array(Image.open(os.path.join(path, 'annotation', 'mask-viz.tif')))
+            mask = mask != 0
+        elif 'merged.jpeg' in os.listdir(os.path.join(path, 'annotation')):
+            mask = np.array(Image.open(os.path.join(path, 'annotation', 'merged.jpeg')))
+            mask = mask != 128
+        else:
+            mask = None
     else:
         mask = None
     return mask
 
 
-def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of optical axis'):
+def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of optical axis', save_pdf_figs = False):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -210,8 +201,8 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
 
     # load the MM and creates, if necessary, the results folder
     orientation = load_MM(path)
-
-    path_results = '/'.join(path.split('\\')[:-1]) + '/'
+    
+    path_results = '/'.join(path.split('/')[:-1]) + '/'
     if os.path.exists(os.path.join(path_results, 'results')):
         if os.path.isdir(os.path.join(path_results, 'results')):
             pass
@@ -224,8 +215,6 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
     # load the first element of the Mueller Matrix for each pixel - the M11 element scales the input intensity to the output 
     # intensity so this element can be interpreted as the simple transmittance
     M11 = orientation['M11']
-    # lower_M11 = np.mean(M11) - 2*np.std(M11)
-    # upper_M11 = np.mean(M11) + 2*np.std(M11)
 
     # get the depolarization and linear retardance value for each pixel of the original image
     depolarization = orientation['totP']
@@ -244,13 +233,13 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
     new_mask_M11 = np.logical_not(binary_dilation(M11<(1/grey_scale_parameter*np.mean(M11)), iterations = 3))
         
     plot_azimuth(retardance, M11, azimuth_unwrapped, n, widths, scale, title, path_results,
-                 new_mask_M11, mask, normalized = False)
+                 new_mask_M11, mask, normalized = False, save_pdf_figs = save_pdf_figs)
     plot_azimuth(retardance, M11, azimuth_unwrapped, n, widths, scale, title, path_results,
-                 new_mask, mask, normalized = True)
+                 new_mask, mask, normalized = True, save_pdf_figs = save_pdf_figs)
     
 
 def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.ndarray, n: int, widths: int, length: int, 
-                 title: str, path_results: str, new_mask: np.ndarray, mask: np.ndarray, normalized = False):
+                 title: str, path_results: str, new_mask: np.ndarray, mask: np.ndarray, normalized = False, save_pdf_figs: bool = False):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -375,19 +364,21 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
                             fontsize=40, weight='bold')
         
     if normalized:
-        plt.savefig(os.path.join(path_results, 'CUSA_fig.pdf'))
-        plt.savefig(os.path.join(path_results, 'CUSA_fig.png'))
+        if save_pdf_figs:
+            plt.savefig(os.path.join(path_results, 'line_fig.pdf'))
+        plt.savefig(os.path.join(path_results, 'line_fig.png'))
     else:
-        plt.savefig(os.path.join(path_results, 'CUSA_fig_weighted.pdf'))
-        plt.savefig(os.path.join(path_results, 'CUSA_fig_weighted.png'))
+        if save_pdf_figs:
+            plt.savefig(os.path.join(path_results, 'line_fig_weighted.pdf'))
+        plt.savefig(os.path.join(path_results, 'line_fig_weighted.png'))
     
     plt.axis('off')
 
     cbar.remove()
     if normalized:
-        fig.savefig(os.path.join(path_results, 'CUSA_fig_image.png'), bbox_inches='tight',transparent=True, pad_inches=0)
+        fig.savefig(os.path.join(path_results, 'line_fig.png'), bbox_inches='tight',transparent=True, pad_inches=0)
     else:
-        fig.savefig(os.path.join(path_results, 'CUSA_fig_image_weighted.png'), bbox_inches='tight',transparent=True, pad_inches=0)
+        fig.savefig(os.path.join(path_results, 'line_fig_weighted.png'), bbox_inches='tight',transparent=True, pad_inches=0)
     plt.close(fig)
 
 

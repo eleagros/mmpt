@@ -1,7 +1,46 @@
 import os
 import shutil
-from processingmm.helpers import load_filenames_results, load_filenames_50x50, load_filenames
+from processingmm.utils import load_filenames, load_filenames_results
 
+def reorganize_folders(measurement_directory: str, all_directories: list):
+    """
+    reorganize the folders in the measurement directory
+    
+    Parameters
+    ----------
+    measurement_directory : str
+        the path to the measurement directory
+    all_directories : list of str
+        the list of folders to be considered
+        
+    Returns
+    -------
+    None
+    
+    Raises
+    -------
+    None
+    """
+    # 1. move the raw data folders into the raw data directory
+    directories_tbc = ['polarimetry', 'polarimetry_PDDN', 'histology', 'annotation']
+    
+    for directory in all_directories:
+        move_raw_data_folders(directory, measurement_directory)
+
+    wavelenghts_create_folders = ['400nm', '450nm', '500nm', '550nm', '600nm', '650nm', '700nm']
+    # 2. create the new directories that will contain histology, pictures, polarimetric data and 50x50 measurements
+    for directory in all_directories:
+        create_directories(measurement_directory, directory, directories_tbc, wavelenghts_create_folders)
+        
+    # 3. empty polarimetry and 50x50 directories
+    for directory in all_directories:
+        remove_old_computation(measurement_directory, directory)
+        
+    # 4. move what was already computed into the new folders
+    for directory in all_directories:
+        move_50x50_images(measurement_directory, directory)
+        
+        
 def move_raw_data_folders(directory: list, measurements_directory: str, Flag = False):
     """
     moves the raw data folders into the newly created raw_data directory
@@ -165,7 +204,7 @@ def remove_old_computation(measurements_directory: str, directory: str, Flag = F
     for wl in os.listdir(polarimetry):
         folder = os.path.join(polarimetry, wl)
         filenames = load_filenames()
-        filenames_results = load_filenames_results()
+        filenames_results = load_filenames_results(save_pdf_figs=True)
             
         for file in os.listdir(folder):
             if file in filenames:

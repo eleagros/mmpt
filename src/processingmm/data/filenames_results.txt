@@ -1,8 +1,6 @@
-CUSA_fig.pdf
-CUSA_fig.png
-CUSA_fig_image.png
-CUSA_fig_image_weighted.png
-CUSA_fig_weighted.pdf
-CUSA_fig_weighted.png
+line_fig.pdf
+line_fig.png
+line_fig_weighted.pdf
+line_fig_weighted.png
 mask.pdf
 mask.png

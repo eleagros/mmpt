@@ -1,11 +1,9 @@
 import os
 
-import numpy as np
-from numpy import pi
-
 import time
 
-import io
+import numpy as np
+from numpy import pi
 
 from PIL import Image
 import cv2
@@ -15,15 +13,15 @@ import matplotlib.colors as clr
 import pickle
 import copy
 
-import traceback
+import torch
+import torch.nn.functional as F
 
-from scipy.stats import circstd
-
-from processingmm.helpers import rotate_parameter
+from processingmm.utils import rotate_parameter
 
 from numba import jit
 
-def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array = None, MM_computation: bool = False, angle_correction = 0):
+def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array = None, MM_computation: bool = False, angle_correction = 0, save_pdf_figs = False,
+                       processing_mode = 'full'):
     """
     get_and_plots_stds is the master function to create the plots to visualize the azimuth noise
 
@@ -49,13 +47,18 @@ def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array =
         else:
             pass
         
+        start_azi_std_processing = time.time()
+        
         # implementation using jit - improvement of a factor 7
+        # result = apply_circular_std(azimuth * 2 * pi / 180)
         result = apply_circular_std(azimuth * 2 * pi / 180)
         azimuth_std = result * 180 / (2 * pi)
                 
         if angle_correction != 0:
             azimuth_std = rotate_parameter(azimuth_std, angle_correction)
-                            
+            
+        end = time.time()
+        
         # remove the std > 40 for visualization purposes
         azimuth_stds[folder] = copy.deepcopy(azimuth_std)
         azimuth_std[azimuth_std > 40] = 40
@@ -71,17 +74,15 @@ def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array =
             healthy = False
             mask = None
             
-        plot_azimuth_noise(azimuth_std, folder, mask = mask, healthy = healthy, plot = MM_computation) 
+        if processing_mode in {'default', 'full'}:
+            plot_azimuth_noise(azimuth_std, folder, mask = mask, healthy = healthy, plot = MM_computation, save_pdf_figs = save_pdf_figs) 
         
         plt.close()
         
-    return azimuth_stds
+    return azimuth_stds, end - start_azi_std_processing
 
-@jit(nopython=True)
+"""@jit(nopython=True)
 def circular_mean(angles):
-    """
-    Calculate the circular mean of angles in radians.
-    """
     sin_sum = 0.0
     cos_sum = 0.0
     for angle in angles:
@@ -91,9 +92,8 @@ def circular_mean(angles):
 
 @jit(nopython=True)
 def circular_standard_deviation(angles):
-    """
-    Calculate the circular standard deviation for a set of angles in radians.
-    """
+
+
     mean_angle = circular_mean(angles)
     sin_sum = 0.0
     cos_sum = 0.0
@@ -105,27 +105,57 @@ def circular_standard_deviation(angles):
     return circ_std_dev
 
 @jit(nopython=True)
-def apply_circular_std(arr):
-    """
-    Apply the circular standard deviation function over a 2D array.
-    """
+def apply_circular_std_ori(arr):
+
+
     rows, cols = arr.shape
     result = np.zeros_like(arr)
     for i in range(rows):
         for j in range(cols):
 
             window = []
-            for di in range(-2, 2):
-                for dj in range(-2, 2):
+            for di in range(-2, 3):
+                for dj in range(-2, 3):
                     ni, nj = i + di, j + dj
                     if 0 <= ni < rows and 0 <= nj < cols:
                         window.append(arr[ni, nj])
             window = np.array(window)
             result[i, j] = circular_standard_deviation(window)
-    return result
+    return result"""
 
 
-def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healthy: bool = False, plot: bool = False):
+def circular_standard_deviation(angles):
+    """
+    Calculate the circular standard deviation for a set of angles in radians.
+    """
+    mean_angle = torch.atan2(torch.mean(torch.sin(angles), dim=-1), torch.mean(torch.cos(angles), dim=-1))
+    sin_sum = torch.sum(torch.sin(angles - mean_angle.unsqueeze(-1)), dim=-1)
+    cos_sum = torch.sum(torch.cos(angles - mean_angle.unsqueeze(-1)), dim=-1)
+    R = torch.sqrt(sin_sum**2 + cos_sum**2) / angles.shape[-1]
+    circ_std_dev = torch.sqrt(-2 * torch.log(R))
+    return circ_std_dev
+
+def apply_circular_std(arr):
+    """
+    Apply the circular standard deviation function over a 2D array using convolution.
+    """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    arr = torch.tensor(arr, dtype=torch.float32).to(device)
+    kernel_size = 5
+    padding = kernel_size // 2
+
+    # Pad the array and unfold to get sliding windows
+    padded_arr = F.pad(arr.unsqueeze(0).unsqueeze(0), (padding, padding, padding, padding), mode='constant', value=0)
+    unfolded = F.unfold(padded_arr, kernel_size=(kernel_size, kernel_size))
+    unfolded = unfolded.view(kernel_size * kernel_size, -1).transpose(0, 1)
+
+    # Apply circular_standard_deviation to each window
+    result = circular_standard_deviation(unfolded)
+
+    return result.view(arr.shape).cpu().numpy()
+
+
+def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healthy: bool = False, plot: bool = False, save_pdf_figs = False):
     """
     plot_azimuth_noise is the function to plot the azimuth noise
 
@@ -154,17 +184,6 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
     cmap_colorbar = clr.LinearSegmentedColormap.from_list('azimuth_std_colorbar', colors, n_bins)
     norm_colorbar = clr.Normalize(0, 40)
     
-    # get the colormaps for the plot (include white for the borders and black for the background)
-    colors = [[0, 0, 0], [0, 0, 0.5], [0, 0, 1], 
-              [0, 0.5, 1], [0, 1, 1], 
-              [0.5, 1, 0.5], [1, 1, 0], 
-              [1, 0.5, 0], [1, 0, 0], 
-              [0.5, 0, 0], [1, 1, 1]]
-    # create and normalize the colormap
-    cmap_plt = clr.LinearSegmentedColormap.from_list('azimuth_std_plt', colors, n_bins)    
-    
-    fig, ax = plt.subplots(figsize = (15,11))
-    
     if mask is None:
         pass
     else:
@@ -187,39 +206,27 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
                     azimuth_std[idx, idy] = 45
     
     # plot the azimuth std
-    if plot:
-        path_save_img = os.path.join(folder, 'azimuth_noise_img.png')
-        plt.imsave(path_save_img, azimuth_std, cmap = cmap_colorbar, vmin = 0, vmax = 40)
-        ax.imshow(azimuth_std, cmap = cmap_colorbar, norm = norm_colorbar)
-    else:
-        ax.imshow(azimuth_std, cmap = cmap_plt)
-
+    fig, ax = plt.subplots(figsize = (15, 11))
+    ax.imshow(azimuth_std, norm=norm_colorbar, cmap=cmap_colorbar)
     # format the color bar
     cbar = plt.colorbar(cm.ScalarMappable(norm=norm_colorbar, cmap=cmap_colorbar), pad = 0.02, 
                         ticks=np.arange(0, 41, 10), fraction=0.06, ax=ax)
     cbar.ax.set_yticklabels(["{:.0f}".format(a) for a in np.arange(0, 41, 10)], 
-                            fontsize=40, weight='bold')
+                        fontsize=40, weight='bold')
 
     # add a title and save the plot
     title = 'Azimuth local variability'
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
     plt.xticks([])
     plt.yticks([])
-    
+        
+    plt.savefig(os.path.join(folder, 'Azimuth_local_variability.png'), dpi = 100)
+    if save_pdf_figs:
+        plt.savefig(os.path.join(folder, 'Azimuth_local_variability.pdf'), dpi = 80)
+        
+    path_save_img = os.path.join(folder, 'Azimuth_local_variability_img.png')
+    plt.imsave(path_save_img, azimuth_std, cmap = cmap_colorbar, vmin = 0, vmax = 40)
 
-    if plot:
-        plt.savefig(os.path.join(folder, 'azimuth_noise.pdf'), dpi = 100)
-        plt.savefig(os.path.join(folder, 'azimuth_noise.png'), dpi = 80)
-    else:
-        try:
-            os.remove(os.path.join(folder, 'annotation', 'azimuth_noise.pdf'))
-        except:
-            pass
-        
-        with open(os.path.join(folder, 'histology', 'azimuth_noise.pickle'), 'wb') as handle:
-            pickle.dump(azimuth_std, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        plt.savefig(os.path.join(folder, 'histology', 'azimuth_noise.pdf'))
-        
     
     
 def get_edges(mask: np.array, healthy: bool = False):

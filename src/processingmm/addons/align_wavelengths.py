@@ -3,34 +3,45 @@ from PIL import Image
 import shutil, os
 import pickle
 import cv2
-from processingmm import libmpMuelMat, batch_processing
+from processingmm import libmpMuelMat, utils
 import matplotlib.pyplot as plt
 import imageio
 import sys
 import SimpleITK as sitk
 from tqdm import tqdm
 
-def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
-    data_folder, _ = batch_processing.get_all_folders(directories)
+def align_wavelenghts(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
+    if type(wl_to_align) == int:
+        wl_to_align = str(wl_to_align)
+        align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False)
+    else:
+        assert type(wl_to_align) == list
+        for wl in wl_to_align:
+            print('Aligning wavelenght: ' + str(wl) + 'nm')
+            align_wavelenght(directories, PDDN, run_all, str(wl), imgj_processing = False)
     
-    print(data_folder)
+def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
+    data_folder, _ = utils.get_all_folders(directories)
+
+    wl_to_align_with_nm = wl_to_align + 'nm'
+    
     for folder in tqdm(data_folder):
 
         paths = []
-        if PDDN == 'both':
-            paths.append(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'))
-            paths.append(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_aligned.cod'))
-        elif PDDN == 'pddn':
-            paths.append(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'))
-        elif PDDN == 'no':
-            paths.append(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_aligned.cod'))
         
-        moving_intensities_path = os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod')
+        if PDDN in ['both', 'no']:
+            paths.append(os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_aligned.cod'))
+        if PDDN in ['both', 'pddn']:
+            if os.path.exists(os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_PDDN.cod')):
+                paths.append(os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_PDDN_aligned.cod'))
+        
+        moving_intensities_path = os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite.cod')
         
         exists = 0
-        print(paths)
+
         for path in paths:
             exists += os.path.exists(path)
+            
         condition_process = (exists < len(paths) or run_all) and os.path.exists(moving_intensities_path)
 
         if condition_process:
@@ -60,10 +71,10 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
             # source = image_600nm_path
             # dst = os.path.join('temp', '600nm_intensity.png')
             # shutil.copy(source, dst)
-            Image.fromarray(moving).save(os.path.join('temp', '600nm_intensity.png'))
+            Image.fromarray(moving).save(os.path.join('temp', wl_to_align_with_nm + '_intensity.png'))
 
             # run superglue to get matching points between 550nm and 600nm grayscale image
-            path_superglue = os.path.join('superglue', 'demo_superglue.py')
+            path_superglue = os.path.join('third_party', 'superglue', 'demo_superglue.py')
             try:
                 shutil.rmtree('temp_output')
             except FileNotFoundError:
@@ -92,16 +103,17 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
                 # processing with python wrapper for simple elastix
                 resampled_imgs = align_with_sitk(img, moving, to_propagate, matching_points)
             
+            intensities = {}
             
-            intensities = []
-            if PDDN == 'both':
-                intensities.append(libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN.cod'), isRawFlag = 0))
-                intensities.append(libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod'), isRawFlag = 1))
-            elif PDDN == True:
-                intensities.append(libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN.cod'), isRawFlag = 0))
-            else:
-                intensities.append(libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod'), isRawFlag = 1))
-
+            if PDDN in ['both', 'no']:
+                path_intensity = os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite.cod')
+                if os.path.exists(path_intensity):
+                    intensities[path_intensity] = libmpMuelMat.read_cod_data_X3D(path_intensity, isRawFlag = 1)
+            if PDDN in ['both', 'pddn']:
+                path_intensity = os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_PDDN.cod')
+                if os.path.exists(path_intensity):
+                    intensities[path_intensity] = libmpMuelMat.read_cod_data_X3D(path_intensity, isRawFlag = 0)
+                            
             # load the remapping matrices
             if imgj_processing:
                 remapping_x = np.array(Image.open(os.path.join('temp', 'registered_img_brightfield_x.tif')))
@@ -110,41 +122,35 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
                 remapping_x = resampled_imgs[0]
                 remapping_y = resampled_imgs[1]
                 
-            intensities_remapped = []
-            for id_remapped in range(len(intensities)):
-                intensities_remapped.append(np.zeros(intensities[0].shape))
+            intensities_remapped = {}
+            for key, val in intensities.items():
+                shape_intensities = val.shape
+                intensities_remapped[key] = np.zeros(shape_intensities)
 
             # fill in the refilled matrices
-            for idx, x in enumerate(range(intensities_remapped[0].shape[0])):
-                for idy, y in enumerate(range(intensities_remapped[0].shape[1])):
-                    for id_intensity in range(intensities_remapped[0].shape[2]):
+            for idx, x in enumerate(range(shape_intensities[0])):
+                for idy, y in enumerate(range(shape_intensities[1])):
+                    for id_intensity in range(shape_intensities[2]):
                         idx_remapped = int(remapping_x[idx, idy])
                         idy_remapped = int(remapping_y[idx, idy])
                         if idx_remapped <= 0 or idy_remapped <= 0:
                             pass
                         else:
-                            for id_remapped in range(len(intensities)):
-                                intensities_remapped[id_remapped][idx, idy, id_intensity] = intensities[id_remapped][idx_remapped, idy_remapped, id_intensity]
+                            for key, val in intensities.items():
+                                intensities_remapped[key][idx, idy, id_intensity] = val[idx_remapped, idy_remapped, id_intensity]
 
-            # and save the intensities
-            if PDDN == 'both':
-                libmpMuelMat.write_cod_data_X3D(intensities_remapped[0], os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'))
-                libmpMuelMat.write_cod_data_X3D(intensities_remapped[1], os.path.join(folder, 'raw_data', '600nm', '600_Intensite_aligned.cod'))
-            elif PDDN == 'pddn':
-                libmpMuelMat.write_cod_data_X3D(intensities_remapped[0], os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'))
-            elif PDDN == 'no':
-                libmpMuelMat.write_cod_data_X3D(intensities_remapped[0], os.path.join(folder, 'raw_data', '600nm', '600_Intensite_aligned.cod'))
+            for key, val in intensities_remapped.items():
+                libmpMuelMat.write_cod_data_X3D(val, key.replace('.cod', '_aligned.cod'))
 
-            # save the output for later quality control
-            if PDDN == 'no':
-                initial = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite.cod'), isRawFlag = 1)
-                final = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_aligned.cod'), isRawFlag = 0)
-            else:
-                initial = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN.cod'), isRawFlag = 0)
-                final = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '600nm', '600_Intensite_PDDN_aligned.cod'), isRawFlag = 0)
-            target = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '550nm', '550_Intensite.cod'), isRawFlag = 1)
+            for key, val in intensities_remapped.items():
+                if 'PDDN' in key:
+                    pass
+                else:
+                    initial = libmpMuelMat.read_cod_data_X3D(key, isRawFlag = 1)
+                    target = libmpMuelMat.read_cod_data_X3D(key.replace(wl_to_align_with_nm, '550nm').replace(wl_to_align, '550'), isRawFlag = 1)
+                    final = libmpMuelMat.read_cod_data_X3D(key.replace('.cod', '_aligned.cod'), isRawFlag = 0)
 
-            show_output(initial, final, target, folder, imgj_processing = imgj_processing)
+            show_output(initial, final, target, folder, wl_to_align, imgj_processing = imgj_processing)
 
     try:
         shutil.rmtree('temp')
@@ -262,7 +268,7 @@ def generate_gif_reconstruction(img1 = None, img2 = None, gif_save_path = None):
         print('The folder tmp_gif could not be removed. Please remove it manually.')
         
 
-def show_output(initial, final, target, folder, imgj_processing = False):
+def show_output(initial, final, target, folder, wl_to_align, imgj_processing = False):
     
     folder_save_alignment = os.path.join(folder, 'annotation', 'alignment')
     try:
@@ -271,15 +277,15 @@ def show_output(initial, final, target, folder, imgj_processing = False):
         pass
 
     plt.imshow(initial[:,:,0])
-    plt.savefig(os.path.join(folder_save_alignment, 'initial.png'))
+    plt.savefig(os.path.join(folder_save_alignment, wl_to_align + '_initial.png'))
     plt.close()
     
     plt.imshow(final[:,:,0])
-    plt.savefig(os.path.join(folder_save_alignment, 'aligned.png'))
+    plt.savefig(os.path.join(folder_save_alignment, wl_to_align + '_aligned.png'))
     plt.close()
     
     plt.imshow(target[:,:,0])
-    plt.savefig(os.path.join(folder_save_alignment, 'target.png'))
+    plt.savefig(os.path.join(folder_save_alignment, wl_to_align + '_target.png'))
     plt.close()
     
     initial = (initial[:,:,0] / np.max(initial[:,:,0]) * 255).astype(np.uint8)
@@ -288,11 +294,11 @@ def show_output(initial, final, target, folder, imgj_processing = False):
     
     if imgj_processing:
         generate_gif_reconstruction(Image.fromarray(initial), Image.fromarray(target), 
-                                    os.path.join(folder_save_alignment, 'initial_vs_target_imgj.gif'))
+                                    os.path.join(folder_save_alignment, wl_to_align + '_initial_vs_target_imgj.gif'))
         generate_gif_reconstruction(Image.fromarray(final), Image.fromarray(target), 
-                                    os.path.join(folder_save_alignment, 'final_vs_target_imgj.gif'))
+                                    os.path.join(folder_save_alignment, wl_to_align + '_final_vs_target_imgj.gif'))
     else:
         generate_gif_reconstruction(Image.fromarray(initial), Image.fromarray(target), 
-                                    os.path.join(folder_save_alignment, 'initial_vs_target_python.gif'))
+                                    os.path.join(folder_save_alignment, wl_to_align + '_initial_vs_target_python.gif'))
         generate_gif_reconstruction(Image.fromarray(final), Image.fromarray(target), 
-                                    os.path.join(folder_save_alignment, 'final_vs_target_python.gif'))
+                                    os.path.join(folder_save_alignment, wl_to_align + '_final_vs_target_python.gif'))

@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib import cm
 
-from processingmm.helpers import load_parameter_maps, get_cmap, load_plot_parameters, load_combined_plot_name, load_filenames_combined_plot
+from processingmm.utils import load_parameter_maps, get_cmap, load_plot_parameters, load_combined_plot_name, load_filenames_combined_plot
 
 from matplotlib import rcParams
 rcParams['backend'] = 'Agg'
 
-def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
+def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False, save_pdf_figs = False):
     """
     generate the histogram for the four parameters
 
@@ -70,9 +70,9 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
         ax.locator_params(axis='x', nbins=5)
     
         if max_:
-            text = fr'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}\nmax = {max_val:.3f}'
+            text = '$\\mu$ = {mean:.3f}\n$\\sigma$ = {std:.3f}\nmax = {max_val:.3f}'
         else:
-            text = fr'$\mu$ = {mean:.3f}\n$\sigma$ = {std:.3f}'
+            text = '$\\mu$ = {mean:.3f}\n$\\sigma$ = {std:.3f}'
             
         ax.text(0.75, 0.85, text,
                 horizontalalignment='center', verticalalignment='center', transform=ax.transAxes,
@@ -95,12 +95,13 @@ def parameters_histograms(MuellerMatrices: dict, folder: str, max_ = False):
     path_pdf = os.path.join(folder, 'parameters_histogram.pdf')
 
     fig.savefig(path_png, dpi=80)  # Adjust DPI as needed
-    fig.savefig(path_pdf, dpi=100) # Adjust DPI as needed
+    if save_pdf_figs:
+        fig.savefig(path_pdf, dpi=100) # Adjust DPI as needed
         
     plt.close()
 
 
-def generate_plots(MuellerMatrices: dict, folder: str):
+def generate_plots(MuellerMatrices: dict, folder: str, save_pdf_figs = False):
     """
     master function allowing to create the plots for the polarimetric parameters map, calls the function plot_polarimetric_paramter for 
     each parameter
@@ -134,10 +135,10 @@ def generate_plots(MuellerMatrices: dict, folder: str):
                 pass
             cmap, norm = get_cmap(parameter)
 
-            plot_polarimetric_paramter(MuellerMatrices[folder][key], cmap, norm, parameter, path_save, folder)
+            plot_polarimetric_paramter(MuellerMatrices[folder][key], cmap, norm, parameter, path_save, folder, save_pdf_figs = save_pdf_figs)
 
 
-def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path_save: str, folder: str):
+def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path_save: str, folder: str, save_pdf_figs: bool = False):
     """
     function to display an individual 2D component (e.g. one component of the Mueller Matrix coeffs, or a Mask)
 
@@ -172,6 +173,7 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     path_save_img = path_save.replace('.png', '_img.png')
     plt.imsave(path_save_img, X2D, cmap = cmap, vmin = cbar_min, vmax = cbar_max)
 
+
     # 2. save the plot with the colorbar and title
     fig, ax = plt.subplots(figsize = (15,10))
     cax = ax.imshow(X2D, cmap=cmap, norm=norm)
@@ -180,8 +182,8 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     cbar = fig.colorbar(cax, ax=ax, pad=0.02, 
                         ticks=np.arange(cbar_min, cbar_max + cbar_step, cbar_step), fraction=0.06)
     cbar.ax.set_yticklabels([formatter.format(a) for a in np.arange(cbar_min, cbar_max + cbar_step, cbar_step)], 
-                            fontsize=40, weight='bold')
-    
+                        fontsize=40, weight='bold')
+        
     if parameter == 'intensity':
         ax.text(500, -10, "x10⁴", fontsize=40, fontweight="bold")
 
@@ -189,23 +191,17 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
     plt.xticks([])
     plt.yticks([])
-    
+        
     fig.savefig(path_save, dpi=80)  # Adjust DPI as needed
-    fig.savefig(path_save.replace('.png', '.pdf'), dpi=100)
+    if save_pdf_figs:
+        fig.savefig(path_save.replace('.png', '.pdf'), dpi=100)
     plt.close(fig)
-    
-    # 3. for the intensity, save the realsize image
-    if parameter == 'intensity':
-        folder = folder.replace('\\', '/')
-        path_save = os.path.join('/'.join(folder.split('/')[:-1]), folder.split('/')[-1],
-                    folder.split('/')[-3] + '_' + folder.split('/')[-1] + '_realsize.png').replace('\\', '/')
-        plt.imsave(path_save, X2D, cmap = cmap, vmin = cbar_min, vmax = cbar_max)
  
 
 from matplotlib.patches import Rectangle
 
 
-def show_MM(X3D, folder):
+def show_MM(X3D, folder, save_pdf_figs = False):
     """
     function to display the 16 components (e.g. of Mueller Matrix) in a montage form (4x4)
 
@@ -417,7 +413,8 @@ def show_MM(X3D, folder):
     plt.yticks([])
     plt.title('Mueller Matrix', fontsize=40, fontweight="bold", pad=20)
     plt.savefig(os.path.join(folder, 'MM.' + 'png'), dpi = 100)
-    plt.savefig(os.path.join(folder, 'MM.' + 'pdf'), dpi = 100)
+    if save_pdf_figs:
+        plt.savefig(os.path.join(folder, 'MM.' + 'pdf'), dpi = 100)
     plt.close()
     
     return X_montage
@@ -447,7 +444,7 @@ def rescale_MM(X2D: np.ndarray):
     return newvalue
 
 
-def MM_histogram(MuellerMatrices: dict, folder: str):
+def MM_histogram(MuellerMatrices: dict, folder: str, save_pdf_figs: bool = False):
     """
     function to create the histograms for the Mueller matrices
 
@@ -501,15 +498,16 @@ def MM_histogram(MuellerMatrices: dict, folder: str):
         std = np.std(MuellerMatrices[folder]['nM'][:,:,i].flatten())
 
         if row == 0 and col ==0:
-            ax.text(-1, 0.8, r"$\mu$ = {:.0f}\n$\sigma$ = {:.0f}\nmax = {:.3f}".format(mean, std, max_), fontsize=16, fontweight = 'bold')
+            ax.text(-1, 0.8, "$\\mu$ = {:.0f}\n$\\sigma$ = {:.0f}\nmax = {:.3f}".format(mean, std, max_), fontsize=16, fontweight = 'bold')
         else:
-            ax.text(-1, 0.8, r"$\mu$ = {:.3f}\n$\sigma$ = {:.3f}\nmax = {:.3f}".format(mean, std, max_), fontsize=16, fontweight = 'bold')
+            ax.text(-1, 0.8, "$\\mu$ = {:.3f}\n$\\sigma$ = {:.3f}\nmax = {:.3f}".format(mean, std, max_), fontsize=16, fontweight = 'bold')
 
     # actually save the Mueller Matrix
     fig.suptitle('Mueller Matrix histogram', fontsize=40, fontweight = 'bold', y = 1)
     plt.tight_layout()
     plt.savefig(os.path.join(folder, 'MM_histogram.png'))
-    plt.savefig(os.path.join(folder, 'MM_histogram.pdf'))
+    if save_pdf_figs:
+        plt.savefig(os.path.join(folder, 'MM_histogram.pdf'))
     plt.close()
 
 
@@ -531,7 +529,6 @@ def save_batch(folder: str, viz = False):
         figures = load_filenames_combined_plot()
 
     # load the four images
-    print(folder, figures)
     img_3 = cv2.imread(os.path.join(folder, figures[0]))[40:960, 160:1450]
     img_2 = cv2.imread(os.path.join(folder, figures[1]))[40:960, 160:1450]
     img_1 = cv2.imread(os.path.join(folder, figures[2]))[40:960, 160:1450]

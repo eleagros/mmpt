@@ -1,0 +1,42 @@
+{
+    "full": [
+        "Azimuth_local_variability.png",
+        "Azimuth_local_variability.pdf",
+        "Azimuth_local_variability_img.png",
+        "Azimuth of optical axis.pdf",
+        "Azimuth of optical axis.png",
+        "Azimuth of optical axis_img.png",
+        "combined_img.png",
+        "Depolarization.pdf",
+        "Depolarization.png",
+        "Depolarization_img.png",
+        "Diattenuation.pdf",
+        "Diattenuation.png",
+        "Diattenuation_img.png",
+        "Intensity.pdf",
+        "Intensity.png",
+        "Intensity_img.png",
+        "Linear retardance.pdf",
+        "Linear retardance.png",
+        "Linear retardance_img.png",
+        "MM.png",
+        "MM.pdf",
+        "MM.npz",
+        "MM_histogram.pdf",
+        "MM_histogram.png",
+        "parameters_histogram.pdf",
+        "parameters_histogram.png"
+    ],
+    "default": [
+        "Azimuth_local_variability_img.png",
+        "Azimuth of optical axis_img.png",
+        "Depolarization_img.png",
+        "Diattenuation_img.png",
+        "Intensity_img.png",
+        "Linear retardance_img.png",
+        "MM.npz"
+    ],
+    "no_viz": [
+        "MM.npz"
+    ]
+}
