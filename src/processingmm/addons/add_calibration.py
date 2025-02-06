@@ -1,4 +1,5 @@
 import os, shutil
+import json
 
 from tqdm import tqdm
 
@@ -8,11 +9,10 @@ def add_calibration(directories):
     data_folder, _ = utils.get_all_folders(directories)
     
     for folder in tqdm(data_folder):
-        
-        file = open(os.path.join(folder, 'MMProcessing.txt'), "r")
-        calib_directory=file.readlines()[1].replace('\n','')
+        with open(os.path.join(folder, 'MMProcessing.txt')) as f:
+            params = json.load(f)
+            calib_directory=params['calibration_directories']
         assert os.path.exists(calib_directory), 'Calibration directory does not exist'
-        file.close()
         
         os.makedirs(os.path.join(folder, 'calibration'), exist_ok=True)
         

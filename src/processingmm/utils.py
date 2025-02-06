@@ -419,7 +419,7 @@ def move_the_folders_pre_processing(parameters, chunk: list):
                 shutil.copytree(src, dst)
             else:
                 shutil.copy(src, dst)
-
+        
         to_process_temp.append(os.path.join(parameters['temp_folder'], folder.split('/')[-1]))
         
     return links_folders, to_process_temp

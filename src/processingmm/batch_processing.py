@@ -190,14 +190,16 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
                                                                     wavelengths = wl, folder_eu_time = folder_eu_time)
     
         for folder in to_process_temp:
+            parameters_reconstruction = {
+                'processed': True,
+                'calibration_directories': calibration_directories[folder.split('/')[-1]],
+                'parameters': parameters,
+                'libmpMuelMat': libmpMuelMat.__version__,
+                'processingmm': processingmm.__version__
+            }
             try:
                 logbook_MM_processing = open(os.path.join(folder, 'MMProcessing.txt'), 'w')
-                logbook_MM_processing.write('Processed: true\n')
-                logbook_MM_processing.write(calibration_directories[folder.split('/')[-1]] + '\n')
-                logbook_MM_processing.write('Processing parameters: ' + json.dumps(parameters, indent = 3) + '\n')
-                logbook_MM_processing.write(libmpMuelMat.__version__ + '\n')
-                import processingmm
-                logbook_MM_processing.write(processingmm.__version__)
+                logbook_MM_processing.write(json.dumps(parameters_reconstruction, indent = 3))
                 logbook_MM_processing.close()
             except:
                 logbook_MM_processing.close()
@@ -207,9 +209,9 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
         links_folders = {v: k for k, v in links_folders.items()}
         for folder, temp_folder in links_folders.items():
             if PDDN:
-                to_remove = ['polarimetry']
+                to_remove = ['polarimetry', 'polarimetry_PDDN']
             else:
-                to_remove = ['polarimetry_PDDN']
+                to_remove = ['polarimetry_PDDN', 'polarimetry']
                     
             for fold in os.listdir(temp_folder):
                                 
@@ -217,15 +219,10 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
                     pass
                 elif fold == 'MMProcessing.txt':
                     shutil.copy(os.path.join(temp_folder, fold), os.path.join(folder, fold))
+                elif fold == to_remove[1] or fold == 'raw_data':
+                    shutil.copytree(os.path.join(temp_folder, fold), os.path.join(folder, fold), dirs_exist_ok=True) 
                 else:
-                    try:
-                        shutil.rmtree(os.path.join(folder, fold))
-                    except FileNotFoundError:
-                        pass
-                    except:
-                        traceback.print_exc()
-                    
-                    shutil.move(os.path.join(temp_folder, fold), os.path.join(folder, fold))
+                    raise ValueError('The folder {} is not a valid folder.'.format(fold))
             
         shutil.rmtree(parameters['temp_folder'], ignore_errors=True)
 
