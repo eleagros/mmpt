@@ -1,8 +1,0 @@
-Logbook.txt
-TemperatureBook.txt
-450nm
-500nm
-550nm
-600nm
-650nm
-700nm

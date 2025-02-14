@@ -13,13 +13,13 @@ import pandas as pd
 
 ####################################################################################################################################
 ####################################################################################################################################
-################################### 1. Get the folders that will be processed ######################################################
+######################################### 1. Get the folders that will be processed ################################################
 ####################################################################################################################################
 ####################################################################################################################################
 
 def get_to_process(parameters: dict, PDDN: bool = False, inverse: bool = False):
     """
-    get the folders that needs to be processed
+    returns the list of the folders that needs to be processed
     
     Parameters:
     ----------
@@ -41,8 +41,7 @@ def get_to_process(parameters: dict, PDDN: bool = False, inverse: bool = False):
     -------
     None
     """
-    df, wl = get_df_processing(parameters['directories'], PDDN = PDDN, wavelengths = parameters['wavelengths'], processing_mode = parameters['processing_mode'],
-                               save_pdf_figs = parameters['save_pdf_figs'])
+    df, wl = getDfProcessing(parameters, PDDN = PDDN)
     
     # get the files that needs to be processed
     if len(df) == 0:
@@ -60,10 +59,10 @@ def get_to_process(parameters: dict, PDDN: bool = False, inverse: bool = False):
         to_process = []
     else:
         to_process = list(set(list(to_process.reset_index(level=0).apply(lambda row: row['folder name'], axis=1))))
-    return wl, to_process, df
+
+    return to_process, wl, df
     
-    
-def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', processing_mode = 'full', save_pdf_figs = False):
+def getDfProcessing(parameters: dict, PDDN: bool) -> tuple:
     """
     get the dataframe containing the information about the folders and if they have been processed
 
@@ -89,9 +88,10 @@ def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', proc
     -------
     None
     """
-    data_folder, _ = get_all_folders(directories)
-
-    # remove the processing_logbook (old version)
+    directories = parameters['directories']              
+    data_folder, _ = getAllFolders(directories)
+    
+    # remove the processing_logbook (present in old versions)
     for folder in data_folder:
         try:
             os.remove(os.path.join(folder, 'processing_logbook.txt'))
@@ -99,16 +99,12 @@ def get_df_processing(directories: list, PDDN = False, wavelengths = 'all', proc
             pass
         
     # return two list booleans and a dict linking folders and the indication of if the folders have been processed
-    processed, data_folder_nm, wl = find_processed_folders(data_folder, PDDN = PDDN, 
-                                                    wavelengths = wavelengths, processing_mode = processing_mode, 
-                                                    save_pdf_figs = save_pdf_figs)
+    processed, data_folder_nm, wl = findProcessedFolders(data_folder, parameters, PDDN = PDDN)
 
-    df = create_folders_df(data_folder, processed, data_folder_nm,
-                           wavelengths = wl)
+    df = createFoldersDf(data_folder, processed, data_folder_nm, wavelengths = wl)
     return df, wl
 
-
-def get_all_folders(directories: list, win7: bool = False):
+def getAllFolders(directories: list) -> tuple:
     """
     walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 
     202x-xx-xx name format and return the list of folders.
@@ -136,15 +132,11 @@ def get_all_folders(directories: list, win7: bool = False):
             if 'TRANSMISSION' in root:
                 pass
             else:
-                get_folder_name(root, data_folder, folder_names)
+                getFolderName(root, data_folder, folder_names)
     
-    if win7:
-        return f7(data_folder), f7(folder_names)
-    else:
-        return list(set(data_folder)), list(set(folder_names))
-    
-    
-def get_folder_name(root: str, data_folder: list, folder_names: list):
+    return list(set(data_folder)), list(set(folder_names))
+       
+def getFolderName(root: str, data_folder: list, folder_names: list) -> None:
     """
     check if a folder has the correct format: 202x-xx-xx. if yes, add it to the list of folders
 
@@ -164,19 +156,16 @@ def get_folder_name(root: str, data_folder: list, folder_names: list):
         splitted = root.split(x)
         
         # if yes, append it to the lists containing the folder names
-        data_folder.append(os.path.join(splitted[0],  x + splitted[1].split('/')[0]))
-        folder_names.append(x + splitted[1].split('/')[0])
+        if '/' in splitted[-1]:
+            pass
+        else:
+            data_folder.append(root)
+            folder_names.append(root.split('/')[-1])
                     
     except Exception as e:
         pass
-    
-def f7(seq):
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
 
-
-def find_processed_folders(data_folder: list, PDDN = False, wavelengths = 'all', processing_mode = 'full', save_pdf_figs = False):
+def findProcessedFolders(data_folder: list, parameters: dict, PDDN: bool) -> tuple:
     """
     iterates over each of the folder to find the ones containing 550nm/650nm raw data and determine the ones that have been processed
 
@@ -198,43 +187,73 @@ def find_processed_folders(data_folder: list, PDDN = False, wavelengths = 'all',
         a dictionnary containing lists indicating if the data files are present for each wavelength
     wavelenghts : list
         the list of the wavelengths usable with the IMP
-    
     """
+    processed_dict, data_presence = {}, {}
+    wavelengths_compare = getWavelenghtsProcessing(parameters['wavelengths'])
     
-    processed_nm, data_folder_nm = {}, {}
-    wavelengths_compare = get_wavelenghts_processing(wavelengths)
+    # check if the PDDN model is available, if not, revert to the normal polarimetry
+    path_polarimetry = {}
     
+    for wl in wavelengths_compare:
+        path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                       r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
+        path_polarimetry[wl] = 'polarimetry_PDDN' if PDDN and os.path.exists(path_PDDN_model) else 'polarimetry'
+
     # iterate over each folder containing data
     for path in data_folder:
         data, processed = [], []
 
         for wl in wavelengths_compare:
     
-            path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
-
-            path_polarimetry = 'polarimetry_PDDN' if PDDN and os.path.exists(path_PDDN_model) else 'polarimetry'
-            
             # check if raw data is available for the different measurements
-            path_wl = os.path.join(path, 'raw_data', wl) if os.path.exists(os.path.join(path, 'raw_data')) else os.path.join(path, wl)
-            data.append(is_there_data(path_wl))
-
-            if os.path.exists(os.path.join(path, path_polarimetry)):
-                try:
-                    os.mkdir(os.path.join(os.path.join(path, path_polarimetry, wl)))
-                except FileExistsError:
-                    pass
-                          
-                processed.append(is_processed(path, wl, PDDN, processing_mode = processing_mode, save_pdf_figs = save_pdf_figs))
-            else:
+            path_raw_data = os.path.join(path, 'raw_data', wl) if os.path.exists(os.path.join(path, 'raw_data')) else os.path.join(path, wl)
+            data.append(isThereData(path_raw_data, wl))
+            
+            if parameters['run_all']:
                 processed.append(False)
+            else:
+                if os.path.exists(os.path.join(path, path_polarimetry[wl])):
+                    os.makedirs(os.path.join(os.path.join(path, path_polarimetry[wl], wl)), exist_ok=True)
+                    processed.append(isProcessed(path, wl, path_polarimetry[wl], processing_mode = parameters['processing_mode'], 
+                                                    save_pdf_figs = parameters['save_pdf_figs']))
+                else:
+                    processed.append(False)
         
         # add the information to lists
-        processed_nm[path] = processed
-        data_folder_nm[path] = data
-    return processed_nm, data_folder_nm, wavelengths_compare
+        processed_dict[path] = processed
+        data_presence[path] = data
+        
+    return processed_dict, data_presence, wavelengths_compare
 
+def getWavelenghtsProcessing(wavelengths) -> list:
+    """
+    get the wavelenghts that will be processed
+    
+    Parameters
+    ----------
+    wavelengths : str or list
+        indicates which wavelenghts should be processed (default is 'all', other option is a list of int)
+    
+    Returns
+    -------
+    wavelengths_compare : list
+        the list of the wavelengths usable with the IMP
 
-def is_there_data(path: str):
+    Raises
+    -------
+    AssertionError
+        if the wavelenghts are not a list of int
+    """
+    if wavelengths == 'all':
+        wavelengths_compare = load_wavelengths()
+    else:
+        assert type(wavelengths) == list, ("Wavelengths should be a list of int (or string).")
+        wavelengths_compare = []
+        for wl in wavelengths:
+            wavelengths_compare.append(str(wl) + 'nm')
+    return wavelengths_compare
+
+def isThereData(path: str, wl: str) -> bool:
     """
     check if raw data is available for the path given as an input
 
@@ -248,24 +267,13 @@ def is_there_data(path: str):
     data_exist : bool
         boolean indicating the presence of two .cod files
     """
-    data_exist = False
-    all_files = os.listdir(path)
-    files = []
-    for f in all_files:
-        if 'PDDN' in f or 'aligned' in f:
-            pass
-        else:
-            files.append(f)
-    
-    try:
-        data_exist = len(files) == 2
-    except FileNotFoundError:
-        data_exist = False
+    pathsRawData = [f"{wl.replace('nm', '')}_Bruit.cod", f"{wl.replace('nm', '')}_Intensite.cod"]
+    if pathsRawData[0] in os.listdir(path) and pathsRawData[1] in os.listdir(path):
+        return True
+    else:
+        return False
 
-    return data_exist
-
-
-def is_processed(path: str, wl: str, PDDN: bool = False, processing_mode = 'full', save_pdf_figs = False):
+def isProcessed(path: str, wl: str, polarimetry_fname: str, processing_mode: bool = 'full', save_pdf_figs: bool = False) -> bool:
     """
     check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
 
@@ -275,57 +283,36 @@ def is_processed(path: str, wl: str, PDDN: bool = False, processing_mode = 'full
         the path to the folder to check
     wl : str
         the wavelenghts for which to check
+    polarimetry_fname : str
+        the name of the folder containing the polarimetric data
+    processing_mode : str
+        indicates the processing mode ('full', 'no_visualization' or 'fast', default is 'full')
+    save_pdf_figs : bool
+        indicates if the pdf figures should be saved (default is False)
 
     Returns
     ----------
     all_found : is_processed
         indicates if all the files were present
-    """
-    filenames = load_filenames(processing_mode = processing_mode, save_pdf_figs = save_pdf_figs)
-
-    path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wl.split('nm')[0]) + '_Fresh_HB.pt')
-    
-    if PDDN and os.path.exists(path_PDDN_model):
-        polarimetry_fname = 'polarimetry_PDDN'
-    else:
-        polarimetry_fname = 'polarimetry'
         
-    # get the filenames
+    Raises
+    -------
+    None
+    """
+    # get the filenames that should be present
+    filenames = load_filenames(processing_mode = processing_mode, save_pdf_figs = save_pdf_figs)
     all_file_names = os.listdir(os.path.join(path, polarimetry_fname, wl))
     
+    # check if all the files are present
     all_found = True
     for filename in filenames:
-        found_file = False
-        if filename == '_realsize.png':
-            for file in all_file_names:
-                if file.endswith(filename):
-                    found_file = True
-        else:
-            for file in all_file_names:
-                if file == filename:
-                    found_file = True
-        if not found_file:
+        if filename not in all_file_names:
             all_found = False
+            break
 
     return all_found
 
-
-def get_wavelenghts_processing(wavelengths):
-    if wavelengths == 'all':
-        wavelengths_compare = load_wavelengths()
-    else:
-        assert type(wavelengths) == list, ("Wavelengths should be a list of int (or string).")
-        wavelengths_compare = []
-        for wl in wavelengths:
-            if type(wl) == int:
-                wavelengths_compare.append(str(wl) + 'nm')
-            else:
-                if 'nm' not in wl:
-                    wl = wl + 'nm'
-                wavelengths_compare.append(wl)
-    return wavelengths_compare
-
-def create_folders_df(data_folder: list, processed: dict, data_folder_nm: dict, wavelengths: list):
+def createFoldersDf(data_folder: list, processed: dict, data_folder_nm: dict, wavelengths: list):
     """
     create a dataframe referencing the path to the folder and if it has been processed
 
@@ -354,17 +341,7 @@ def create_folders_df(data_folder: list, processed: dict, data_folder_nm: dict, 
     df = df.reset_index(drop=True)
     return df
 
-
-
-####################################################################################################################################
-####################################################################################################################################
-####################################################################################################################################
-####################################################################################################################################
-####################################################################################################################################
-
-
-
-def move_the_folders_pre_processing(parameters, chunk: list):
+def moveTheFoldersForProcessing(parameters, chunk: str):
     """
     move the measurement folders to the temp_processing folder
     
@@ -390,21 +367,24 @@ def move_the_folders_pre_processing(parameters, chunk: list):
     
     # move the measurement folders to the temp_processing folder
     links_folders = {}
-    for folder in chunk:
-        
+    for folder in [chunk]:
+                
         links_folders[os.path.join(parameters['temp_folder'], folder.split('/')[-1])] = folder
         os.mkdir(os.path.join(parameters['temp_folder'], folder.split('/')[-1]))
 
+        # 1. move the raw data into the raw_data folder
         if 'raw_data' in os.listdir(folder):
             pass
         else:
             os.mkdir(os.path.join(folder, 'raw_data'))
+
             for file in os.listdir(folder):
                 if file != 'raw_data':
                     src = os.path.join(folder, file)
                     dst = os.path.join(folder, 'raw_data', file)
                     shutil.move(src, dst)
-            
+           
+        # 2. create the annotation folder and move the rotation_MM.txt file 
         os.makedirs(os.path.join(folder, 'annotation'), exist_ok = True)
             
         if os.path.exists(os.path.join(folder, 'annotation', 'rotation_MM.txt')):
@@ -412,6 +392,7 @@ def move_the_folders_pre_processing(parameters, chunk: list):
             dst = os.path.join(folder, 'raw_data', 'rotation_MM.txt')
             shutil.copy(src, dst)
         
+        # 3. move the raw data to the temp_processing folder
         for file in os.listdir(os.path.join(folder, 'raw_data')):
             src = os.path.join(folder, 'raw_data', file)
             dst = os.path.join(parameters['temp_folder'], folder.split('/')[-1], file)
@@ -420,6 +401,7 @@ def move_the_folders_pre_processing(parameters, chunk: list):
             else:
                 shutil.copy(src, dst)
         
+        # 4. add the folder to the list of folders to be processed
         to_process_temp.append(os.path.join(parameters['temp_folder'], folder.split('/')[-1]))
         
     return links_folders, to_process_temp
@@ -442,6 +424,10 @@ def save_file_as_npz(variable: dict, path: str, processing_mode = 'full'):
     path : str
         the path in which the MM should be saved
     """
+    if processing_mode != 'no_viz':
+        pass
+    else:
+        variable = {key: variable[key] for key in ['M11', 'Msk', 'totD', 'linR', 'azimuth', 'totP']}
     np.savez(path, **variable)
                
 def rotate_maps_90_deg(map_resize: np.ndarray, azimuth = False):
@@ -560,23 +546,6 @@ def load_wavelengths():
         lines[idx] = l.replace('\n', '') + 'nm'
     return lines
 
-def get_wavelength(fname: str):
-    """
-    returns the wavelength given a specific folder name
-
-    Parameters
-    ----------
-    fname : str
-        the folder name for which we want the wavelength for
-
-    Returns
-    -------
-    wavelength : int
-        the wavelength corresponding to the folder given as an input
-    """
-    wavelength = int(str.split(fname, '/')[-1].split('nm')[0])
-    return wavelength
-
 def load_filenames(processing_mode = 'full', save_pdf_figs = False):
     """
     load and returns the name of the files that will be generated during the processing
@@ -611,25 +580,6 @@ def load_plot_parameters():
     with open(os.path.join(dir_path, 'data', 'parameters_plot.json')) as json_file:
         data = json.load(json_file)
     return data
-
-def chunks(lst: list, n: int):
-    """
-    chunks returns chunks of data composed of n element
-
-    Parameters
-    ----------
-    generator : generator
-        a generator allowing to get the chunks
-        
-    Returns
-    -------
-    lst : list
-        the data to split in different chunks
-    n : int
-        the number of elements to be put in each chunk
-    """
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
 
 def load_MM(path: str):
     """
@@ -776,3 +726,42 @@ def load_parameter_names():
     for idx, l in enumerate(lines):
         lines[idx] = l.replace('\n', '')
     return lines
+
+
+
+def chunks(lst: list, n: int):
+    """
+    chunks returns chunks of data composed of n element
+
+    Parameters
+    ----------
+    generator : generator
+        a generator allowing to get the chunks
+        
+    Returns
+    -------
+    lst : list
+        the data to split in different chunks
+    n : int
+        the number of elements to be put in each chunk
+    """
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+        
+
+def get_wavelength(fname: str):
+    """
+    returns the wavelength given a specific folder name
+
+    Parameters
+    ----------
+    fname : str
+        the folder name for which we want the wavelength for
+
+    Returns
+    -------
+    wavelength : int
+        the wavelength corresponding to the folder given as an input
+    """
+    wavelength = int(str.split(fname, '/')[-1].split('nm')[0])
+    return wavelength

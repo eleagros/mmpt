@@ -2,7 +2,7 @@ import os
 import shutil
 from processingmm.utils import load_filenames, load_filenames_results
 
-def reorganize_folders(measurement_directory: str, all_directories: list):
+def reorganizeFolders(measurement_directory: str, all_directories: list):
     """
     reorganize the folders in the measurement directory
     
@@ -36,9 +36,9 @@ def reorganize_folders(measurement_directory: str, all_directories: list):
     for directory in all_directories:
         remove_old_computation(measurement_directory, directory)
         
-    # 4. move what was already computed into the new folders
+    """# 4. move what was already computed into the new folders
     for directory in all_directories:
-        move_50x50_images(measurement_directory, directory)
+        move_50x50_images(measurement_directory, directory)"""
         
         
 def move_raw_data_folders(directory: list, measurements_directory: str, Flag = False):
@@ -233,17 +233,7 @@ def remove_old_computation(measurements_directory: str, directory: str, Flag = F
         print('Old computations were removed')
 
 
-def move_50x50_images(measurements_directory: str, directory: str, Flag = False):
-    """
-    move the 50x50 images that were already computed in thw new 50x50_images folder
-
-    Parameters
-    ----------
-    measurements_directory : str
-        the path to the measurement directory
-    directory : str
-        the folder name
-    """
+"""def move_50x50_images(measurements_directory: str, directory: str, Flag = False):
     source = os.path.join(measurements_directory, directory, '50x50_images')
     
     try:
@@ -266,4 +256,4 @@ def move_50x50_images(measurements_directory: str, directory: str, Flag = False)
         pass
 
     if Flag:
-        print('50x50 images were moved')
+        print('50x50 images were moved')"""

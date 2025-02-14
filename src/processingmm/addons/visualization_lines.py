@@ -15,7 +15,7 @@ from skimage.restoration import unwrap_phase
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import binary_dilation
 
-from processingmm.utils import get_cmap, get_wavelength, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, is_there_data, load_combined_plot_name, load_filenames_combined_plot
+from processingmm.utils import get_cmap, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, isThereData, load_combined_plot_name, load_filenames_combined_plot
 from processingmm.multi_img.multi_img_processing import remove_already_computed_directories
 from processingmm.libmpMuelMat import _isNumStable
 
@@ -74,8 +74,10 @@ def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = Fal
 
         check_wl = []
         for wl in wavelengths:
-
-            if is_there_data(os.path.join(folder, 'raw_data', str(wl) + 'nm')):
+            
+            wl =  f"{str(wl)}nm"
+            path_raw_data = os.path.join(folder, 'raw_data', wl)
+            if isThereData(path_raw_data, wl):
                 check_wl.append(wl)
 
         if run_all:
@@ -94,7 +96,8 @@ def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = Fal
                 else:
                     path_polarimetry = 'polarimetry'
                     
-                path_wl = os.path.join(folder, path_polarimetry, str(wl) + 'nm')
+                path_wl = os.path.join(folder, path_polarimetry, str(wl))
+
                 if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
                     for file in filename_results:
                         if file in os.listdir(os.path.join(path_wl, 'results')) :

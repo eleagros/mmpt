@@ -15,9 +15,10 @@ import time
 
 from processingmm.addons import visualization_lines
 from processingmm.multi_img import multi_img_processing, reorganize_folders
+from processingmm import libmpMPIdenoisePDDN
 
-def get_parameters(directories: list, calib_directory: str, wavelengths: list, parameter_set: str = 'TheoniPics', PDDN_mode: str = 'both', processing_mode: str = 'default', 
-                   run_all: bool = True, save_pdf_figs: bool = True) -> dict:
+def get_parameters(directories: list, calib_directory: str, wavelengths: list, parameter_set: str = 'TheoniPics', PDDN_mode: str = 'both', 
+                   processing_mode: str = 'default', run_all: bool = True, save_pdf_figs: bool = True) -> dict:
     """
     Returns the processing parameters in a dictionary format, readable by the next functions in the pipeline, for the given inputs.
 
@@ -164,30 +165,32 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
     # start recording time for the whole processing
     start = time.time()
     
-    # get all the names of the measurement folders
-    wl, to_process, _ = utils.get_to_process(parameters, PDDN=PDDN)
+    PDDN_models = {}
+    if PDDN:
+        for wavelength in parameters['wavelengths']:
+            PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                                         r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt'))
+    else:
+        PDDN_models = None
     
-    os.makedirs(parameters['temp_folder'], exist_ok=True)
+    # get all the names of the measurement folders
+    to_process, wavelenghts, dfProcessing = utils.get_to_process(parameters, PDDN=PDDN)
 
     # get the different chunks that are used to split the processing of the data
-    if parameters['time_mode']:
-        all_chunks = list(utils.chunks(to_process, 1))
-    else:
-        all_chunks = list(utils.chunks(to_process, 2))
-
-    for chunk in tqdm(all_chunks):
+    for folder in tqdm(to_process):
         
-        print('Processing:', chunk)
+        print('Processing:', folder)
         
         to_process_temp = []
         shutil.rmtree(parameters['temp_folder'], ignore_errors=True)
         os.makedirs(parameters['temp_folder'], exist_ok=True)
         
-        links_folders, to_process_temp = utils.move_the_folders_pre_processing(parameters, chunk)
+        links_folders, to_process_temp = utils.moveTheFoldersForProcessing(parameters, folder)
         
         # process the mueller matrix and generate the visualizations
-        calibration_directories, parameters_set, times = process_MM(parameters, PDDN = PDDN, remove_reflection = remove_reflection,
-                                                                    wavelengths = wl, folder_eu_time = folder_eu_time)
+        calibration_directories, parameters_set, times = process_MM(parameters, folder, PDDN = PDDN, remove_reflection = remove_reflection,
+                                                                    wavelengths = wavelenghts, folder_eu_time = folder_eu_time,
+                                                                    dfProcessing = dfProcessing, PDDN_models = PDDN_models)
     
         for folder in to_process_temp:
             parameters_reconstruction = {
@@ -238,10 +241,9 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
         return {}, time_complete
     
     
-
         
-        
-def process_MM(parameters: dict, PDDN: bool, remove_reflection: bool, wavelengths: list, folder_eu_time: dict):
+def process_MM(parameters: dict, folder: str, PDDN: bool, remove_reflection: bool, wavelengths: list, folder_eu_time: dict, 
+               dfProcessing: pd.DataFrame, PDDN_models: dict):
     """
     master function allowing to reogranize the folders, compute the MMs, generate the plots and the visualizations for one directory
 
@@ -263,20 +265,27 @@ def process_MM(parameters: dict, PDDN: bool, remove_reflection: bool, wavelength
     
     # obtain the directories that we should reorganize the data for
     all_directories = os.listdir(measurement_directory)
-    reorganize_folders.reorganize_folders(measurement_directory, all_directories)
+    reorganize_folders.reorganizeFolders(measurement_directory, all_directories)
     
-    to_compute = multi_img_processing.remove_already_computed_folders(measurement_directory, 
+    """to_compute = multi_img_processing.remove_already_computed_folders(measurement_directory, 
                                                                       run_all = parameters['run_all'], 
                                                                       PDDN = PDDN,
                                                                       wavelengths = wavelengths,
                                                                       save_pdf_figs = parameters['save_pdf_figs'],
-                                                                      Flag = False)
+                                                                      Flag = False)"""
+
+    
+    to_compute = []
+    for fld in dfProcessing[dfProcessing['folder name'] == folder].index:
+        if dfProcessing.loc[fld, 'data presence'] and not dfProcessing.loc[fld, 'processed']:
+            to_compute.append([dfProcessing.loc[fld, 'folder name'].split('/')[-1],
+                            dfProcessing.loc[fld, 'wavelength']])
 
     calib_directory_dates_num = multi_img_processing.get_calibration_dates(parameters['calib_directory'])
-    
+
     # compute the MMs
     MuellerMatrices, calibration_directories, times = MM_processing.compute_analysis_python(measurement_directory, 
-                                        calib_directory_dates_num, parameters['calib_directory'], to_compute, 
+                                        calib_directory_dates_num, parameters['calib_directory'], to_compute, PDDN_models,
                                         remove_reflection = remove_reflection, folder_eu_time = folder_eu_time, 
                                         run_all = parameters['run_all'], batch_processing = True, Flag = False, PDDN = PDDN,
                                         wavelengths = wavelengths, processing_mode = parameters['processing_mode'], time_mode = parameters['time_mode'],
@@ -302,7 +311,7 @@ def process_MM(parameters: dict, PDDN: bool, remove_reflection: bool, wavelength
     end = time.time()
     time_plotting = end - start
     times['plotting'] = time_plotting
-        
+    
     return calibration_directories, parameters['parameter_set'], times
 
 

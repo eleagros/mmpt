@@ -20,7 +20,7 @@ from processingmm.utils import rotate_parameter
 
 from numba import jit
 
-def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array = None, MM_computation: bool = False, angle_correction = 0, save_pdf_figs = False,
+def get_and_plots_stds(measurements: list, sq_size: int, wavelength: str, azimuth: np.array = None, MM_computation: bool = False, angle_correction = 0, save_pdf_figs = False,
                        processing_mode = 'full'):
     """
     get_and_plots_stds is the master function to create the plots to visualize the azimuth noise
@@ -75,7 +75,7 @@ def get_and_plots_stds(measurements: list, sq_size: int = 4, azimuth: np.array =
             mask = None
             
         if processing_mode in {'default', 'full'}:
-            plot_azimuth_noise(azimuth_std, folder, mask = mask, healthy = healthy, plot = MM_computation, save_pdf_figs = save_pdf_figs) 
+            plot_azimuth_noise(azimuth_std, folder, f"{wavelength}nm", mask = mask, healthy = healthy, plot = MM_computation, save_pdf_figs = save_pdf_figs) 
         
         plt.close()
         
@@ -155,7 +155,7 @@ def apply_circular_std(arr):
     return result.view(arr.shape).cpu().numpy()
 
 
-def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healthy: bool = False, plot: bool = False, save_pdf_figs = False):
+def plot_azimuth_noise(azimuth_std: np.array, folder: str, wavelength:str, mask: np.array, healthy: bool = False, plot: bool = False, save_pdf_figs = False):
     """
     plot_azimuth_noise is the function to plot the azimuth noise
 
@@ -220,11 +220,11 @@ def plot_azimuth_noise(azimuth_std: np.array, folder: str, mask: np.array, healt
     plt.xticks([])
     plt.yticks([])
         
-    plt.savefig(os.path.join(folder, 'Azimuth_local_variability.png'), dpi = 100)
+    plt.savefig(os.path.join(folder, wavelength, 'Azimuth_local_variability.png'), dpi = 100)
     if save_pdf_figs:
-        plt.savefig(os.path.join(folder, 'Azimuth_local_variability.pdf'), dpi = 80)
+        plt.savefig(os.path.join(folder, wavelength, 'Azimuth_local_variability.pdf'), dpi = 80)
         
-    path_save_img = os.path.join(folder, 'Azimuth_local_variability_img.png')
+    path_save_img = os.path.join(folder, wavelength, 'Azimuth_local_variability_img.png')
     plt.imsave(path_save_img, azimuth_std, cmap = cmap_colorbar, vmin = 0, vmax = 40)
 
     

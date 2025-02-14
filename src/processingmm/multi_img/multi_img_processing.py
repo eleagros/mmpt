@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 import warnings
 import copy
-from processingmm.utils import load_wavelengths, is_there_data, is_processed
+from processingmm.utils import load_wavelengths, isThereData, isProcessed
 
 
 def remove_already_computed_folders(measurements_directory: str, sanity = False, run_all: bool = False,
@@ -36,11 +36,12 @@ def remove_already_computed_folders(measurements_directory: str, sanity = False,
 
         if len(directories) >= 1:
             not_computed.append(c)
-            
+    
+    print(not_computed)
     return not_computed
 
 
-def remove_already_computed_directories(path: str, sanity = False, run_all: bool = False, PDDN = False, 
+def remove_already_computed_directories(path: str, sanity = True, run_all: bool = False, PDDN = False, 
                                         wavelengths = [], save_pdf_figs = False, Flag = False, processing_mode = 'full'):
     """
     remove the folders and wl that were previsouly computed
@@ -66,7 +67,7 @@ def remove_already_computed_directories(path: str, sanity = False, run_all: bool
         if sanity or run_all:
             directories_computable.append(os.path.join(path_raw_data, d))
         else:
-            if is_processed(path, d, PDDN = PDDN, processing_mode = processing_mode, save_pdf_figs = save_pdf_figs):
+            if isProcessed(path, d, PDDN = PDDN, processing_mode = processing_mode, save_pdf_figs = save_pdf_figs):
                 pass
             else:
                 directories_computable.append(os.path.join(path_raw_data, d))
@@ -95,7 +96,7 @@ def get_data_containing_folder(path: str, wavelengths = []):
     for wavelength in load_wavelengths():
         if wavelength in wavelengths:
             if os.path.isdir(os.path.join(path, wavelength)):
-                if is_there_data(os.path.join(path, wavelength)):
+                if isThereData(path, wavelength):
                     directories.append(wavelength)
     return directories
 
@@ -138,7 +139,8 @@ def get_calibration_dates(calib_directory: str):
     return calib_directory_dates_num
 
 
-def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_directory: str, directories, folder_eu_time: dict = {}, Flag = False, idx = -1):
+def get_calibration_directory(calib_directory_dates_num, path, calib_directory, wavelength,
+                                                              folder_eu_time: dict = {}, Flag = False, idx = -1):
     """
     get the calibration directory with the date closest to the folder given as in input
 
@@ -167,50 +169,14 @@ def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_
         date_measurement = folder_eu_time[path.split('temp_processing/')[1]]
     else:
         date_measurement = get_date_measurement(path, idx)
-
     
     # find the data that is the closest in the calibration directory
-    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, directories, calib_directory, Flag = Flag)
-    directories_calib = os.listdir(calib_directory)
-    calib_folder = []
-    
-    # iterate over the directories in the calibration folder
-    for directory in directories_calib:
-        
-        # add to the calib_folder list the folders with the date corresponding to the closest date
-        if closest_date in directory:
-            
-            all_wl = True
-            for d in directories:
-                path_A = os.path.join(calib_directory, directory, d.split('/')[-1], d.split('/')[-1].split('nm')[0] + '_B0.cod')
-                path_W = os.path.join(calib_directory, directory, d.split('/')[-1], d.split('/')[-1].split('nm')[0] + '_Bruit.cod')
-                if os.path.isfile(path_A) and os.path.isfile(path_W):
-                    pass
-                else:
-                    all_wl = False
-                
-            if all_wl:
-                calib_folder.append(os.path.join(calib_directory, directory))
-            
-    # check if there are actually calibration folders - if not, raise an error
-    if calib_folder:
-        
-        # select the last calibration of the day (i.e. if 'C_1', 'C_2' exists - select 'C_2')
-        highest = 0
-        cal_fol_rt = None
-        for cal_fol in calib_folder:
-            if int(cal_fol.split('_')[-1]) > highest:
-                highest = int(cal_fol.split('_')[-1])
-                cal_fol_rt = cal_fol
-        if cal_fol_rt:
-            return cal_fol_rt
-        else:
-            raise FileNotFoundError('No calibration was found. Check if calibration folders are present.')
-    else:
-        raise FileNotFoundError('No calibration was found. Check if calibration folders are present.')
+    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, wavelength, calib_directory, Flag = Flag)    
+    return f"{calib_directory}/{closest_date}"
 
 
-def find_closest_date(date_measurement: datetime, calib_dates_complete: list, directories: list, calib_directory: str, Flag = False):
+def find_closest_date(date_measurement: datetime, calib_dates_complete: list, wavelength: str, 
+                      calib_directory: str, Flag = False):
     """
     finds the directory with the closest date to the measurement one
 
@@ -238,9 +204,7 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, di
     found = False
 
     # get the list of the wavelengths that needs to be checked
-    wavelenghts_check = []
-    for d in directories:
-        wavelenghts_check.append(d.split('/')[-1])
+    wavelenghts_check = [wavelength]
 
     while not found:
         date_calibration = None
@@ -277,10 +241,15 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, di
                 path_L30 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_L30.cod')
                 path_P0 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_P0.cod')
                 path_P90 = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_P90.cod')
+                path_A = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_A.cod')
+                path_W = os.path.join(calib_directory, last_calibration, wl, wl.split('nm')[0] + '_W.cod')
                 if os.path.isfile(path_B0) and os.path.isfile(path_Bruit) and os.path.isfile(path_L30) and os.path.isfile(path_P0) and os.path.isfile(path_P90):
                     pass
                 else:
-                    all_found = False
+                    if os.path.isfile(path_A) and os.path.isfile(path_W):
+                        pass
+                    else:
+                        all_found = False
                     
             # if yes, pass
             if all_found:
@@ -298,13 +267,14 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, di
             min_idx = sorted(min_idx, reverse=True)
             for idx in min_idx:
                 del calib_dates[idx]
-
+                
+        
     if date_calibration == None:
         raise FileNotFoundError('No calibration was found for the closest 1000 days. Check if calibration folders are present.')
     
     # if no calibration can be found for the same day, raise a warning
     if min_duration_distance > 0:
-        incorrect_date(min_duration_distance, Flag = Flag)
+        incorrect_date(min_duration_distance)
 
     return date_calibration
 
@@ -353,7 +323,7 @@ def get_date_measurement(path: str, idx = -1):
     return date
 
 
-def incorrect_date(closest: int, Flag = False):
+def incorrect_date(closest: int):
     """
     raises a warning indicating that no calibration has been found for the exact date of the measurement
 
@@ -362,7 +332,5 @@ def incorrect_date(closest: int, Flag = False):
     closest : int
         the number of days separating the measurement and the calibration
     """
-    if Flag:   
-        warnings.warn('No calibration was found for the exact date, the one used was {} day(s) ago.'.format(closest), UserWarning, stacklevel=2)
-    else:
-        pass
+    warnings.warn('No calibration was found for the exact date, the one used was {} day(s) ago.'.format(closest), UserWarning, stacklevel=2)
+

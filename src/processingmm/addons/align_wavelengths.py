@@ -24,7 +24,7 @@ def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
             align_wavelenght(directories, PDDN, run_all, str(wl), imgj_processing = False)
     
 def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
-    data_folder, _ = utils.get_all_folders(directories)
+    data_folder, _ = utils.getAllFolders(directories)
 
     wl_to_align_with_nm = wl_to_align + 'nm'
     

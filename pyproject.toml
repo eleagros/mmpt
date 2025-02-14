@@ -11,10 +11,10 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "BSD 3-Clause License" }
 authors = [
-    { email = "elearomy.gros@unibe.ch", name = Éléa Gros" },
+    { email = "elearomy.gros@unibe.ch", name = Elea Gros" },
 ]
 dynamic = ["version"]
-dependencies = ["numpy==1.26.4", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "ema_pytorch", "imageio", "Pillow", "tensorboard", "torch", "torchsummary", "torchvision"]
+dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "ema_pytorch", "imageio", "Pillow", "tensorboard", "torch", "torchsummary", "torchvision"]
 
 [tool.hatch.version]
 path = "src/processingmm/__init__.py"
