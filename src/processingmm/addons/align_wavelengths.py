@@ -83,7 +83,7 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
             except FileNotFoundError:
                 pass
             os.mkdir('temp_output')
-            cmd = r'python ' + path_superglue + r' --input temp/ --output_dir temp_output --no_display --resize -1'
+            cmd = r'python3 ' + path_superglue + r' --input temp/ --output_dir temp_output --no_display --resize -1'
             os.system(cmd)
 
             # recover the matching points and save them into a text file

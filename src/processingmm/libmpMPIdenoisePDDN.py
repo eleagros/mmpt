@@ -55,6 +55,7 @@
 
 # Importing Required Libraries
 import math
+import warnings
 import copy
 import numpy as np
 
@@ -71,7 +72,10 @@ from torch.amp import GradScaler # autocast,
 
 from pathlib import Path
 from torch.optim import Adam
-from torchvision import transforms, utils
+try:
+    from torchvision import transforms, utils
+except:
+    warnings.warn('Torchvision not found, model training not possible.')
 from PIL import Image, ImageDraw, ImageFont
 
 from tqdm import tqdm
@@ -82,8 +86,13 @@ from ema_pytorch import EMA
 
 ## Added components (Stefano)
 # Training Monitoring
-from torch.utils.tensorboard import SummaryWriter
-from tensorboard import program
+try:
+    from tensorboard import program
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    warnings.warn('Tensorboard not found, model training not possible.')
+    
+
 import webbrowser
 
 # library to export PNGs and GIFs
