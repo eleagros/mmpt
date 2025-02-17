@@ -156,6 +156,11 @@ def plot_polarimetric_paramter(X2D: np.ndarray, cmap, norm, parameter: str, path
     folder : str
         the name of the current processed folder
     """
+    if parameter == 'azimuth':
+        pass
+    else:
+        X2D = np.nan_to_num(X2D)
+    
     # load the parameters that will be used for the plot
     plot_parameters = load_plot_parameters()[parameter]
     cbar_min = plot_parameters['cbar_min']

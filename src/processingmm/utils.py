@@ -155,10 +155,12 @@ def getFolderName(root: str, data_folder: list, folder_names: list) -> None:
         x = re.search(r"[\d]{4}-[\d]{2}-[\d]{2}", root).group(0)
         splitted = root.split(x)
         
-        # if yes, append it to the lists containing the folder names
+        # if yes, 
+        # check if the folder is not a subfolder of a folder containing data
         if '/' in splitted[-1]:
             pass
         else:
+            # add the folder to the list
             data_folder.append(root)
             folder_names.append(root.split('/')[-1])
                     
@@ -747,21 +749,3 @@ def chunks(lst: list, n: int):
     """
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
-        
-
-def get_wavelength(fname: str):
-    """
-    returns the wavelength given a specific folder name
-
-    Parameters
-    ----------
-    fname : str
-        the folder name for which we want the wavelength for
-
-    Returns
-    -------
-    wavelength : int
-        the wavelength corresponding to the folder given as an input
-    """
-    wavelength = int(str.split(fname, '/')[-1].split('nm')[0])
-    return wavelength

@@ -13,9 +13,9 @@ from processingmm.addons import azimuth_local_var
 from processingmm import libmpMPIdenoisePDDN
 
 def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
-                            to_compute: list, PDDN_models: dict, PDDN = False, remove_reflection = True, folder_eu_time: dict = {}, 
+                            to_compute: list, PDDN = False, remove_reflection = True, folder_eu_time: dict = {}, 
                             run_all = False, batch_processing = False, Flag = False, wavelengths = [],
-                            processing_mode = '', time_mode = False, save_pdf_figs = True):
+                            processing_mode = '', time_mode = False, save_pdf_figs = True, align_wls = False):
     """
     run the script for all the measurement folders in the directory given as an input
 
@@ -51,20 +51,20 @@ def compute_analysis_python(measurements_directory: str, calib_directory_dates_n
     for c in to_compute:
         calibration_directory_closest, times = compute_one_MM(c, measurements_directory, 
                                             calib_directory_dates_num, 
-                                            calib_directory, MuellerMatrices, PDDN_models, PDDN = PDDN, 
+                                            calib_directory, MuellerMatrices, PDDN = PDDN, 
                                             folder_eu_time = folder_eu_time, remove_reflection = remove_reflection, 
                                             wavelengths = wavelengths, Flag = Flag, 
                                             processing_mode = processing_mode, run_all = run_all, time_mode = time_mode,
-                                            save_pdf_figs = save_pdf_figs)
+                                            save_pdf_figs = save_pdf_figs, align_wls = align_wls)
         calibration_directories[c[0]] = calibration_directory_closest
             
     return MuellerMatrices, calibration_directories, times
 
 
 def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
-                   MuellerMatrices: dict, PDDN_models, PDDN = False, folder_eu_time: dict = {}, 
+                   MuellerMatrices: dict, PDDN = False, folder_eu_time: dict = {}, 
                    remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = '',
-                   run_all = False, time_mode = False, save_pdf_figs = True):
+                   run_all = False, time_mode = False, save_pdf_figs = True, align_wls = False):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -125,12 +125,12 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
     path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
     path = f"{path}/raw_data"
     
-    # 2. load the intensity data, and denoise it if necessary
+    """# 2. load the intensity data, and denoise it if necessary
     if PDDN and os.path.exists(path_PDDN_model):
         polarimetry_fname = 'polarimetry_PDDN'
             
         if time_mode:
-            I = get_intensity(path, wavelength)
+            I = get_intensity(path, wavelength, align_wls)
             start_denoising = time.time()
             I, _ = PDDN_models[int(wavelength)].Denoise(I)
             end = time.time()
@@ -147,7 +147,7 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
                 except:
                     print('No PDDN file found - denoising the raw data')
                         
-                    I = get_intensity(path, wavelength)
+                    I = get_intensity(path, wavelength, align_wls)
                     I, _ = PDDN_models[int(wavelength)].Denoise(I)
                     
                     libmpMuelMat.write_cod_data_X3D(os.path.join(path, f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)                       
@@ -155,7 +155,8 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
     else:
         time_denoising = 0
         polarimetry_fname = 'polarimetry'
-        I = get_intensity(path, wavelength)
+        I = get_intensity(path, wavelength, align_wls)"""
+    I, polarimetry_fname = get_intensity(path, wavelength, align_wls, PDDN)
 
         
     # IN = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Bruit.cod'), isRawFlag = 1)
@@ -233,17 +234,40 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
     else:
         pbar.update(1)
     
-    times = {'MM_processing': time_MM_processing, 'azimuth_std_processing': time_azimuth_std_processing, 'denoising': time_denoising, 'save_npz': time_save_npz, 'full_processing': time_full_processing}
+    times = {'MM_processing': time_MM_processing, 'azimuth_std_processing': time_azimuth_std_processing, 'denoising': 0, 'save_npz': time_save_npz, 'full_processing': time_full_processing}
 
     return calibration_directory_closest, times
                             
 
-def get_intensity(d: str, wavelength: int):
+def get_intensity(d: str, wavelength: int, align_wls = False, PDDN = False):
+    
+    if wavelength == '550':
+        align_wls = False
+    
+    if align_wls:
+        pathCod = os.path.join(d, f"{wavelength}nm", f"{wavelength}_Intensite_aligned.cod")
+    else:
+        pathCod = os.path.join(d, f"{wavelength}nm", f"{wavelength}_Intensite.cod")
+        
+    if PDDN:
+        if os.path.exists(pathCod.replace('_Intensite', '_Intensite_PDDN')):
+            pathCod = pathCod.replace('_Intensite', '_Intensite_PDDN')
+            polarimetry_fname = 'polarimetry_PDDN'  
+        else:
+            if wavelength == '550' or wavelength == '600':
+                raise FileNotFoundError('No PDDN file found for folder {}, for the wavelength {}.'.format(d, wavelength))
+            else:
+                polarimetry_fname = 'polarimetry'
+    
+    else:
+        polarimetry_fname = 'polarimetry'  
+              
+              
     try:
-        I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, f"{wavelength}nm", f"{wavelength}_Intensite.cod"), isRawFlag = 0)
+        I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag = 0)
     except:
-        I = libmpMuelMat.read_cod_data_X3D(os.path.join(d, f"{wavelength}nm", f"{wavelength}_Intensite.cod"), isRawFlag = 1)
-    return I
+        I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag = 1)
+    return I, polarimetry_fname
 
 
 def curate_azimuth(azimuth: np.ndarray, folder = None):
