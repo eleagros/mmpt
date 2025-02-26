@@ -225,7 +225,16 @@ def align_with_sitk_rigid(fixed_arr, moving_arr, to_propagate, matching_points):
     
     for moving_img in moving_images:
         resampled_images.append(sitk.GetArrayFromImage(sitk.Resample(moving_img, fixed_image, transform = output_transform)))
-
+        
+    # Apply the transform to the moving landmarks
+    transformed_moving_points = np.array([
+        np.array(output_transform.TransformPoint(tuple(p.astype(np.float64)))) for p in moving_points
+    ])
+    displacements = np.linalg.norm(moving_points - transformed_moving_points, axis=1)
+    
+    if np.mean(displacements) > 20:
+        Warning('The mean displacement is higher than 20 pixels. The alignment may not be accurate.')
+        
     return resampled_images
 
 
