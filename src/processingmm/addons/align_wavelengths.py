@@ -104,7 +104,7 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
                 os.system('python processing_ij.py ' + os.path.abspath(""))
             else:
                 # processing with python wrapper for simple elastix
-                resampled_imgs = align_with_sitk(img, moving, to_propagate, matching_points)
+                resampled_imgs = align_with_sitk_rigid(img, moving, to_propagate, matching_points)
             
             intensities = {}
             
@@ -195,6 +195,40 @@ def align_with_sitk(fixed_arr, moving_arr, to_propagate, matching_points):
                                 
     return resampled_images
                                 
+import SimpleITK as sitk
+import numpy as np
+
+def align_with_sitk_rigid(fixed_arr, moving_arr, to_propagate, matching_points):
+    fixed_image = sitk.GetImageFromArray(fixed_arr)
+
+    # set up the matching points
+    fixed_points = matching_points[0]
+    moving_points = matching_points[1]
+    fixed_landmarks = fixed_points.astype(np.uint16).flatten().tolist()
+    moving_landmarks = moving_points.astype(np.uint16).flatten().tolist()
+
+    # Select the appropriate transform
+    transform = sitk.Euler2DTransform()
+
+    # Initialize the transform using the landmarks
+    landmark_initializer = sitk.LandmarkBasedTransformInitializerFilter()
+
+    landmark_initializer.SetFixedLandmarks(fixed_landmarks)
+    landmark_initializer.SetMovingLandmarks(moving_landmarks)
+
+    output_transform = landmark_initializer.Execute(transform)
+
+    # Resample the moving images
+    moving_images = [sitk.GetImageFromArray(to_propagate[0]), sitk.GetImageFromArray(to_propagate[1]), 
+                     sitk.GetImageFromArray(moving_arr)]
+    resampled_images = []
+    
+    for moving_img in moving_images:
+        resampled_images.append(sitk.GetArrayFromImage(sitk.Resample(moving_img, fixed_image, transform = output_transform)))
+
+    return resampled_images
+
+
 def write_mp_fp_txt_format(mp_fp):
 
     # write the header

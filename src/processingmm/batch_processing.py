@@ -180,6 +180,7 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
             path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
             if os.path.isfile(path_model):
+                print(path_model)
                 PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(path_model)
         print('Loading PDDN models done.\n')
     else:
