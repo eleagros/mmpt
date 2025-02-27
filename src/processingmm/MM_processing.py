@@ -120,7 +120,7 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
         A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, str(wavelength) +'_A.cod'), isRawFlag = 0)
         W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, str(wavelength) +'_W.cod'), isRawFlag = 0)
     else:
-        A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen = wavelength)[0:2]
+        A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen = int(wavelength))[0:2]
 
     path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
     path = f"{path}/raw_data"

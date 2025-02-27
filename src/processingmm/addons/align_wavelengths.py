@@ -232,8 +232,8 @@ def align_with_sitk_rigid(fixed_arr, moving_arr, to_propagate, matching_points):
     ])
     displacements = np.linalg.norm(moving_points - transformed_moving_points, axis=1)
     
-    if np.mean(displacements) > 20:
-        Warning('The mean displacement is higher than 20 pixels. The alignment may not be accurate.')
+    if np.mean(displacements) > 15:
+        Warning('The mean displacement is higher than 15 pixels. The alignment may not be accurate.')
         
     return resampled_images
 

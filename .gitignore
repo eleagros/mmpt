@@ -110,3 +110,4 @@ src/processingmm/PDDN_model
 src/processingmm/deprecated
 superglue/
 third_party/Fiji.app/
+tmp_gif/
