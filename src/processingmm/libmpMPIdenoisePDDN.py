@@ -59,23 +59,25 @@ import warnings
 import copy
 import numpy as np
 
-import torch
-import torchsummary
-from torch import nn, einsum
-import torch.nn.functional as F
+
 from inspect import isfunction
 from functools import partial
 
 from torch.utils import data
 from multiprocessing import cpu_count
-from torch.amp import GradScaler # autocast, 
 
 from pathlib import Path
-from torch.optim import Adam
+
 try:
+    import torch
+    import torchsummary
+    from torch import nn, einsum
+    import torch.nn.functional as F
+    from torch.amp import GradScaler # autocast, 
+    from torch.optim import Adam
     from torchvision import transforms, utils
 except:
-    warnings.warn('Torchvision not found, model training not possible.')
+    warnings.warn('Torch not found, model training not possible.')
 from PIL import Image, ImageDraw, ImageFont
 
 from tqdm import tqdm
