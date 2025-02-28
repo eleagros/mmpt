@@ -119,8 +119,25 @@ OK
 If everything works out, you should be good to go! 
 
 ## How to use
-The package is for the moment developped to be used using Jupyter.
 
+### 1. Script
+The script **`process_mueller_matrices.py`** can be used to process the Mueller Matrices, the command is the following:
+
+```sh
+python process_mueller_matrices.py [-h] --directory DIRECTORY --calib CALIB [--PDDN_mode {no,pddn,both}] [--wavelengths WAVELENGTHS [WAVELENGTHS ...]]
+                                   [--processing_mode {no_viz,default,full}] [--save_pdf_figs] [--run_all] [--align_wls]
+```
+- with *DIRECTORY* being the folder containing the measurements
+- with *CALIB* being the folder containig the calibration folders
+
+Run 
+```sh
+python process_mueller_matrices.py -h
+```
+for more information about the different parameters
+
+
+### 2. Using a notebook
 **Install** Jupyter if not installed already:
 ```sh
 pip install jupyter
@@ -131,7 +148,7 @@ pip install jupyter
 jupyter notebook
 ```
 
-And **open** the notebook `process_MM_batch.ipynb`.
+And **open** the notebook **`process_MM_batch.ipynb`**.
 
 -----
 
@@ -180,3 +197,4 @@ The function `align_wavelengths.align_wavelenghts` allows to align the measureme
 -----
 
 The function `add_calibration.add_calibration` add the calibration matrices (`A.cod` and `W.cod`) to the folder for processing (required by Chris)
+

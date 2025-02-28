@@ -1,57 +1,43 @@
-import sys
-import os
-
-pathDB = os.path.abspath(sys.argv[0]).split('processingMM')[0]
-
-print('Processing the Mueller Matrices for the folder in path in path: ', pathDB)
-
-import os
+import argparse
 from processingmm import batch_processing
 
-# set the parameters to run the script
-directories = [pathDB]
-calib_directory = f"{pathDB}/calib"
-    
-# set the parameters to be used for the line visualisation
-# NB: parameter file accessible in ./src/processingmm/data/parameters_visualisations.json
-parameter_set = 'default'
+# Set up argument parsing
+parser = argparse.ArgumentParser(description="Process Mueller Matrices with optional PDDN mode and calibration settings.")
 
-# set run_all to true in order to run the pipeline on all the folders (even the ones already processed)
-run_all = False
+parser.add_argument("--directory", type=str, required=True, help="Path to the main processing directory")
+parser.add_argument("--calib", type=str, required=True, help="Path to the calibration directory")
+parser.add_argument("--PDDN_mode", type=str, choices=['no', 'pddn', 'both'], default='no', help="Processing mode: 'no', 'pddn', or 'both'")
+parser.add_argument("--wavelengths", type=int, nargs='+', default=[550, 600], help="List of wavelengths to process (default: 550, 600)")
+parser.add_argument("--processing_mode", type=str, choices=['no_viz', 'default', 'full'], default='default', help="Processing mode")
+parser.add_argument("--save_pdf_figs", action="store_true", help="Save PDF figures (default: False)")
+parser.add_argument("--run_all", action="store_true", help="Process all folders, even if already processed")
+parser.add_argument("--align_wls", action="store_true", help="Aligns the measurements with the 550nm ones before processing")
 
-# PDDN_mode can be set to:
-# 1. 'no': processes without using the PDDN
-# 2. 'pddn': processes with PDDN when available (for 550nm and 650nm)
-# 3. 'both': processes both with PDDN when available and without PDDN
-if len(sys.argv) > 1:
-    PDDN_mode = 'no' if sys.argv[1] else 'pddn'
-else:
-    PDDN_mode = 'no'
 
-# Set the wavelengths to be processed
-# 1. 'all': processes all the available wavelenght
-# 2. [xxx, yyy]: processes only the wavelenghts 'xxx' and 'yyy'
-wavelengths = [550,600,650]
+# Parse arguments
+args = parser.parse_args()
 
-# Processing mode
-# 1. 'no_viz': processes only the MM - no visualization at all. useful for fast computation
-# 2. 'default': processes the MM and plots the polarimetric parameters maps (i.e. depolarization, azimuth, 
-# retardance, diattenuation, azimuth local variability)
-# 3. 'full': do like default, and additionally plot the MM components, as well as the line
-# visualization
+# Print the parsed arguments
+print(f"Processing Mueller Matrices for the folder: {args.directory}")
+print(f"Calibration directory: {args.calib}")
+print(f"PDDN mode: {args.PDDN_mode}")
+print(f"Wavelengths: {args.wavelengths}")
+print(f"Processing mode: {args.processing_mode}")
+print(f"Save PDF Figures: {args.save_pdf_figs}")
+print(f"Run all: {args.run_all}")
 
-# define if pdf figures should be saved (takes a lot of time) - no impact when processing_mode is set to no_viz
+# Get parameters
+parameters = batch_processing.get_parameters(
+    directories=[args.directory], 
+    calib_directory=args.calib, 
+    wavelengths=args.wavelengths, 
+    parameter_set='default',
+    PDDN_mode=args.PDDN_mode, 
+    processing_mode=args.processing_mode, 
+    run_all=args.run_all, 
+    save_pdf_figs=args.save_pdf_figs,
+    align_wls = args.align_wls,
+)
 
-# NB: processing time without PDDN
-# 'no_viz': 0.71s
-# 'default', save_pdf_figs False: 2.25s
-# 'default', save_pdf_figs True: 3.60s
-# 'full', save_pdf_figs False: 3.95s
-# 'full', save_pdf_figs True: 8.07s
-processing_mode = 'default'
-save_pdf_figs = False
-
-parameters = batch_processing.get_parameters(directories, calib_directory, wavelengths, parameter_set = parameter_set, 
-                                PDDN_mode = PDDN_mode, processing_mode = processing_mode, run_all = run_all, 
-                                save_pdf_figs = save_pdf_figs)
+# Run batch processing
 batch_processing.batch_process_master(parameters)

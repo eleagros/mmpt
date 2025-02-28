@@ -11,10 +11,10 @@
          600
       ],
       "parameter_set": "default",
-      "PDDN": "pddn",
+      "PDDN": "no",
       "PDDN_models_path": "/home/elea/Documents/HORAO/repositories/processingMM/src/processingmm/PDDN_model",
-      "run_all": true,
-      "processing_mode": "no_viz",
+      "run_all": false,
+      "processing_mode": "default",
       "time_mode": true,
       "temp_folder": "./temp_processing",
       "save_pdf_figs": false,
