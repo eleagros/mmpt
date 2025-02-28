@@ -91,9 +91,10 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
     
     if processing_mode not in {'full', 'default', 'no_viz'}:
         raise ValueError('processing_mode must be one of "full", "default", or "no_viz".')
-
+    
+    import processingmm
     if PDDN_models_path is None:
-        PDDN_models_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'PDDN_model')
+        PDDN_models_path = os.path.join(processingmm.__file__.split('__init__')[0], 'PDDN_model')
         
     # create the processing parameters dictionnary
     processing_parameters = {'directories': directories,
@@ -152,7 +153,6 @@ def batch_process_master(parameters, remove_reflection = True, folder_eu_time = 
         print('Loading PDDN models...')
         for wavelength in parameters['wavelengths']:
             path_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
-            print(path_model)
             if os.path.isfile(path_model):
                 PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(path_model)
                 

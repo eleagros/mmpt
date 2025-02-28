@@ -104,6 +104,11 @@ import scipy.signal
 from datetime import datetime
 import shutil
 
+try:
+    torch.cuda.empty_cache()
+except:
+    pass
+    
 ### IMPLEMENTATION ###
 
 ### Helper Functions

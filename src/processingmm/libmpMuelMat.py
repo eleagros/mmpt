@@ -74,12 +74,12 @@ def list_Dependencies():
         print(_get_CLib_path(), '-- FOUND')
     else:
         print(_get_CLib_path(), '-- NOT FOUND')
-    print(' ')
+    """print(' ')
     print(' Matlab (.mat) testing data path:')
     if _chkFilePath(_get_testDataMAT_path()):
         print(_get_testDataMAT_path(), ' -- FOUND')
     else:
-        print(_get_testDataMAT_path(), ' -- NOT FOUND')
+        print(_get_testDataMAT_path(), ' -- NOT FOUND')"""
     print(' ')
     print(' ')
     print(' -- Please update any incorrect dependency prior to using the library.')

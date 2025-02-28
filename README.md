@@ -17,6 +17,8 @@ If you want to use denoising (Work from [S. Moriconi](https://github.com/stefano
 
 ### You then need to follow the installation instructions from [libmpMuelMat](https://github.com/stefanomoriconi/libmpMuelMat)
 
+It is rather straightforward in Unix based OS, but can be more complicated in Windows.
+
     [Requirements] 
     
     C/C++ Compiler + Parallel and Multi-Processing libraries: 
@@ -54,7 +56,6 @@ If you want to use denoising (Work from [S. Moriconi](https://github.com/stefano
 		it should display '12.2.0' or later
 
     
-
     [Installation]
 
 	* Compiling the C source code into the shared library 'libmpMuelMat.so'
@@ -101,9 +102,18 @@ If you want to use denoising (Work from [S. Moriconi](https://github.com/stefano
 		   the library will not be optimised for performance.
 
 
-You can verify the installation by running the following command:
+You can verify the installation without (and with) denoising by running the following command:
 ```sh
-python verify_installation.py
+python ./tests/test_processingMM.py
+```
+
+```sh
+python ./tests/test_processingMM_PDDN.py
+```
+The output, if the installation is successful should be something like:
+```sh
+Ran 3 tests in 5.000s
+OK
 ```
 
 If everything works out, you should be good to go! 

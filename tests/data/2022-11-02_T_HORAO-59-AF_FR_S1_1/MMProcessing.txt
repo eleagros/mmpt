@@ -1,0 +1,25 @@
+{
+   "processed": true,
+   "calibration_directories": "/home/elea/Documents/HORAO/repositories/processingMM/tests/calib/2022-11-08_C_1",
+   "parameters": {
+      "directories": [
+         "/home/elea/Documents/HORAO/repositories/processingMM/tests/data"
+      ],
+      "calib_directory": "/home/elea/Documents/HORAO/repositories/processingMM/tests/calib",
+      "wavelengths": [
+         550,
+         600
+      ],
+      "parameter_set": "default",
+      "PDDN": "pddn",
+      "PDDN_models_path": "/home/elea/Documents/HORAO/repositories/processingMM/src/processingmm/PDDN_model",
+      "run_all": true,
+      "processing_mode": "no_viz",
+      "time_mode": true,
+      "temp_folder": "./temp_processing",
+      "save_pdf_figs": false,
+      "align_wls": true
+   },
+   "libmpMuelMat": "1.0",
+   "processingmm": "1.2.0"
+}

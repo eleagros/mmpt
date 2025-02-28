@@ -157,7 +157,7 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
                     target = libmpMuelMat.read_cod_data_X3D(key.replace(wl_to_align_with_nm, '550nm').replace(f"{wl_to_align}_", '550_'), isRawFlag = 1)
                     final = libmpMuelMat.read_cod_data_X3D(key.replace('.cod', '_aligned.cod'), isRawFlag = 0)
 
-            show_output(initial, final, target, folder, wl_to_align, imgj_processing = imgj_processing)
+                    show_output(initial, final, target, folder, wl_to_align, imgj_processing = imgj_processing)
 
     try:
         shutil.rmtree('temp')
@@ -319,6 +319,9 @@ def generate_gif_reconstruction(img1 = None, img2 = None, gif_save_path = None):
         
 
 def show_output(initial, final, target, folder, wl_to_align, imgj_processing = False):
+    
+    os.makedirs(os.path.join(folder, 'annotation'), exist_ok=True)
+    os.makedirs(os.path.join(folder, 'annotation', 'alignment'), exist_ok=True)
     
     folder_save_alignment = os.path.join(folder, 'annotation', 'alignment')
     try:
