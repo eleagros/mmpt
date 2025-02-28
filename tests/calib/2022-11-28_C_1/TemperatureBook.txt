@@ -1,0 +1,9 @@
+2022-11-28_10:51:33 --> Temperature PSA Mean: -100.00°C
+2022-11-28_10:51:12 --> Temperature PSG Mean: -100.00°C
+2022-11-28_10:51:12 --> Temperature Camera Mean: 27.20°C
+2022-11-28_10:56:30 --> Temperature PSA Mean: -100.00°C
+2022-11-28_10:51:33 --> Temperature PSG Mean: -100.00°C
+2022-11-28_10:51:33 --> Temperature Camera Mean: 27.20°C
+2022-11-28_11:01:27 --> Temperature PSA Mean: -100.00°C
+2022-11-28_10:56:30 --> Temperature PSG Mean: -100.00°C
+2022-11-28_10:56:30 --> Temperature Camera Mean: 27.20°C

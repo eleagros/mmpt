@@ -1,0 +1,14 @@
+# Calibration FolderPath: F:\polarimetry\Calibration\2022-11-28_C_1\550nm/
+# Camera: Stingray IPM2 - size: [388,516] @ 550 nm
+# System Calibration with: libmpMuelMat.py on 2022-11-30 14:02:54
+
+O_L30 (deg):	30.000000
+O_P90 (deg):	90.100000
+T_P0 (norm):	0.440820
+T_P90 (norm):	0.442781
+T_L30 (norm):	1.000440
+Psi_P0 (deg):	90.000000
+Psi_P90 (deg):	0.000000
+Psi_L30 (deg):	45.449755
+R_L30 (deg):	87.583118
+Ratio VP (dB):	-26.142034

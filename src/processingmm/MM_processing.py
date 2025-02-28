@@ -229,6 +229,7 @@ def get_intensity(d: str, wavelength: int, align_wls = False, PDDN = False):
         I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag = 0)
     except:
         I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag = 1)
+
     return I, polarimetry_fname
 
 

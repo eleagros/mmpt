@@ -202,7 +202,7 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
 
         
     if PDDN:
-        print()
+        print(to_process)
         
         print('Denoising inference started...')
         for folder in tqdm(to_process):
@@ -211,10 +211,11 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
                 if os.path.exists(pathDenoisedCod):
                     pass
                 else:
-                    I, _ = get_intensity(f"{folder}/raw_data", str(wavelength), False, False)
-                    I, _ = model.Denoise(I)
-                    libmpMuelMat.write_cod_data_X3D(I, os.path.join(f"{folder}/raw_data", 
-                                                                    f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)
+                    if len(os.listdir(f"{folder}/raw_data/{wavelength}nm")) > 0:
+                        I, _ = get_intensity(f"{folder}/raw_data", str(wavelength), False, False)
+                        I, _ = model.Denoise(I)
+                        libmpMuelMat.write_cod_data_X3D(I, os.path.join(f"{folder}/raw_data", 
+                                                                        f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)
         print('Denoising inference done.')
         print()
     

@@ -1,11 +1,12 @@
 def main():
     
     import os
+    import sys
     from processingmm import batch_processing
     
     # set the parameters to run the script
-    directories = ['./data']
-    calib_directory = './calib'
+    directories = [os.path.join(os.path.dirname(__file__), "data")]
+    calib_directory = os.path.join(os.path.dirname(__file__), "calib")
         
     # set the parameters to be used for the line visualisation
     # NB: parameter file accessible in ./src/processingmm/data/parameters_visualisations.json
@@ -18,7 +19,7 @@ def main():
     # 1. 'no': processes without using the PDDN
     # 2. 'pddn': processes with PDDN when available (for 550nm and 650nm)
     # 3. 'both': processes both with PDDN when available and without PDDN
-    PDDN_mode = 'both'
+    PDDN_mode = 'no'
 
     # do not specify unless you want to use a custom path for the PDDN models
     PDDN_models_path = None
@@ -26,7 +27,7 @@ def main():
     # Set the wavelengths to be processed
     # 1. 'all': processes all the available wavelenght
     # 2. [xxx, yyy]: processes only the wavelenghts 'xxx' and 'yyy'
-    wavelengths = [550, 600]
+    wavelengths = [550]
 
     # Processing mode
     # 1. 'no_viz': processes only the MM - no visualization at all. useful for fast computation
@@ -47,12 +48,14 @@ def main():
     save_pdf_figs = False
 
     # define if the wavelenghts should be aligned before processing - and used for the computation
-    align_wls = True
+    align_wls = False
 
-    _ = batch_processing.get_parameters(directories, calib_directory, wavelengths, parameter_set = parameter_set, 
+    parameters = batch_processing.get_parameters(directories, calib_directory, wavelengths, parameter_set = parameter_set, 
                                     PDDN_mode = PDDN_mode, PDDN_models_path = PDDN_models_path, 
                                     processing_mode = processing_mode, run_all = run_all, 
                                     save_pdf_figs = save_pdf_figs, align_wls = align_wls)
+    
+    batch_processing.batch_process_master(parameters)
 
 
 if __name__ == "__main__":

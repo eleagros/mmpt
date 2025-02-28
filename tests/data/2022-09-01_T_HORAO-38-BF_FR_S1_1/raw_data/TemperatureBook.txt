@@ -1,0 +1,6 @@
+2022-09-01_12:27:17 --> Temperature PSA Mean: -100.00°C
+2022-09-01_12:26:46 --> Temperature PSG Mean: -100.00°C
+2022-09-01_12:27:50 --> Temperature PSA Mean: -100.00°C
+2022-09-01_12:27:17 --> Temperature PSG Mean: -100.00°C
+2022-09-01_12:28:22 --> Temperature PSA Mean: -100.00°C
+2022-09-01_12:27:50 --> Temperature PSG Mean: -100.00°C
