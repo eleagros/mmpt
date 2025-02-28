@@ -16,7 +16,11 @@ import time
 from processingmm.addons import visualization_lines
 from processingmm.multi_img import multi_img_processing, reorganize_folders
 from processingmm.MM_processing import get_intensity
-from processingmm import libmpMPIdenoisePDDN
+
+try:
+    from processingmm import libmpMPIdenoisePDDN
+except:
+    print('PDDN not available. Please install the PDDN package to use it.')
 
 def get_parameters(directories: list, calib_directory: str, wavelengths: list, parameter_set: str = 'TheoniPics', PDDN_mode: str = 'both', 
                    PDDN_models_path: str = None, processing_mode: str = 'default', run_all: bool = True,

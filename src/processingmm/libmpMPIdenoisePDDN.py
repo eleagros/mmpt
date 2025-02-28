@@ -68,16 +68,14 @@ from multiprocessing import cpu_count
 
 from pathlib import Path
 
-try:
-    import torch
-    import torchsummary
-    from torch import nn, einsum
-    import torch.nn.functional as F
-    from torch.amp import GradScaler # autocast, 
-    from torch.optim import Adam
-    from torchvision import transforms, utils
-except:
-    warnings.warn('Torch not found, model training not possible.')
+import torch
+import torchsummary
+from torch import nn, einsum
+import torch.nn.functional as F
+from torch.amp import GradScaler # autocast, 
+from torch.optim import Adam
+from torchvision import transforms, utils
+    
 from PIL import Image, ImageDraw, ImageFont
 
 from tqdm import tqdm
@@ -88,11 +86,9 @@ from ema_pytorch import EMA
 
 ## Added components (Stefano)
 # Training Monitoring
-try:
-    from tensorboard import program
-    from torch.utils.tensorboard import SummaryWriter
-except:
-    warnings.warn('Tensorboard not found, model training not possible.')
+from tensorboard import program
+from torch.utils.tensorboard import SummaryWriter
+
     
 
 import webbrowser
