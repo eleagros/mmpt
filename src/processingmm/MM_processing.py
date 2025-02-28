@@ -122,45 +122,10 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
     else:
         A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen = int(wavelength))[0:2]
 
-    path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
     path = f"{path}/raw_data"
     
-    """# 2. load the intensity data, and denoise it if necessary
-    if PDDN and os.path.exists(path_PDDN_model):
-        polarimetry_fname = 'polarimetry_PDDN'
-            
-        if time_mode:
-            I = get_intensity(path, wavelength, align_wls)
-            start_denoising = time.time()
-            I, _ = PDDN_models[int(wavelength)].Denoise(I)
-            end = time.time()
-            time_denoising = end - start_denoising
-            libmpMuelMat.write_cod_data_X3D(I, os.path.join(path, f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)
-                
-        else:
-            time_denoising = 0
-            try:
-                I = libmpMuelMat.read_cod_data_X3D(os.path.join(path, f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), isRawFlag = 0)
-            except:
-                try:
-                    I = libmpMuelMat.read_cod_data_X3D(os.path.join(path, f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), isRawFlag = 1)
-                except:
-                    print('No PDDN file found - denoising the raw data')
-                        
-                    I = get_intensity(path, wavelength, align_wls)
-                    I, _ = PDDN_models[int(wavelength)].Denoise(I)
-                    
-                    libmpMuelMat.write_cod_data_X3D(os.path.join(path, f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)                       
-            
-    else:
-        time_denoising = 0
-        polarimetry_fname = 'polarimetry'
-        I = get_intensity(path, wavelength, align_wls)"""
     I, polarimetry_fname = get_intensity(path, wavelength, align_wls, PDDN)
-
-        
-    # IN = libmpMuelMat.read_cod_data_X3D(os.path.join(d, str(wavelength) +'_Bruit.cod'), isRawFlag = 1)
-        
+                
     # start_MM_processing = time.time()
     
     start_MM_processing = time.time()  
@@ -168,11 +133,8 @@ def compute_one_MM(c, measurements_directory: str, calib_directory_dates_num: li
     if remove_reflection:
         try:
             I, dilated_mask = libmpMuelMat.removeReflections3D(I)
-            # IN, _ = libmpMuelMat.removeReflections3D(IN)
         except OSError:
             pass
-
-        # I_IN = I - IN
           
         I_IN = I
         MM_new = libmpMuelMat.process_MM_pipeline(A, I_IN, W, dilated_mask)

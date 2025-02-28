@@ -10,9 +10,14 @@ import sys
 import SimpleITK as sitk
 from tqdm import tqdm
 
-def align_wavelenghts(directories, PDDN, run_all, imgj_processing = False):
+def align_wavelenghts(directories, PDDN, run_all, wlen_to_align = [600]):
     
-    wl_to_align = [600, 650]
+    wl_to_align = []
+    for val in wlen_to_align:
+        if val == 550:
+            pass
+        else:
+            wl_to_align.append(val)
     
     if type(wl_to_align) == int:
         wl_to_align = str(wl_to_align)
@@ -46,18 +51,13 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
             exists += os.path.exists(path)
             
         condition_process = (exists < len(paths) or run_all) and os.path.exists(moving_intensities_path)
-
+        
         if condition_process:
             
             fixed_intensities = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '550nm', '550_Intensite.cod'), isRawFlag = 1)
             moving_intensities = libmpMuelMat.read_cod_data_X3D(moving_intensities_path, isRawFlag = 1)
             img = (fixed_intensities[:,:,0] / np.max(fixed_intensities[:,:,0]) * 255).astype(np.uint8)
             moving = (moving_intensities[:,:,0] / np.max(moving_intensities[:,:,0]) * 255).astype(np.uint8)
-            # get the paths to the 550nm and 600nm grayscale image and load the 550nm image
-            # image_550nm_path = os.path.join(folder, 'polarimetry', '550nm', 'Intensity_img.png')
-            # image_600nm_path = os.path.join(folder, 'polarimetry', '600nm', 'Intensity_img.png')
-            # img = np.array(Image.open(image_550nm_path).convert('L'))
-            # moving = np.array(Image.open(image_600nm_path).convert('L'))
             
             try:
                 shutil.rmtree('temp')
@@ -87,10 +87,14 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
             os.system(cmd)
 
             # recover the matching points and save them into a text file
-            with open(os.path.join('temp_output', 'matches_000000_000001.pickle'), 'rb') as handle:
-                matching_points = pickle.load(handle)
-                points_folder = matching_points[0]
-                points_global = matching_points[1]
+            try:
+                with open(os.path.join('temp_output', 'matches_000000_000001.pickle'), 'rb') as handle:
+                    matching_points = pickle.load(handle)
+                    points_folder = matching_points[0]
+                    points_global = matching_points[1]
+            except FileNotFoundError:
+                raise ValueError('No matching points found. Please check the superglue installation - it should be located in ./third_party/superglue.')
+                
             text = write_mp_fp_txt_format([points_folder, points_global])
             f = open(os.path.join('temp', 'coordinates.txt').replace("\\","/"), "w")
             f.write(text)

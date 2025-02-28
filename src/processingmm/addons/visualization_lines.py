@@ -5,7 +5,8 @@ from PIL import Image
 import math
 import cv2
 
-import matplotlib
+import time
+
 from matplotlib import cm
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -18,6 +19,30 @@ from scipy.ndimage.morphology import binary_dilation
 from processingmm.utils import get_cmap, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, isThereData, load_combined_plot_name, load_filenames_combined_plot
 from processingmm.multi_img.multi_img_processing import remove_already_computed_directories
 from processingmm.libmpMuelMat import _isNumStable
+from processingmm import utils
+
+
+def batch_visualization(parameters):
+    
+    start = time.time()
+    
+    _, _, df = utils.get_to_process(parameters)
+    to_process = df[df['data presence']]
+    to_process = list(set(list(df.reset_index(level=0).apply(lambda row: row['folder name'], axis=1))))
+        
+    for wl in parameters['wavelengths']:
+        if parameters['PDDN'] in {'no', 'both'}:
+            _ = visualization_auto(to_process, parameters['parameter_set'], run_all = parameters['run_all'], 
+                                                        batch_processing = False, PDDN = False, wavelengths = [wl], 
+                                                        save_pdf_figs = parameters['save_pdf_figs'])
+        if parameters['PDDN'] in {'pddn', 'both'}:
+            _ = visualization_auto(to_process, parameters['parameter_set'], run_all = parameters['run_all'], 
+                                                        batch_processing = False, PDDN = True, wavelengths = [wl], 
+                                                        save_pdf_figs = parameters['save_pdf_figs'])
+    
+    end = time.time()
+    time_plotting = end - start
+    return time_plotting/len(to_process) if len(to_process) > 0 else 0
 
 
 def visualization_auto(to_process: list, parameters_set: str, batch_processing = False,

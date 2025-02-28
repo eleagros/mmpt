@@ -197,8 +197,7 @@ def findProcessedFolders(data_folder: list, parameters: dict, PDDN: bool) -> tup
     path_polarimetry = {}
     
     for wl in wavelengths_compare:
-        path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                                       r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
+        path_PDDN_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
         path_polarimetry[wl] = 'polarimetry_PDDN' if PDDN and os.path.exists(path_PDDN_model) else 'polarimetry'
 
     # iterate over each folder containing data

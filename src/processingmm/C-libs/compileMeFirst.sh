@@ -9,8 +9,8 @@ for i in *.o; do
 done
 
 # Cleaning-up the folder from existing Shared Libraries (*.so, *.dll) 
-rm *.so # << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
-# rm *.dll # << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
+rm *.so # << Keep this line for Unix (Linux and Mac) OS
+# rm *.dll # << Keep this line for Windows OS
 
 # Compiling the software
 # Set the gcc version (e.g. gcc-6 or gcc-10) correctly configured with OpenMP
@@ -20,7 +20,7 @@ for i in *.c; do
 done
 
 # Building the Shared Library
-gcc -fopenmp -shared -o libmpMuelMat.so *.o ## << Comment/Uncomment here for: Windows/Unix (Linux and Mac) OS
-# gcc -fopenmp -shared -o libmpMuelMat.dll *.o ## << Uncomment/Comment here for: Windows/Unix (Linux and Mac) OS
+gcc -fopenmp -shared -o libmpMuelMat.so *.o ## << Keep this line for Unix (Linux and Mac) OS
+# gcc -fopenmp -shared -o libmpMuelMat.dll *.o ## << Keep this line for Windows OS
 
 # Remember to add the gcc compiler shared libraries to the PATHS of the System! 

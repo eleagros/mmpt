@@ -19,7 +19,8 @@ from processingmm.MM_processing import get_intensity
 from processingmm import libmpMPIdenoisePDDN
 
 def get_parameters(directories: list, calib_directory: str, wavelengths: list, parameter_set: str = 'TheoniPics', PDDN_mode: str = 'both', 
-                   processing_mode: str = 'default', run_all: bool = True, save_pdf_figs: bool = True, align_wls: bool =True) -> dict:
+                   PDDN_models_path: str = None, processing_mode: str = 'default', run_all: bool = True,
+                   save_pdf_figs: bool = True, align_wls: bool =True) -> dict:
     """
     Returns the processing parameters in a dictionary format, readable by the next functions in the pipeline, for the given inputs.
 
@@ -37,6 +38,8 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
         wether the processed folders should be reprocessed (default is False)
     PDDN_mode : str
         the PDDN mode ('no', 'pddn' or 'both', default is 'both')
+    PDDN_models_path : str
+        the path to the PDDN models (default is None, will redirect to the default path ./src/processingmm/PDDN_model/)
     processing_mode : str
         the processing mode ('full', 'default', or 'no_viz', default is 'default')
     time_mode : bool
@@ -85,12 +88,16 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
     if processing_mode not in {'full', 'default', 'no_viz'}:
         raise ValueError('processing_mode must be one of "full", "default", or "no_viz".')
 
+    if PDDN_models_path is None:
+        PDDN_models_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'PDDN_model')
+        
     # create the processing parameters dictionnary
     processing_parameters = {'directories': directories,
                             'calib_directory': calib_directory,
                             'wavelengths': wavelengths,
                             'parameter_set': parameter_set,
                             'PDDN': PDDN_mode,
+                            'PDDN_models_path': PDDN_models_path,
                             'run_all': run_all,
                             'processing_mode': processing_mode,
                             'time_mode': True,
@@ -125,26 +132,43 @@ def batch_process_master(parameters, remove_reflection = True, folder_eu_time = 
     ------
     None
     """
-    
-
-        
 
     if parameters['PDDN'] in {'no', 'both'}:
         print('processing without PDDN...')
-        times, time_complete = batch_process(parameters, remove_reflection = remove_reflection, PDDN = False, folder_eu_time = folder_eu_time)
+        times, time_complete = batch_process(parameters, remove_reflection = remove_reflection, PDDN = False, 
+                                             folder_eu_time = folder_eu_time)
         print('processing without PDDN done.')
     
     if parameters['PDDN'] in {'pddn', 'both'}:
         assert Version(processingmm.__version__) >= Version('1.1'), ("Please update the processingmm package to version 1.1 or higher to use PDDN.")
-        print('processing with PDDN...')
-        times, time_complete = batch_process(parameters, remove_reflection = remove_reflection, PDDN = True, folder_eu_time = folder_eu_time)
-        print('processing with PDDN done.')
+        
+        PDDN_models = {}
+
+        print('PDDN_models_path:', parameters['PDDN_models_path'])
+        print('Loading PDDN models...')
+        for wavelength in parameters['wavelengths']:
+            path_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
+            print(path_model)
+            if os.path.isfile(path_model):
+                PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(path_model)
+                
+        assert len(PDDN_models) > 0, ("Problem when loading the PDDN models. Do they exist? They should be located in ./src/processingmm/PDDN_model/")
+        
+        print('Loading PDDN models done.\n')
+            
+        print()
+        
+        print('Processing with PDDN...')
+        times, time_complete = batch_process(parameters, remove_reflection = remove_reflection, PDDN = True, 
+                                             folder_eu_time = folder_eu_time, PDDN_models = PDDN_models)
+        print('Processing with PDDN done.')
            
     times['total'] = time_complete 
     return times
 
 
-def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool = False, folder_eu_time: dict = {}):
+def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool = False, folder_eu_time: dict = {},
+                  PDDN_models: dict = {}):
     """
     apply the mueller matrix processing pipeline to all the measurement folders located in one or multiple directories.
 
@@ -173,23 +197,13 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
     # start recording time for the whole processing
     start = time.time()
     
-    PDDN_models = {}
-    if PDDN:
-        print('Loading PDDN models...')
-        for wavelength in parameters['wavelengths']:
-            path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                        r'PDDN_model/PDDN_model_' + str(wavelength) + '_Fresh_HB.pt')
-            if os.path.isfile(path_model):
-                print(path_model)
-                PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(path_model)
-        print('Loading PDDN models done.\n')
-    else:
-        PDDN_models = None
-    
     # get all the names of the measurement folders
     to_process, wavelenghts, dfProcessing = utils.get_to_process(parameters, PDDN=PDDN)
-    
+
+        
     if PDDN:
+        print()
+        
         print('Denoising inference started...')
         for folder in tqdm(to_process):
             for wavelength, model in PDDN_models.items():
@@ -197,21 +211,23 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
                 if os.path.exists(pathDenoisedCod):
                     pass
                 else:
-                    I, _ = get_intensity(f"{folder}/raw_data", str(wavelength), parameters['align_wls'], False)
+                    I, _ = get_intensity(f"{folder}/raw_data", str(wavelength), False, False)
                     I, _ = model.Denoise(I)
                     libmpMuelMat.write_cod_data_X3D(I, os.path.join(f"{folder}/raw_data", 
                                                                     f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)
         print('Denoising inference done.')
+        print()
     
     if parameters['align_wls']:
         
-        print('Aligning wavelengths...')
+        print('Aligning wavelengths for {} ...'.format(parameters['wavelengths']))
         from processingmm.addons import align_wavelengths
         directories = parameters['directories']
         PDDN_mode = parameters['PDDN']
         run_all = False
-        align_wavelengths.align_wavelenghts(directories, PDDN_mode, run_all)
+        align_wavelengths.align_wavelenghts(directories, PDDN_mode, run_all, parameters['wavelengths'])
         print('Aligning wavelengths done.\n')
+        print()
         
 
     # get the different chunks that are used to split the processing of the data
@@ -228,7 +244,7 @@ def batch_process(parameters: dict, remove_reflection: bool = True, PDDN: bool =
         end = time.time()
         
         # process the mueller matrix and generate the visualizations
-        calibration_directories, parameters_set, times = process_MM(parameters, folder, PDDN = PDDN, remove_reflection = remove_reflection,
+        calibration_directories, _, times = process_MM(parameters, folder, PDDN = PDDN, remove_reflection = remove_reflection,
                                                                     wavelengths = wavelenghts, folder_eu_time = folder_eu_time,
                                                                     dfProcessing = dfProcessing)
 
@@ -309,14 +325,6 @@ def process_MM(parameters: dict, folder: str, PDDN: bool, remove_reflection: boo
     all_directories = os.listdir(measurement_directory)
     reorganize_folders.reorganizeFolders(measurement_directory, all_directories)
     
-    """to_compute = multi_img_processing.remove_already_computed_folders(measurement_directory, 
-                                                                      run_all = parameters['run_all'], 
-                                                                      PDDN = PDDN,
-                                                                      wavelengths = wavelengths,
-                                                                      save_pdf_figs = parameters['save_pdf_figs'],
-                                                                      Flag = False)"""
-
-    
     to_compute = []
     for fld in dfProcessing[dfProcessing['folder name'] == folder].index:
         if dfProcessing.loc[fld, 'data presence'] and not dfProcessing.loc[fld, 'processed']:
@@ -358,24 +366,3 @@ def process_MM(parameters: dict, folder: str, PDDN: bool, remove_reflection: boo
 
 
 
-def batch_visualization(parameters):
-    
-    start = time.time()
-    
-    _, _, df = utils.get_to_process(parameters)
-    to_process = df[df['data presence']]
-    to_process = list(set(list(df.reset_index(level=0).apply(lambda row: row['folder name'], axis=1))))
-        
-    for wl in parameters['wavelengths']:
-        if parameters['PDDN'] in {'no', 'both'}:
-            _ = visualization_lines.visualization_auto(to_process, parameters['parameter_set'], run_all = parameters['run_all'], 
-                                                        batch_processing = False, PDDN = False, wavelengths = [wl], 
-                                                        save_pdf_figs = parameters['save_pdf_figs'])
-        if parameters['PDDN'] in {'pddn', 'both'}:
-            _ = visualization_lines.visualization_auto(to_process, parameters['parameter_set'], run_all = parameters['run_all'], 
-                                                        batch_processing = False, PDDN = True, wavelengths = [wl], 
-                                                        save_pdf_figs = parameters['save_pdf_figs'])
-    
-    end = time.time()
-    time_plotting = end - start
-    return time_plotting/len(to_process) if len(to_process) > 0 else 0
