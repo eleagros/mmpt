@@ -111,4 +111,5 @@ src/processingmm/deprecated
 superglue/
 third_party/Fiji.app/
 tmp_gif/
-tests/
+tests/data/
+tests/calib/
