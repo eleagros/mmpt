@@ -30,7 +30,7 @@ def align_wavelenghts(directories, PDDN, run_all, wlen_to_align = [600]):
     
 def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
     data_folder, _ = utils.getAllFolders(directories)
-
+    
     wl_to_align_with_nm = wl_to_align + 'nm'
     
     for folder in tqdm(data_folder):
@@ -42,6 +42,8 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
         if PDDN in ['both', 'pddn']:
             if os.path.exists(os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_PDDN.cod')):
                 paths.append(os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_PDDN_aligned.cod'))
+                
+        paths.append(os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Bruit_aligned.cod'))
         
         moving_intensities_path = os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite.cod')
         
@@ -51,7 +53,7 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
             exists += os.path.exists(path)
             
         condition_process = (exists < len(paths) or run_all) and os.path.exists(moving_intensities_path)
-        
+                
         if condition_process:
             
             fixed_intensities = libmpMuelMat.read_cod_data_X3D(os.path.join(folder, 'raw_data', '550nm', '550_Intensite.cod'), isRawFlag = 1)
@@ -120,7 +122,11 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
                 path_intensity = os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Intensite_PDDN.cod')
                 if os.path.exists(path_intensity):
                     intensities[path_intensity] = libmpMuelMat.read_cod_data_X3D(path_intensity, isRawFlag = 0)
-                            
+            
+            path_intensity = os.path.join(folder, 'raw_data', wl_to_align_with_nm, wl_to_align + '_Bruit.cod')
+            if os.path.exists(path_intensity):
+                intensities[path_intensity] = libmpMuelMat.read_cod_data_X3D(path_intensity, isRawFlag = 1)
+                     
             # load the remapping matrices
             if imgj_processing:
                 remapping_x = np.array(Image.open(os.path.join('temp', 'registered_img_brightfield_x.tif')))

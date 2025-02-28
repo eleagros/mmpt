@@ -154,7 +154,7 @@ def getFolderName(root: str, data_folder: list, folder_names: list) -> None:
         assert len(re.findall(r"[\d]{4}-[\d]{2}-[\d]{2}", root)) == 1
         x = re.search(r"[\d]{4}-[\d]{2}-[\d]{2}", root).group(0)
         splitted = root.split(x)
-        
+                
         # if yes, 
         # check if the folder is not a subfolder of a folder containing data
         if '/' in splitted[-1]:
@@ -219,7 +219,7 @@ def findProcessedFolders(data_folder: list, parameters: dict, PDDN: bool) -> tup
                                                     save_pdf_figs = parameters['save_pdf_figs']))
                 else:
                     processed.append(False)
-        
+
         # add the information to lists
         processed_dict[path] = processed
         data_presence[path] = data
@@ -268,9 +268,12 @@ def isThereData(path: str, wl: str) -> bool:
     data_exist : bool
         boolean indicating the presence of two .cod files
     """
-    pathsRawData = [f"{wl.replace('nm', '')}_Bruit.cod", f"{wl.replace('nm', '')}_Intensite.cod"]
-    if pathsRawData[0] in os.listdir(path) and pathsRawData[1] in os.listdir(path):
-        return True
+    if os.path.isdir(path):
+        pathsRawData = [f"{wl.replace('nm', '')}_Intensite.cod"]#[f"{wl.replace('nm', '')}_Bruit.cod", f"{wl.replace('nm', '')}_Intensite.cod"]
+        if pathsRawData[0] in os.listdir(path): #and pathsRawData[1] in os.listdir(path):
+            return True
+        else:
+            return False
     else:
         return False
 

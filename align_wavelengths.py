@@ -12,6 +12,12 @@ parser.add_argument("--run_all", action="store_true", help="Process all folders,
 # Parse arguments
 args = parser.parse_args()
 
+if os.path.isabs(args.directory):
+    print("Absolute path")
+else:
+    print("Relative path")
+
+
 # Print the parsed arguments
 print(f"Aligning wavelengths for the database in path: {args.directory}")
 print(f"PDDN mode: {args.mode}")

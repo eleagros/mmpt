@@ -124,8 +124,7 @@ If everything works out, you should be good to go!
 The script **`process_mueller_matrices.py`** can be used to process the Mueller Matrices, the command is the following:
 
 ```sh
-python process_mueller_matrices.py [-h] --directory DIRECTORY --calib CALIB [--PDDN_mode {no,pddn,both}] [--wavelengths WAVELENGTHS [WAVELENGTHS ...]]
-                                   [--processing_mode {no_viz,default,full}] [--save_pdf_figs] [--run_all] [--align_wls]
+python process_mueller_matrices.py [-h] --directory DIRECTORY --calib CALIB [--PDDN_mode {no,pddn,both}] [--wavelengths WAVELENGTHS [WAVELENGTHS ...]] [--processing_mode {no_viz,default,full}] [--save_pdf_figs] [--run_all] [--align_wls]
 ```
 - with *DIRECTORY* being the folder containing the measurements
 - with *CALIB* being the folder containig the calibration folders
