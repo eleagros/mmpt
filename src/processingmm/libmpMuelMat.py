@@ -90,10 +90,11 @@ def _get_CLib_path():
     '''
 	# Function to retrieve the global (or local) path to the Compiled C Shared Library
 	'''
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    raise ValueError(os.path.exists(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'C-libs')))
+    import processingmm
+    module_path = os.path.dirname(processingmm.__file__)
     # Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.dll')
-    Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.so')  # << Change the Global (or Local) path here if necessary!
+    Clibs_pth = os.path.join(module_path, 'C-libs', 'libmpMuelMat.so')  # << Change the Global (or Local) path here if necessary!
+    
     return Clibs_pth
 
 def _loadClib():
@@ -105,7 +106,6 @@ def _loadClib():
     except:
         try:
             dll_name = _get_CLib_path()
-            print(dll_name)
             dll_handle = win32api.LoadLibraryEx(dll_name, 0, win32con.LOAD_WITH_ALTERED_SEARCH_PATH)
             Clib = ctypes.WinDLL(dll_name, handle=dll_handle)
         except:

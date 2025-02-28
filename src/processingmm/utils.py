@@ -748,3 +748,9 @@ def chunks(lst: list, n: int):
     """
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+        
+        
+def getSupergluePath():
+    import processingmm
+    module_path = os.path.dirname(processingmm.__file__)
+    return os.path.join(module_path, 'third_party', 'superglue').replace('src/processingmm', '')

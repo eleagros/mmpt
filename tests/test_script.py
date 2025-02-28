@@ -27,7 +27,7 @@ def main():
     # Set the wavelengths to be processed
     # 1. 'all': processes all the available wavelenght
     # 2. [xxx, yyy]: processes only the wavelenghts 'xxx' and 'yyy'
-    wavelengths = [550]
+    wavelengths = [550, 650]
 
     # Processing mode
     # 1. 'no_viz': processes only the MM - no visualization at all. useful for fast computation
@@ -48,7 +48,7 @@ def main():
     save_pdf_figs = False
 
     # define if the wavelenghts should be aligned before processing - and used for the computation
-    align_wls = False
+    align_wls = True
 
     parameters = batch_processing.get_parameters(directories, calib_directory, wavelengths, parameter_set = parameter_set, 
                                     PDDN_mode = PDDN_mode, PDDN_models_path = PDDN_models_path, 

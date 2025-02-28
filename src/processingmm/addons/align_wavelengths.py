@@ -77,7 +77,7 @@ def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = 
             Image.fromarray(moving).save(os.path.join('temp', wl_to_align_with_nm + '_intensity.png'))
 
             # run superglue to get matching points between 550nm and 600nm grayscale image
-            path_superglue = os.path.join('third_party', 'superglue', 'demo_superglue.py')
+            path_superglue = os.path.join(utils.getSupergluePath(), 'demo_superglue.py')
             try:
                 shutil.rmtree('temp_output')
             except FileNotFoundError:
