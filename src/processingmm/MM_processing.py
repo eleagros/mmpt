@@ -10,7 +10,6 @@ from processingmm import libmpMuelMat
 from processingmm.multi_img.multi_img_processing import remove_already_computed_directories, get_calibration_directory
 from processingmm.utils import save_file_as_npz, rotate_maps_90_deg, load_parameter_names, rotate_parameter
 from processingmm.addons import azimuth_local_var
-from processingmm import libmpMPIdenoisePDDN
 
 def compute_analysis_python(measurements_directory: str, calib_directory_dates_num: list, calib_directory: str, 
                             to_compute: list, PDDN = False, remove_reflection = True, folder_eu_time: dict = {}, 
