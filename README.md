@@ -175,11 +175,11 @@ You need to set several parameters:
 **`save_pdf_figs`**: define if pdf figures should be saved (takes a lot of time) - no impact when processing_mode is set to no_viz
 
 NB: processing time without PDDN
-- 'no_viz': 0.71s
-- 'default', save_pdf_figs False: 2.25s
-- 'default', save_pdf_figs True: 3.60s
-- 'full', save_pdf_figs False: 3.95s
-- 'full', save_pdf_figs True: 8.07s
+- 'no_viz': 0.39s
+- 'default', save_pdf_figs False: 1.65s
+- 'default', save_pdf_figs True: 2.67s
+- 'full', save_pdf_figs False: 3.24s
+- 'full', save_pdf_figs True: 5.94s
 
 -----
 
