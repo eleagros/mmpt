@@ -1,4 +1,0 @@
-Depolarization.png
-results/CUSA_fig_weighted.png
-Intensity.png
-Linear retardance.png

@@ -1157,7 +1157,7 @@ class MPI_PDDN_Trainer(object): #REF
         try:
             self.PDDNmodelSummary = data['summary']
         except:
-            print(' [wrn] PDDN Model Summary NOT Available!')
+            # print(' [wrn] PDDN Model Summary NOT Available!')
             self.PDDNmodelSummary['PDDNmodelTrainingSteps'] = self.step
 
     def load(self):
@@ -1175,7 +1175,7 @@ class MPI_PDDN_Trainer(object): #REF
             try:
                 self.PDDNmodelSummary = data['summary']
             except:
-                print(' [wrn] PDDN Model Summary NOT Available!')
+                # print(' [wrn] PDDN Model Summary NOT Available!')
                 self.PDDNmodelSummary['PDDNmodelTrainingSteps'] = self.step
 
             print(' >> PDDN Loading Model: ' + str(self.PDDNmodelFileName) + ' -- Complete')

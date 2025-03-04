@@ -1,4 +1,0 @@
-Depolarization.png
-Azimuth of optical axis.png
-Intensity.png
-Linear retardance.png

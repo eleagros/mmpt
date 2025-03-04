@@ -1,6 +1,0 @@
-line_fig.pdf
-line_fig.png
-line_fig_weighted.pdf
-line_fig_weighted.png
-mask.pdf
-mask.png

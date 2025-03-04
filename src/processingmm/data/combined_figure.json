@@ -1,0 +1,20 @@
+{
+  "with_viz": {
+    "save_file": "combined_img_line.png",
+    "files": [
+      "Depolarization.png",
+      "results/CUSA_fig_weighted.png",
+      "Intensity.png",
+      "Linear retardance.png"
+    ]
+  },
+  "without_viz": {
+    "save_file": "combined_img.png",
+    "files": [
+      "Depolarization.png",
+      "Azimuth of optical axis.png",
+      "Intensity.png",
+      "Linear retardance.png"
+    ]
+  }
+}

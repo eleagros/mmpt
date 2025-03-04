@@ -1,15 +1,17 @@
 import os, shutil
+import copy
 import json
 
 import numpy as np
-from scipy import ndimage
+import math
+from datetime import datetime
+import warnings
 
 import re
 
 import matplotlib.colors as clr
 
-import pandas as pd
-
+from processingmm import libmpMuelMat
 
 ####################################################################################################################################
 ####################################################################################################################################
@@ -17,407 +19,704 @@ import pandas as pd
 ####################################################################################################################################
 ####################################################################################################################################
 
-def get_to_process(parameters: dict, PDDN: bool = False, inverse: bool = False):
+def get_measurements_to_process(parameters: dict, PDDN: bool = False):
     """
-    returns the list of the folders that needs to be processed
+    Returns the list of folders that need to be processed.
     
-    Parameters:
-    ----------
-    parameters : dict
-        the parameters used for the processing
-    PDDN : bool
-        indicates wether denosing is used
-    inverse : bool
-        indicates if the folders that have been processed should be returned
-        
-    Returns:
-    -------
-    wl : list
-        the list of the wavelengths for which data is available
-    to_process : list
-        the list of the folders that needs to be processed
-    
-    Raises:
-    -------
-    None
-    """
-    df, wl = getDfProcessing(parameters, PDDN = PDDN)
-    
-    # get the files that needs to be processed
-    if len(df) == 0:
-        to_process = []
-    else:
-        if parameters['run_all']:
-            to_process = df
-        else:
-            if inverse:
-                to_process = df[df['processed']]
-            else:
-                to_process = df[~df['processed']]
-
-    if len(to_process) == 0:
-        to_process = []
-    else:
-        to_process = list(set(list(to_process.reset_index(level=0).apply(lambda row: row['folder name'], axis=1))))
-
-    return to_process, wl, df
-    
-def getDfProcessing(parameters: dict, PDDN: bool) -> tuple:
-    """
-    get the dataframe containing the information about the folders and if they have been processed
-
-    Parameters:
-    ----------
-    directories : list
-        the list of directories to scan
-    PDDN : bool
-        indicates wether denosing is used (default is False)
-    wavelengths : str or list
-        indicates which wavelenghts should be processed (default is 'all')
-    processing_mode : str
-        indicates the processing mode ('full', 'no_visualization' or 'fast', default is 'full')
-
-    Returns:
-    -------
-    df : pd.dataframe
-        a dataframe referencing the path to the folder and if it has been processed
-    wl : list
-        the list of the wavelengths for which data is available
-        
-    Raises:
-    -------
-    None
-    """
-    directories = parameters['directories']              
-    data_folder, _ = getAllFolders(directories)
-    
-    # remove the processing_logbook (present in old versions)
-    for folder in data_folder:
-        try:
-            os.remove(os.path.join(folder, 'processing_logbook.txt'))
-        except:
-            pass
-        
-    # return two list booleans and a dict linking folders and the indication of if the folders have been processed
-    processed, data_folder_nm, wl = findProcessedFolders(data_folder, parameters, PDDN = PDDN)
-
-    df = createFoldersDf(data_folder, processed, data_folder_nm, wavelengths = wl)
-    return df, wl
-
-def getAllFolders(directories: list) -> tuple:
-    """
-    walk through all of the directories present in the folders "directories" given as an input. finds the folder with the 
-    202x-xx-xx name format and return the list of folders.
-
     Parameters
     ----------
-    directories : list of str
-        a list containing the directories to scan
+    parameters : dict
+        The parameters used for processing.
+    PDDN : bool
+        Whether denoising is used.
 
     Returns
     -------
-    data_folder : list
-        the list with all the folders containing data
+    to_process : list
+        List of folders to process.
+    wl : list
+        List of available wavelengths.
+    """
+    directories = parameters["directories"]
+    data_folders, _ = get_all_folders(directories)
+
+    # Remove old processing logs if present
+    for folder in data_folders:
+        log_file = os.path.join(folder, "processing_logbook.txt")
+        if os.path.exists(log_file):
+            os.remove(log_file)
+
+    processed, data_folder_nm, wl = find_processed_folders(data_folders, parameters, PDDN)
+    folder_data = create_folder_dict(data_folders, processed, data_folder_nm, wl)
+    
+    if parameters['run_all']:
+        to_process = folder_data
+    else:
+        to_process = [f for f in folder_data if not f["processed"]]
+
+    return to_process, wl  # Ensure uniqueness
+    
+    
+def get_all_folders(directories: list):
+    """
+    Scans given directories and retrieves all valid data folders.
+
+    Parameters
+    ----------
+    directories : list
+        List of directories to scan.
+
+    Returns
+    -------
+    data_folders : list
+        List of valid folders containing data.
     folder_names : list
-        the list with the name of all the measurements
+        List of measurement folder names.
     """
-    data_folder = []
-    folder_names = []
-    
+    data_folders, folder_names = [], []
+
     for directory in directories:
-
         for root, _, _ in os.walk(directory, topdown=False):
+            if "TRANSMISSION" not in root:
+                get_folder_name(root, data_folders, folder_names)
 
-            # remove the transmission measurements
-            if 'TRANSMISSION' in root:
-                pass
-            else:
-                getFolderName(root, data_folder, folder_names)
-    
-    return list(set(data_folder)), list(set(folder_names))
-       
-def getFolderName(root: str, data_folder: list, folder_names: list) -> None:
+    return list(set(data_folders)), list(set(folder_names))
+
+
+def get_folder_name(root: str, data_folders: list, folder_names: list):
     """
-    check if a folder has the correct format: 202x-xx-xx. if yes, add it to the list of folders
+    Checks if a folder follows the YYYY-MM-DD format and adds it to the folder list.
 
     Parameters
     ----------
     root : str
-        complete path to the folder
-    data_folder : list
-        the list with all the folders containing data
+        Path to the folder.
+    data_folders : list
+        List of folders containing data.
     folder_names : list
-        the list with the name of all the measurements
+        List of measurement folder names.
     """
-    try:
-        # check if the folder name format is 202x-xx-xx
-        assert len(re.findall(r"[\d]{4}-[\d]{2}-[\d]{2}", root)) == 1
-        x = re.search(r"[\d]{4}-[\d]{2}-[\d]{2}", root).group(0)
-        splitted = root.split(x)
-                
-        # if yes, 
-        # check if the folder is not a subfolder of a folder containing data
-        if '/' in splitted[-1]:
-            pass
-        else:
-            # add the folder to the list
-            data_folder.append(root)
-            folder_names.append(root.split('/')[-1])
-                    
-    except Exception as e:
-        pass
+    match = re.search(r"[\d]{4}-[\d]{2}-[\d]{2}", root)
+    if match and "/" not in root.split(match.group(0))[-1]:
+        data_folders.append(root)
+        folder_names.append(os.path.basename(root))
 
-def findProcessedFolders(data_folder: list, parameters: dict, PDDN: bool) -> tuple:
+
+def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     """
-    iterates over each of the folder to find the ones containing 550nm/650nm raw data and determine the ones that have been processed
+    Identifies which folders contain raw data and determines if they have been processed.
 
     Parameters
     ----------
-    data_folder
+    data_folders : list
+        List of folders to check.
+    parameters : dict
+        Processing parameters.
     PDDN : bool
-        indicates wether denosing is used (default is False)
-    wavelengths : str or list
-        indicates which wavelenghts should be processed (default is 'all')
-    processing_mode : str
-        indicates the processing mode ('full', 'no_visualization' or 'fast', default is 'full')
-    
+        Whether denoising is used.
+
     Returns
     -------
-    processed_nm : dict of list
-        a dictionnary containing lists indicating if the files (i.e. polarimetric plots, etc...) were generated for each wavelength
-    data_folder_nm : dict of list
-        a dictionnary containing lists indicating if the data files are present for each wavelength
-    wavelenghts : list
-        the list of the wavelengths usable with the IMP
+    processed_dict : dict
+        Dictionary mapping folder paths to their processed status.
+    data_presence : dict
+        Dictionary mapping folder paths to their raw data availability.
+    wavelengths : list
+        List of wavelengths to be processed.
     """
     processed_dict, data_presence = {}, {}
-    wavelengths_compare = getWavelenghtsProcessing(parameters['wavelengths'])
-    
-    # check if the PDDN model is available, if not, revert to the normal polarimetry
-    path_polarimetry = {}
-    
-    for wl in wavelengths_compare:
-        path_PDDN_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
-        path_polarimetry[wl] = 'polarimetry_PDDN' if PDDN and os.path.exists(path_PDDN_model) else 'polarimetry'
+    wavelengths = get_wavelengths_processing(parameters["wavelengths"])
+    polarimetry_path = {wl: "polarimetry_PDDN" if PDDN else "polarimetry" for wl in wavelengths}
 
-    # iterate over each folder containing data
-    for path in data_folder:
+    for path in data_folders:
         data, processed = [], []
 
-        for wl in wavelengths_compare:
-    
-            # check if raw data is available for the different measurements
-            path_raw_data = os.path.join(path, 'raw_data', wl) if os.path.exists(os.path.join(path, 'raw_data')) else os.path.join(path, wl)
-            data.append(isThereData(path_raw_data, wl))
-            
-            if parameters['run_all']:
+        for wl in wavelengths:
+            raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data")) else os.path.join(path, wl)
+            data.append(is_there_data(raw_data_path, wl))
+
+            if parameters["run_all"]:
                 processed.append(False)
             else:
-                if os.path.exists(os.path.join(path, path_polarimetry[wl])):
-                    os.makedirs(os.path.join(os.path.join(path, path_polarimetry[wl], wl)), exist_ok=True)
-                    processed.append(isProcessed(path, wl, path_polarimetry[wl], processing_mode = parameters['processing_mode'], 
-                                                    save_pdf_figs = parameters['save_pdf_figs']))
-                else:
-                    processed.append(False)
+                pol_path = os.path.join(path, polarimetry_path[wl])
+                processed.append(
+                    os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["processing_mode"], parameters["save_pdf_figs"])
+                )
 
-        # add the information to lists
         processed_dict[path] = processed
         data_presence[path] = data
-        
-    return processed_dict, data_presence, wavelengths_compare
 
-def getWavelenghtsProcessing(wavelengths) -> list:
+    return processed_dict, data_presence, wavelengths
+
+
+def get_wavelengths_processing(wavelengths):
     """
-    get the wavelenghts that will be processed
-    
+    Returns a list of wavelengths to be processed.
+
     Parameters
     ----------
     wavelengths : str or list
-        indicates which wavelenghts should be processed (default is 'all', other option is a list of int)
-    
+        List of wavelengths or 'all'.
+
     Returns
     -------
-    wavelengths_compare : list
-        the list of the wavelengths usable with the IMP
-
-    Raises
-    -------
-    AssertionError
-        if the wavelenghts are not a list of int
+    wavelengths_list : list
+        List of wavelengths as strings.
     """
-    if wavelengths == 'all':
-        wavelengths_compare = load_wavelengths()
-    else:
-        assert type(wavelengths) == list, ("Wavelengths should be a list of int (or string).")
-        wavelengths_compare = []
-        for wl in wavelengths:
-            wavelengths_compare.append(str(wl) + 'nm')
-    return wavelengths_compare
+    if wavelengths == "all":
+        return load_wavelengths()
+    
+    assert isinstance(wavelengths, list), "Wavelengths should be a list of int (or string)."
+    return [f"{wl}nm" for wl in wavelengths]
 
-def isThereData(path: str, wl: str) -> bool:
+
+def create_folder_dict(data_folders, processed, data_folder_nm, wavelengths):
     """
-    check if raw data is available for the path given as an input
+    Creates a list of dictionaries storing folder processing information.
 
     Parameters
     ----------
-    path : str
-        the path to the folder containing the raw data
-    
+    data_folders : list
+        List of data folders.
+    processed : dict
+        Processed status per folder.
+    data_folder_nm : dict
+        Data availability per folder.
+    wavelengths : list
+        List of wavelengths.
+
     Returns
     -------
-    data_exist : bool
-        boolean indicating the presence of two .cod files
+    list of dict
+        List containing folder details.
     """
-    if os.path.isdir(path):
-        pathsRawData = [f"{wl.replace('nm', '')}_Intensite.cod"]#[f"{wl.replace('nm', '')}_Bruit.cod", f"{wl.replace('nm', '')}_Intensite.cod"]
-        if pathsRawData[0] in os.listdir(path): #and pathsRawData[1] in os.listdir(path):
-            return True
-        else:
-            return False
-    else:
+    folder_data = []
+    for folder in data_folders:
+        for idx, is_processed in enumerate(processed[folder]):
+            if data_folder_nm[folder][idx]:  # Only include folders with data
+                folder_data.append({
+                    "folder_name": folder,
+                    "processed": is_processed,
+                    "wavelength": wavelengths[idx],
+                })
+    return folder_data
+
+
+def is_there_data(path: str, wl: str) -> bool:
+    """
+    Checks if raw data is available in the given folder.
+
+    Returns True if the expected `.cod` file is present.
+    """
+    if not os.path.isdir(path):
         return False
+    expected_file = f"{wl.replace('nm', '')}_Intensite.cod"
+    return expected_file in set(os.listdir(path))
 
-def isProcessed(path: str, wl: str, polarimetry_fname: str, processing_mode: bool = 'full', save_pdf_figs: bool = False) -> bool:
+
+def is_processed(path: str, wl: str, polarimetry_fname: str, processing_mode: str = "full", save_pdf_figs: bool = False) -> bool:
     """
-    check if the files (i.e. polarimetric plots, etc...) were generated for the specified wavelenght
+    Checks if the required files (e.g., polarimetric plots) were generated.
 
-    Parameters
-    ----------
-    path : str
-        the path to the folder to check
-    wl : str
-        the wavelenghts for which to check
-    polarimetry_fname : str
-        the name of the folder containing the polarimetric data
-    processing_mode : str
-        indicates the processing mode ('full', 'no_visualization' or 'fast', default is 'full')
-    save_pdf_figs : bool
-        indicates if the pdf figures should be saved (default is False)
-
-    Returns
-    ----------
-    all_found : is_processed
-        indicates if all the files were present
-        
-    Raises
-    -------
-    None
+    Returns True if all required files are present.
     """
-    # get the filenames that should be present
-    filenames = load_filenames(processing_mode = processing_mode, save_pdf_figs = save_pdf_figs)
-    all_file_names = os.listdir(os.path.join(path, polarimetry_fname, wl))
-    
-    # check if all the files are present
-    all_found = True
-    for filename in filenames:
-        if filename not in all_file_names:
-            all_found = False
-            break
+    folder_path = os.path.join(path, polarimetry_fname, wl)
+    if not os.path.exists(folder_path):
+        return False
+    expected_filenames = load_filenames(processing_mode, save_pdf_figs)
+    return all(f in set(os.listdir(folder_path)) for f in expected_filenames)
 
-    return all_found
-
-def createFoldersDf(data_folder: list, processed: dict, data_folder_nm: dict, wavelengths: list):
+def move_folder_for_processing(parameters: dict, folder_dct: dict):
     """
-    create a dataframe referencing the path to the folder and if it has been processed
-
-    Parameters
-    ----------
-    data_folder : list
-        the list with all the folders containing data
-    processed : dict of list
-        a dictionnary containing lists indicating if the files (i.e. polarimetric plots, etc...) were generated for each wavelength
-    data_folder_nm : dict of list
-        a dictionnary containing lists indicating if the data files are present for each wavelength
-    wavelenghts : list
-        the list of the wavelengths usable with the IMP
-        
-    Returns
-    -------
-    df : pd.dataframe
-        a dataframe referencing the path to the folder and if it has been processed
-    """
-    df_list = []
-    for folder in data_folder:
-        for idx, boolean in enumerate(processed[folder]):
-            df_list.append([folder, boolean, data_folder_nm[folder][idx], wavelengths[idx]])
-    df = pd.DataFrame(df_list, columns = ['folder name', 'processed', 'data presence', 'wavelength'])
-    df = df[df['data presence']]
-    df = df.reset_index(drop=True)
-    return df
-
-def moveTheFoldersForProcessing(parameters, chunk: str):
-    """
-    move the measurement folders to the temp_processing folder
+    Move a measurement folder to the temp_processing folder.
     
     Parameters
     ----------
     parameters : dict
-        the processing parameters in a dictionary format
-    chunk : list
-        the list of the folders to be processed
+        The processing parameters.
+    folder : dict
+        The folder to be processed.
         
     Returns
     -------
     links_folders : dict
-        the dictionary containing the links between the original folders and the temp_processing folders
+        Mapping of original folder to temp_processing folder.
     to_process_temp : list
-        the list of the folders to be processed in the temp_processing folder
+        List containing the processed folder in the temp_processing directory.
+    """
+    folder = folder_dct["folder_name"]
+
+    # Ensure 'raw_data' directory exists
+    raw_data_path = os.path.join(folder, 'raw_data')
+    if not os.path.exists(raw_data_path):
+        os.makedirs(raw_data_path)
+        for file in os.listdir(folder):
+            file_path = os.path.join(folder, file)
+            if file != 'raw_data':
+                shutil.move(file_path, os.path.join(raw_data_path, file))
+
+    # Ensure 'annotation' directory exists
+    annotation_path = os.path.join(folder, 'annotation')
+    os.makedirs(annotation_path, exist_ok=True)
     
-    Raises
-    ------
+    # Ensure 'histology' directory exists
+    histology_path = os.path.join(folder, 'histology')
+    os.makedirs(histology_path, exist_ok=True)
+
+
+####################################################################################################################################
+####################################################################################################################################
+################################################### 2. Managing folders ############################################################
+####################################################################################################################################
+####################################################################################################################################
+
+def reorganize_folders(folder_path: str):
+    """
+    Reorganize the folders in the measurement directory by creating necessary subdirectories
+    for polarimetry data and moving raw data into appropriate folders.
+
+    Parameters
+    ----------
+    folder_path : str
+        The path to the measurement directory.
+        
+    Returns
+    -------
     None
     """
-    to_process_temp = []
+    directories_tbc = ['polarimetry', 'polarimetry_PDDN']
+    wavelengths = load_wavelengths()
+
+    # Create necessary directories for polarimetry and polarimetry_PDDN data
+    for directory in directories_tbc:
+        create_directory_structure(folder_path, directory, wavelengths)
+
+    # Clean up old computations (remove unnecessary files)
+    clean_up_old_files(folder_path['folder_name'], directories_tbc)
+
+
+def create_directory_structure(folder_path: str, directory: str, wavelengths: list):
+    """
+    Creates the necessary directory structure for a given directory (polarimetry or polarimetry_PDDN)
+    for each wavelength.
+
+    Parameters
+    ----------
+    folder_path : str
+        The path to the folder where the subdirectories will be created.
+    directory : str
+        The directory name (polarimetry or polarimetry_PDDN).
+    wavelengths : list
+        List of wavelengths for which directories need to be created.
+        
+    Returns
+    -------
+    None
+    """
+    target_path = os.path.join(folder_path['folder_name'], directory)
+    os.makedirs(target_path, exist_ok=True)
     
-    # move the measurement folders to the temp_processing folder
-    links_folders = {}
-    for folder in [chunk]:
-                
-        links_folders[os.path.join(parameters['temp_folder'], folder.split('/')[-1])] = folder
-        os.mkdir(os.path.join(parameters['temp_folder'], folder.split('/')[-1]))
+    for wl in wavelengths:
+        os.makedirs(os.path.join(target_path, wl), exist_ok=True)
 
-        # 1. move the raw data into the raw_data folder
-        if 'raw_data' in os.listdir(folder):
-            pass
-        else:
-            os.mkdir(os.path.join(folder, 'raw_data'))
 
-            for file in os.listdir(folder):
-                if file != 'raw_data':
-                    src = os.path.join(folder, file)
-                    dst = os.path.join(folder, 'raw_data', file)
-                    shutil.move(src, dst)
-           
-        # 2. create the annotation folder and move the rotation_MM.txt file 
-        os.makedirs(os.path.join(folder, 'annotation'), exist_ok = True)
+def clean_up_old_files(folder_path: str, dirs_to_check: list):
+    """
+    Cleans up old files in the specified directories by removing files that are not in the allowed list.
+    
+    Parameters
+    ----------
+    folder_path : str
+        The path to the measurement directory.
+    dirs_to_check : list of str
+        The directories to check for old files (e.g., polarimetry, polarimetry_PDDN).
+        
+    Returns
+    -------
+    None
+    """
+    filenames = load_filenames(save_pdf_figs=True)
+    filenames_results = load_filenames(processing_mode='results', save_pdf_figs=True)
+    
+    for dir in dirs_to_check:
+        polarimetry_dir = os.path.join(folder_path, dir)
+        
+        for wl in os.listdir(polarimetry_dir):
+            folder = os.path.join(polarimetry_dir, wl)
             
-        if os.path.exists(os.path.join(folder, 'annotation', 'rotation_MM.txt')):
-            src = os.path.join(folder, 'annotation', 'rotation_MM.txt')
-            dst = os.path.join(folder, 'raw_data', 'rotation_MM.txt')
-            shutil.copy(src, dst)
+            # Process the files within each wavelength folder
+            for file in os.listdir(folder):
+                file_path = os.path.join(folder, file)
+                
+                if file in filenames:
+                    continue
+                
+                if file == 'results':
+                    clean_up_results(folder, file, filenames_results)
+                    continue
+                
+                if os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+                else:
+                    os.remove(file_path)
+
+
+def clean_up_results(folder: str, results_folder: str, filenames_results: list):
+    """
+    Cleans up result files that are not in the allowed list.
+    
+    Parameters
+    ----------
+    folder : str
+        The folder containing the results folder.
+    results_folder : str
+        The name of the results folder.
+    filenames_results : list
+        List of allowed result filenames.
         
-        # 3. move the raw data to the temp_processing folder
-        for file in os.listdir(os.path.join(folder, 'raw_data')):
-            src = os.path.join(folder, 'raw_data', file)
-            dst = os.path.join(parameters['temp_folder'], folder.split('/')[-1], file)
-            if os.path.isdir(src):
-                shutil.copytree(src, dst)
-            else:
-                shutil.copy(src, dst)
+    Returns
+    -------
+    None
+    """
+    results_path = os.path.join(folder, results_folder)
+    
+    for result_file in os.listdir(results_path):
+        result_file_path = os.path.join(results_path, result_file)
         
-        # 4. add the folder to the list of folders to be processed
-        to_process_temp.append(os.path.join(parameters['temp_folder'], folder.split('/')[-1]))
-        
-    return links_folders, to_process_temp
+        if result_file not in filenames_results:
+            os.remove(result_file_path)
 
 
 ####################################################################################################################################
 ####################################################################################################################################
-############################################## 2. Mueller Matrix processing ########################################################
+########################################### 3. Manage the calibrations folders #####################################################
 ####################################################################################################################################
 ####################################################################################################################################
 
-def save_file_as_npz(variable: dict, path: str, processing_mode = 'full'):   
+
+def get_calibration_dates(calib_directory: str):
+    """
+    Returns the dates of all calibration folders containing calibration data for 550nm and 650nm.
+
+    Parameters
+    ----------
+    calib_directory : str
+        Path to the calibration directory.
+
+    Returns
+    -------
+    list of datetime
+        A list containing the dates of the calibration folders.
+    """
+    calib_directory_dates = os.listdir(calib_directory)
+    wavelengths = load_wavelengths()
+
+    calib_directory_dates_cleaned = [
+        c for c in calib_directory_dates
+        if any(os.path.exists(os.path.join(calib_directory, c, wl, f"{wl.split('nm')[0]}_W.mat"))
+               or os.path.exists(os.path.join(calib_directory, c, wl, f"{wl.split('nm')[0]}_W.cod"))
+               for wl in wavelengths)
+    ]
+
+    # Convert folder names to datetime objects
+    return [datetime.strptime(c.split('_')[0], '%Y-%m-%d') for c in calib_directory_dates_cleaned]
+
+
+
+def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_directory: str,
+                              wavelength: str, folder_eu_time: dict = {}, Flag=False, idx=-1):
+    """
+    Gets the calibration directory with the date closest to the folder given as input.
+
+    Parameters
+    ----------
+    calib_directory_dates_num : list
+        List of datetime objects for calibration dates.
+    path : str
+        The path to the folder being processed.
+    calib_directory : str
+        Path to the folder containing calibration data.
+    wavelength : str
+        The wavelength to check.
+    folder_eu_time : dict, optional
+        Dictionary mapping folder names to EU time. Default is {}.
+    Flag : bool, optional
+        Flag indicating if warnings should be displayed. Default is False.
+    idx : int, optional
+        Index used for splitting path. Default is -1.
+
+    Returns
+    -------
+    str
+        Path to the calibration directory with the closest date to the folder.
+    """
+    # Get the date of the measurement folder
+    date_measurement = folder_eu_time.get(path.split('/')[-1], get_date_measurement(path, idx))
+
+    # Find the closest date in the calibration directory
+    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, wavelength, calib_directory, Flag)
+    
+    return os.path.join(calib_directory, closest_date)
+
+
+def find_closest_date(date_measurement: datetime, calib_dates_complete: list, wavelength: str, calib_directory: str, Flag=False):
+    """
+    Finds the directory with the closest date to the measurement date.
+
+    Parameters
+    ----------
+    date_measurement : datetime
+        The date of the measurement.
+    calib_dates_complete : list of datetime
+        List of calibration dates.
+    wavelength : str
+        The wavelength to check.
+    calib_directory : str
+        Path to the calibration directory.
+    Flag : bool, optional
+        Flag indicating if warnings should be displayed. Default is False.
+
+    Returns
+    -------
+    str
+        The folder name with the closest calibration date.
+    """
+    calib_dates = copy.deepcopy(calib_dates_complete)
+    directories_calib = os.listdir(calib_directory)
+
+    # Calculate time differences between measurement and calibration dates
+    durations = [abs((calib - date_measurement).days) for calib in calib_dates]
+    
+    # Find the index of the closest date
+    min_idx_distance = np.argmin(durations)
+    closest_date = calib_dates[min_idx_distance].strftime('%Y-%m-%d')
+
+    # Find calibration directories for the closest date
+    dates_calibrated = [d for d in directories_calib if closest_date in d]
+
+    # Check for valid calibration data
+    while dates_calibrated:
+        idx_last_calib = get_last_calibration_idx(dates_calibrated)
+        last_calibration = dates_calibrated[idx_last_calib]
+
+        # Check if all required calibration files exist
+        if all_calibration_files_exist(last_calibration, calib_directory, wavelength):
+            return last_calibration
+        else:
+            # Remove invalid calibration and check the previous one
+            del dates_calibrated[idx_last_calib]
+
+    raise FileNotFoundError('No valid calibration found for the closest 1000 days.')
+
+def all_calibration_files_exist(calibration_folder: str, calib_directory: str, wavelength: str) -> bool:
+    """Checks if all required calibration files exist for a given calibration folder and wavelength."""
+    required_files = [f"{wavelength.split('nm')[0]}_A.cod", f"{wavelength.split('nm')[0]}_W.cod"]
+    if all(os.path.isfile(os.path.join(calib_directory, calibration_folder, wavelength, f)) for f in required_files):
+        return True
+    else:
+        required_files = [f"{wavelength.split('nm')[0]}_B0.cod", f"{wavelength.split('nm')[0]}_Bruit.cod",
+                        f"{wavelength.split('nm')[0]}_L30.cod", f"{wavelength.split('nm')[0]}_P0.cod",
+                        f"{wavelength.split('nm')[0]}_P90.cod"]
+        return all(os.path.isfile(os.path.join(calib_directory, calibration_folder, wavelength, f)) for f in required_files)
+
+def get_last_calibration_idx(dates_calibrated: list) -> int:
+    """Returns the index of the last calibration folder based on the highest index."""
+    calibration_idxs = [int(date.split('_')[-1]) for date in dates_calibrated]
+    return np.argmax(calibration_idxs)
+
+
+def get_date_measurement(path: str, idx=-1) -> datetime:
+    """Returns the date of the measured folder."""
+    return datetime.strptime(path.split('/')[idx].split('_')[0], '%Y-%m-%d')
+
+
+def incorrect_date(closest: int):
+    """Raises a warning indicating that no calibration was found for the exact date of the measurement."""
+    warnings.warn(f'No calibration found for the exact date; the one used was {closest} day(s) ago.', UserWarning, stacklevel=2)
+    
+    
+####################################################################################################################################
+####################################################################################################################################
+############################################## 4. Mueller Matrix processing ########################################################
+####################################################################################################################################
+####################################################################################################################################
+
+def get_intensity(path: str, wavelength: int, align_wls=False, PDDN=False):
+    """
+    Retrieves the intensity data from a specified directory based on the wavelength and alignment settings.
+
+    Parameters
+    ----------
+    path : str
+        The path to the directory containing the raw data.
+    wavelength : int
+        The wavelength to process.
+    align_wls : bool, optional
+        Whether to align wavelengths (default: False).
+    PDDN : bool, optional
+        Whether to apply PDDN processing (default: False).
+
+    Returns
+    -------
+    tuple
+        A tuple containing the intensity data and the polarimetry file name.
+    """
+    pathCod, polarimetry_fname = get_pathCod(path, wavelength, align_wls, PDDN)
+
+    try:
+        I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag=0)
+    except Exception:
+        I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag=1)
+
+    return I, polarimetry_fname
+
+
+def get_pathCod(directory: str, wavelength: int, align_wls=False, PDDN=False):
+    """
+    Constructs the path to the .cod file based on wavelength, alignment, and PDDN settings.
+
+    Parameters
+    ----------
+    directory : str
+        The directory containing the raw data.
+    wavelength : int
+        The wavelength to process.
+    align_wls : bool, optional
+        Whether to align wavelengths (default: False).
+    PDDN : bool, optional
+        Whether to apply PDDN processing (default: False).
+
+    Returns
+    -------
+    tuple
+        A tuple containing the constructed path to the .cod file and the corresponding polarimetry file name.
+    """
+    # Set the file name based on the wavelength and alignment settings
+    if wavelength == '550nm':
+        align_wls = False
+    filename = f"{wavelength}".replace('nm', '') + "_Intensite_aligned.cod" if align_wls else f"{wavelength}".replace('nm', '') + "_Intensite.cod"
+    pathCod = os.path.join(directory, "raw_data", f"{wavelength}", filename)
+
+    # Handle PDDN processing if required
+    if PDDN:
+        pathCod_pddn = pathCod.replace('_Intensite', '_Intensite_PDDN')
+        if os.path.exists(pathCod_pddn):
+            pathCod = pathCod_pddn
+            polarimetry_fname = 'polarimetry_PDDN'
+        elif wavelength in ['550nm', '600nm']:
+            raise FileNotFoundError(f'No PDDN file found for folder {directory}, for the wavelength {wavelength}.')
+        else:
+            polarimetry_fname = 'polarimetry'
+    else:
+        polarimetry_fname = 'polarimetry'
+
+    return pathCod, polarimetry_fname
+
+
+def curate_azimuth(azimuth: np.ndarray, folder=None) -> np.ndarray:
+    """
+    Curates the azimuth array by filling NaN values with the mean of neighboring pixels.
+
+    Parameters
+    ----------
+    azimuth : np.ndarray
+        Azimuth array of shape (388, 516)
+    folder : str, optional
+        The current processed folder (default: None)
+        
+    Returns
+    -------
+    np.ndarray
+        The curated azimuth array
+    """
+    if libmpMuelMat._isNumStable(azimuth):
+        return azimuth, np.zeros_like(azimuth)
+
+    counter = 0
+    
+    unstable_azimuth = np.isnan(azimuth)
+
+    for idx in range(azimuth.shape[0]):
+        for idy in range(azimuth.shape[1]):
+            if math.isnan(azimuth[idx, idy]):
+                # Obtain the neighboring pixels and compute the mean
+                azi_neighbors = select_region(azimuth.shape, azimuth, idx, idy)
+                mean_azi = np.nanmean(azi_neighbors)
+                
+                if not math.isnan(mean_azi):
+                    azimuth[idx, idy] = mean_azi
+                    counter += 1
+                else:
+                    azimuth[idx, idy] = 0
+
+    # Optional: debug check for stability after modification
+    if not libmpMuelMat._isNumStable(azimuth) and folder:
+        print(f"Azimuth not stable in folder: {folder}")
+
+    # Optionally, handle cases where too many pixels were modified
+    if counter > 1 / 100 * azimuth.size:
+        print(f"More than 1% of the pixels were modified in folder: {folder}.")
+
+    return azimuth, unstable_azimuth
+
+
+def select_region(shape: tuple, azimuth: np.ndarray, idx: int, idy: int) -> np.ndarray:
+    """
+    Select the region around a pixel of interest in the azimuth array for curation.
+
+    Parameters
+    ----------
+    shape : tuple
+        The shape of the array
+    azimuth : np.ndarray
+        Azimuth array of shape (388, 516)
+    idx, idy : int
+        The index values of the pixel of interest
+        
+    Returns
+    -------
+    np.ndarray
+        The neighboring pixels of the azimuth array
+    """
+    # Define the neighborhood size (a 3x3 window)
+    min_x = max(0, idx - 1)
+    max_x = min(shape[0], idx + 2)
+    min_y = max(0, idy - 1)
+    max_y = min(shape[1], idy + 2)
+
+    return azimuth[min_x:max_x, min_y:max_y]
+
+def process_mm(I, remove_reflection: bool, A, W):
+    """Processes the Mueller matrix, removing reflections if necessary."""
+    if remove_reflection:
+        try:
+            I, dilated_mask = libmpMuelMat.removeReflections3D(I)
+        except OSError:
+            pass
+        return libmpMuelMat.process_MM_pipeline(A, I, W, dilated_mask)
+    return libmpMuelMat.process_MM_pipeline(A, I, W, I)
+
+def load_calibration_data(calibration_directory_wl: str, wavelength: str):
+    """Loads the calibration data (A and W) from the corresponding files."""
+    files = os.listdir(calibration_directory_wl)
+    wavelength_number = wavelength.replace('nm', '')
+    if f"{wavelength_number}_A.cod" in files and f"{wavelength_number}_W.cod" in files:
+        A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_A.cod"), isRawFlag=0)
+        W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_W.cod"), isRawFlag=0)
+    else:
+        A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen=int(wavelength_number))
+    return A, W
+
+def get_angle_correction(path: str) -> int:
+    """Gets the angle correction from a file if available."""
+    try:
+        with open(os.path.join(path, 'rotation_MM.txt')) as f:
+            return int(f.readline().strip())
+    except FileNotFoundError:
+        return 0
+
+
+def save_file_as_npz(variable: dict, path: str):   
     """
     save_file_as_npz allows to store a Mueller Matrix as a numpy zipped file
 
@@ -428,70 +727,12 @@ def save_file_as_npz(variable: dict, path: str, processing_mode = 'full'):
     path : str
         the path in which the MM should be saved
     """
-    if processing_mode != 'no_viz':
-        pass
-    else:
-        variable = {key: variable[key] for key in ['M11', 'Msk', 'totD', 'linR', 'azimuth', 'totP']}
     np.savez(path, **variable)
-               
-def rotate_maps_90_deg(map_resize: np.ndarray, azimuth = False):
-    """
-    rotate_maps allows to rotate an array by 90 degree
-
-    Parameters
-    ----------
-    map_resize : array
-        the array that will be rotated
-    idx_azimuth : boolean
-        indicates if we are working with azimuth data (hence correction would be needed, default: False)
-    
-    Returns
-    -------
-    resized_rotated : array
-        the rotated array
-    """
-    rotated = np.rot90(map_resize)[0:map_resize.shape[0], :]
-    
-    resized_rotated = np.zeros(map_resize.shape)
-    for idx, x in enumerate(resized_rotated):
-        for idy, y in enumerate(x):
-            if idy < (map_resize.shape[1] - rotated.shape[0]) / 2 or idy > map_resize.shape[1] - (map_resize.shape[1] - rotated.shape[0]) / 2:
-                pass
-            else:
-                try:
-                    if azimuth:
-                        resized_rotated[idx, idy] = ((rotated[idx, int(idy - ((map_resize.shape[1] - rotated.shape[0]) / 2 - 1))] + 90) % 180)
-                    else:
-                        resized_rotated[idx, idy] = rotated[idx, int(idy - ((map_resize.shape[1] - rotated.shape[0]) / 2 - 1))]
-                except:
-                    pass
-
-    return resized_rotated               
-                      
-def rotate_parameter(parameter, angle_correction, MM_new = None):
-    if MM_new is None:
-        value = parameter
-    else:
-        value = MM_new[parameter]
-        
-    if angle_correction == 90:
-        value_rotated = rotate_maps_90_deg(value)
-    elif angle_correction == 180:
-        value_rotated = value[::-1,::-1]
-    else:
-        if not MM_new is None:
-            if parameter == 'Msk':
-                rotated = ndimage.rotate(value.astype(float), angle = angle_correction, reshape = False)
-                value_rotated = rotated > 0.5
-        else:
-            rotated = ndimage.rotate(value, angle = angle_correction, reshape = False)
-            value_rotated = rotated
-            
-    return value_rotated
+                  
       
 ####################################################################################################################################
 ####################################################################################################################################
-################################################## 3. Visualization lines ##########################################################
+################################################## 5. Visualization lines ##########################################################
 ####################################################################################################################################
 ####################################################################################################################################
 
@@ -517,8 +758,7 @@ def get_cmap(parameter: str):
     colors = parameters_plot['colors']
     n_bins = parameters_plot['n_bins']
     cmap_name = parameters_plot['cmap_name']
-    vmin = parameters_plot['cbar_min']
-    vmax = parameters_plot['cbar_max']
+    vmin, vmax = parameters_plot['cbar']
 
     # create and normalize the colormap
     cmap = clr.LinearSegmentedColormap.from_list(cmap_name, colors, n_bins)
@@ -533,6 +773,24 @@ def get_cmap(parameter: str):
 ####################################################################################################################################
 
 
+def load_MM(path: str):
+    """
+    load the mueller matric given into path
+
+    Parameters
+    ----------
+    path : str
+        the path to the mueller matrix to be loaded
+        
+    Returns
+    -------
+    orientation : dict
+        the MM data
+    """
+    mat = np.load(path)
+    return mat
+
+
 def load_wavelengths():
     """
     load and returns the wavelengths usable by the IMP
@@ -542,13 +800,7 @@ def load_wavelengths():
     wavelenghts : list
         the wavelengths usable by the IMP
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, 'data', 'wavelengths.txt')) as f:
-        lines = f.readlines()
-    f.close()
-    for idx, l in enumerate(lines):
-        lines[idx] = l.replace('\n', '') + 'nm'
-    return lines
+    return ['450nm', '500nm', '550nm', '600nm', '650nm', '700nm']
 
 def load_filenames(processing_mode = 'full', save_pdf_figs = False):
     """
@@ -559,8 +811,7 @@ def load_filenames(processing_mode = 'full', save_pdf_figs = False):
     filenames : list
         the list of the files generated during the processing
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    path_filenames = os.path.join(dir_path, 'data', 'filenames.json')
+    path_filenames = os.path.join(get_data_folder_path(), 'filenames.json')
     
     with open(path_filenames) as f:
         fnames = json.load(f)
@@ -580,27 +831,10 @@ def load_plot_parameters():
     plot_parameters : dict
         the parameters to plot the parameters maps
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, 'data', 'parameters_plot.json')) as json_file:
+    with open(os.path.join(get_data_folder_path(), 'parameters_plot.json')) as json_file:
         data = json.load(json_file)
     return data
 
-def load_MM(path: str):
-    """
-    load the mueller matric given into path
-
-    Parameters
-    ----------
-    path : str
-        the path to the mueller matrix to be loaded
-        
-    Returns
-    -------
-    orientation : dict
-        the MM data
-    """
-    mat = np.load(path)
-    return mat
 
 def load_parameters_visualization():
     """
@@ -611,33 +845,9 @@ def load_parameters_visualization():
     data : dict
         the parameters used for the parameters of the visualization
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, 'data', 'parameters_visualizations.json')) as json_file:
+    with open(os.path.join(get_data_folder_path(), 'parameters_visualizations.json')) as json_file:
         data = json.load(json_file)
     return data
-
-def load_filenames_results(save_pdf_figs):
-    """
-    load and returns the name of the files that will be generated during the processing
-
-    Returns
-    -------
-    filenames : list
-        the list of the files generated during the processing
-    """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, 'data', 'filenames_results.txt')) as f:
-        lines = f.readlines()
-    f.close()
-    
-    for idx, l in enumerate(lines):
-        lines[idx] = l.replace('\n', '')
-    
-    for line in lines:
-        if '.pdf' in line and not save_pdf_figs:
-            lines.remove(line)
-            
-    return lines
 
 def load_combined_plot_name(viz: bool = False):
     """
@@ -653,18 +863,14 @@ def load_combined_plot_name(viz: bool = False):
     filenames : list
         the list of the files generated during the processing
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(get_data_folder_path(), 'combined_figure.json')) as f:
+        data = json.load(f)
     if viz:
-        fname = 'name_combined_viz.txt'
+        return data['with_viz']
     else:
-        fname = 'name_combined.txt'
+        return data['without_viz']
 
-    with open(os.path.join(dir_path, 'data', fname)) as f:
-        lines = f.readlines()[0]
-    f.close()
-    return lines
-
-def load_filenames_combined_plot(viz: bool = False):
+def load_parameter_names(processing_mode):
     """
     load and returns the name of the files that will be used to create the combined plot
 
@@ -678,82 +884,35 @@ def load_filenames_combined_plot(viz: bool = False):
     filenames : list
         the list of the files that will be used to create the combined plot
     """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    if viz:
-        fname = 'figures_names_combined_viz.txt'
-    else:
-        fname = 'figures_names_combined.txt'
-
-    with open(os.path.join(dir_path, 'data', fname)) as f:
-        lines = f.readlines()
-    f.close()
-    for idx, l in enumerate(lines):
-        lines[idx] = l.replace('\n', '')
-    return lines
-
-
-def load_parameter_maps():
-    """
-    load and returns the parameters for the histogram plots
-
-    Returns
-    -------
-    parameters_map : dict
-        the parameters to plot the parameters histograms
-    """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(dir_path, 'data', 'parameters_map.json')) as json_file:
+    with open(os.path.join(get_data_folder_path(), 'parameter_names.json')) as json_file:
         data = json.load(json_file)
-    return data
+    return data[processing_mode]
 
-
-def load_parameter_names():
-    """
-    load and returns the name of the files that will be used to create the combined plot
-
-    Parameters
-    -------
-    viz: bool
-        indicates if we are working with the bar visualization
-    
-    Returns
-    -------
-    filenames : list
-        the list of the files that will be used to create the combined plot
-    """
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    fname = 'parameter_names.txt'
-
-    with open(os.path.join(dir_path, 'data', fname)) as f:
-        lines = f.readlines()
-    f.close()
-    for idx, l in enumerate(lines):
-        lines[idx] = l.replace('\n', '')
-    return lines
-
-
-
-def chunks(lst: list, n: int):
-    """
-    chunks returns chunks of data composed of n element
-
-    Parameters
-    ----------
-    generator : generator
-        a generator allowing to get the chunks
-        
-    Returns
-    -------
-    lst : list
-        the data to split in different chunks
-    n : int
-        the number of elements to be put in each chunk
-    """
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-        
-        
+def get_data_folder_path():
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+ 
 def getSupergluePath():
     import processingmm
     module_path = os.path.dirname(processingmm.__file__)
     return os.path.join(module_path, 'third_party', 'superglue').replace('src/processingmm', '')
+
+
+def test_pddn_models_existence(PDDN_models_path):
+    """Check if required PDDN models exist."""
+    models = ['PDDN_model_550_Fresh_HB.pt', 'PDDN_model_600_Fresh_HB.pt']
+        
+    missing_models = []
+    for model in models:
+        if not os.path.exists(f"{PDDN_models_path}/{model}"):
+            missing_models.append(model)
+            
+    return len(missing_models) == 0, missing_models
+
+
+def remove_previous_temp_folders(prefix: str, base_path: str):
+    """Check for all directories in the specified base_path and remove those with the given prefix."""
+    for folder in os.listdir(base_path):
+        folder_path = os.path.join(base_path, folder)
+        if os.path.isdir(folder_path) and folder.startswith(prefix):
+            shutil.rmtree(folder_path)
+            print(f"Removed existing folder: {folder_path}")

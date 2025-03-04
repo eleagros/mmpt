@@ -6,30 +6,45 @@ import cv2
 from processingmm import libmpMuelMat, utils
 import matplotlib.pyplot as plt
 import imageio
-import sys
 import SimpleITK as sitk
 from tqdm import tqdm
 
-def align_wavelenghts(directories, PDDN, run_all, wlen_to_align = [600]):
+
+def align_wavelengths(directories: list, PDDN: bool = False, run_all: bool = False, wlen_to_align=None):
+    """
+    Aligns the wavelengths for the measurements in the given directories.
     
-    wl_to_align = []
-    for val in wlen_to_align:
-        if val == 550:
-            pass
-        else:
-            wl_to_align.append(val)
+    Parameters
+    ----------
+    directories : list
+        The list of paths to the measurement folders.
+    PDDN : bool, optional
+        Flag to indicate if the PDDN should be used (default is False).
+    run_all : bool, optional
+        Flag to indicate if all folders should be re-processed (default is False).
+    wlen_to_align : list, optional
+        List of wavelengths to align (default is [600]).
+
+    Returns
+    -------
+    None
+    """
+    if wlen_to_align is None:
+        wlen_to_align = [600]
+
+    # Remove 550 from list if present
+    wl_to_align = [val for val in wlen_to_align if val != 550]
+
+    for wl in wl_to_align:
+        print(f'Aligning wavelength: {wl} nm...')
+        align_wavelength(directories, PDDN, run_all, str(wl), imgj_processing=False)
+
+    if wl_to_align:
+        print('Aligning wavelengths done.\n')
     
-    if type(wl_to_align) == int:
-        wl_to_align = str(wl_to_align)
-        align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False)
-    else:
-        assert type(wl_to_align) == list
-        for wl in wl_to_align:
-            print('Aligning wavelenght: ' + str(wl) + 'nm')
-            align_wavelenght(directories, PDDN, run_all, str(wl), imgj_processing = False)
     
-def align_wavelenght(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
-    data_folder, _ = utils.getAllFolders(directories)
+def align_wavelength(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
+    data_folder, _ = utils.get_all_folders(directories)
     
     wl_to_align_with_nm = wl_to_align + 'nm'
     

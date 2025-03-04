@@ -1,7 +1,6 @@
 import argparse
-from processingmm import batch_processing
+from processingmm import processingmm
 import os
-import sys
 
 # Set up argument parsing
 parser = argparse.ArgumentParser(description="Process Mueller Matrices with optional PDDN mode and calibration settings.")
@@ -40,7 +39,7 @@ print(f"Run all: {args.run_all}")
 print(f"Process NPP: {args.process_NPP}")
 
 # Get parameters
-parameters = batch_processing.get_parameters(
+parameters = processingmm.get_parameters(
     directories=[args.directory], 
     calib_directory=args.calib, 
     wavelengths=args.wavelengths, 
@@ -53,4 +52,4 @@ parameters = batch_processing.get_parameters(
 )
 
 # Run batch processing
-batch_processing.batch_process_master(parameters)
+processingmm.batch_process_master(parameters)

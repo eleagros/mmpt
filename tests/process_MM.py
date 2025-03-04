@@ -2,7 +2,7 @@ def main():
     
     import os
     import sys
-    from processingmm import batch_processing
+    from processingmm import processingmm
     
     
     # set the parameters to run the script
@@ -52,12 +52,12 @@ def main():
     # define if the wavelenghts should be aligned before processing - and used for the computation
     align_wls = True
 
-    parameters = batch_processing.get_parameters(directories, calib_directory, wavelengths, parameter_set = parameter_set, 
+    parameters = processingmm.get_parameters(directories, calib_directory, wavelengths, parameter_set = parameter_set, 
                                     PDDN_mode = PDDN_mode, PDDN_models_path = PDDN_models_path, 
                                     processing_mode = processing_mode, run_all = run_all, 
                                     save_pdf_figs = save_pdf_figs, align_wls = align_wls)
     
-    batch_processing.batch_process_master(parameters)
+    processingmm.batch_process_master(parameters)
 
 
 if __name__ == "__main__":

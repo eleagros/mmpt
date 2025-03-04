@@ -1,8 +1,11 @@
-{"PD": {"depolarization": 0.5, "linear_retardance": 4, "greyscale": 1.5, "std_parameter": 50, "n": 12, "widths": 1.5, "scale": 25}, 
-"CUSA": {"depolarization": 0.96, "linear_retardance": 12, "greyscale": 1.5, "std_parameter": 50, "n": 10, "widths": 1.6, "scale": 15}, 
-"fixed_brain": {"depolarization": 0.9, "linear_retardance": 3, "greyscale": 1.5, "std_parameter": 50, "n": 12, "widths": 1.8, "scale": 25}, 
-"fixed_brain_EANS": {"depolarization": 0.9, "linear_retardance": 3, "greyscale": 1.8, "std_parameter": 50, "n": 12, "widths": 1.8, "scale": 25},
-"GCB_symposium": {"depolarization": 0.9, "linear_retardance": 10, "greyscale": 1.6, "std_parameter": 50, "n": 10, "widths": 1.2, "scale": 18},
-"GCB_symposium_FF": {"depolarization": 0.9, "linear_retardance": 10, "greyscale": 1.6, "std_parameter": 50, "n": 15, "widths": 3, "scale": 35},
-"GCB_symposium_Fixed": {"depolarization": 0.88, "linear_retardance": 5, "greyscale": 1.4, "std_parameter": 50, "n": 15, "widths": 3, "scale": 28},
-"default": {"depolarization": 0.85, "linear_retardance": 7, "greyscale": 1.6, "std_parameter": 50, "n": 8, "widths": 1.8, "scale": 30}}
+{
+    "default": {
+        "depolarization": 0.85,
+        "linear_retardance": 7,
+        "greyscale": 1.6,
+        "std_parameter": 50,
+        "n": 8,
+        "widths": 1.8,
+        "scale": 30
+    }
+}

@@ -10,33 +10,30 @@ import time
 from matplotlib import cm
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import cmocean
 
 from skimage.restoration import unwrap_phase
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import binary_dilation
 
-from processingmm.utils import get_cmap, load_MM, load_parameters_visualization, load_filenames_results, load_wavelengths, isThereData, load_combined_plot_name, load_filenames_combined_plot
-from processingmm.multi_img.multi_img_processing import remove_already_computed_directories
 from processingmm.libmpMuelMat import _isNumStable
 from processingmm import utils
 
 
-def batch_visualization(parameters):
-    
-    start = time.time()
-    
-    _, _, df = utils.get_to_process(parameters)
-    to_process = df[df['data presence']]
-    to_process = list(set(list(df.reset_index(level=0).apply(lambda row: row['folder name'], axis=1))))
+def batch_visualization(parameters, run_all = True):
+    """"""
         
-    for wl in parameters['wavelengths']:
+    start = time.time()
+    parameters['run_all'] = True
+    to_process, wls = utils.get_measurements_to_process(parameters)
+    to_process = [item['folder_name'] for item in to_process]
+        
+    for wl in wls:
         if parameters['PDDN'] in {'no', 'both'}:
-            _ = visualization_auto(to_process, parameters['parameter_set'], run_all = parameters['run_all'], 
+            _ = visualization_auto(to_process, parameters, parameters['parameter_set'], run_all = run_all,
                                                         batch_processing = False, PDDN = False, wavelengths = [wl], 
                                                         save_pdf_figs = parameters['save_pdf_figs'])
         if parameters['PDDN'] in {'pddn', 'both'}:
-            _ = visualization_auto(to_process, parameters['parameter_set'], run_all = parameters['run_all'], 
+            _ = visualization_auto(to_process, parameters, parameters['parameter_set'], run_all = run_all,
                                                         batch_processing = False, PDDN = True, wavelengths = [wl], 
                                                         save_pdf_figs = parameters['save_pdf_figs'])
     
@@ -45,7 +42,7 @@ def batch_visualization(parameters):
     return time_plotting/len(to_process) if len(to_process) > 0 else 0
 
 
-def visualization_auto(to_process: list, parameters_set: str, batch_processing = False,
+def visualization_auto(to_process: list, parameters, parameters_set: str, batch_processing = False,
                        run_all = True, PDDN = False, wavelengths = [], save_pdf_figs: bool = False):
     """
     master function calling line_visualization_routine for each of the folders in the measurements_directory
@@ -66,81 +63,74 @@ def visualization_auto(to_process: list, parameters_set: str, batch_processing =
         indicates if we are using denoising
     """
 
-    to_compute = remove_computed_folders_viz(to_process, run_all = run_all, PDDN = PDDN,
-                            wavelengths = wavelengths, save_pdf_figs = save_pdf_figs)
+    to_compute = remove_computed_folders_viz(to_process, parameters, run_all = run_all, PDDN = PDDN, wavelengths = wavelengths)
         
     for path in tqdm(to_compute) if batch_processing else to_compute:
-        perform_visualisation(path, parameters_set, run_all = run_all, PDDN = PDDN,
+        perform_visualisation(path, parameters, run_all = run_all, PDDN = PDDN,
                                   wavelength = wavelengths, save_pdf_figs = save_pdf_figs)
 
 
-def remove_computed_folders_viz(folders: list, run_all: bool = False, PDDN = False, wavelengths= [], 
-                                save_pdf_figs = False):
+def remove_computed_folders_viz(folders: list, parameters: dict, run_all: bool = False, PDDN=False, wavelengths=[]):
     """
-    removes the folders for which the visualization was already obtained
-    
+    Removes the folders for which the visualization was already obtained.
+
     Parameters
     ----------
-    measurements_directory : str
-        the path to the directory containing the measurements
+    folders : list
+        List of folder paths to check for visualization.
+    parameters : dict
+        Dictionary containing parameters such as save_pdf_figs.
+    run_all : bool, optional
+        Whether to run for all folders (default is False).
+    PDDN : bool, optional
+        Whether to use the PDDN model (default is False).
+    wavelengths : list, optional
+        List of wavelengths to consider (default is empty list).
+    save_pdf_figs : bool, optional
+        Whether to save PDF figures (default is False).
 
     Returns
     -------
     to_compute : list
-        the list of the folders that need to be computed
+        List of folders that need to be computed.
     """
-    filename_results = load_filenames_results(save_pdf_figs)
-        
+    expected_filenames = utils.load_filenames('results', parameters['save_pdf_figs'])
+
     to_compute = []
 
     for folder in folders:
-        
-        visualized = True
+        check_wl = [
+            wl for wl in wavelengths if utils.is_there_data(os.path.join(folder, 'raw_data', wl), wl)
+        ]
 
-        check_wl = []
-        for wl in wavelengths:
-            
-            wl =  f"{str(wl)}nm"
-            path_raw_data = os.path.join(folder, 'raw_data', wl)
-            if isThereData(path_raw_data, wl):
-                check_wl.append(wl)
+        if not check_wl:  # Skip folders without data if run_all is False
+            continue
 
-        if run_all:
-            if check_wl:
-                visualized = False
-            else:
-                pass
-            
-        else:
-            
-            for wl in check_wl:
-                
-                path_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wl).split('nm')[0] + '_Fresh_HB.pt')
-                if PDDN and os.path.exists(path_model):
-                    path_polarimetry = 'polarimetry_PDDN'
-                else:
-                    path_polarimetry = 'polarimetry'
-                    
-                path_wl = os.path.join(folder, path_polarimetry, str(wl))
-
-                if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
-                    for file in filename_results:
-                        if file in os.listdir(os.path.join(path_wl, 'results')) :
-                            pass
-                        else:
-                            visualized = False
-                else:
-                    visualized = False
-
-        if visualized:
-            pass
-        else:
+        if run_all:  # If run_all is True, assume we want to process all folders with data
             to_compute.append(folder)
-            
+            continue
+
+        visualized = True
+        for wl in check_wl:
+            path_model = os.path.join(parameters['PDDN_models_path'], 
+                                      f'PDDN_model/PDDN_model_{str(wl).split("nm")[0]}_Fresh_HB.pt')
+
+            path_polarimetry = 'polarimetry_PDDN' if PDDN and os.path.exists(path_model) else 'polarimetry'
+            path_wl = os.path.join(folder, path_polarimetry, str(wl))
+
+            if os.path.isdir(os.path.join(path_wl, 'results')) and not run_all:
+                if not any(file in os.listdir(os.path.join(path_wl, 'results')) for file in expected_filenames):
+                    visualized = False
+            else:
+                visualized = False
+
+        if not visualized:
+            to_compute.append(folder)
+
     return to_compute
 
 
-def perform_visualisation(path: str, parameters_set: str, run_all: bool = False, PDDN = False,
+def perform_visualisation(path: str, parameters, run_all: bool = False, PDDN = False,
                           wavelength = None, save_pdf_figs: bool = False):
     """
     master function running the visualization script for one folder
@@ -157,16 +147,15 @@ def perform_visualisation(path: str, parameters_set: str, run_all: bool = False,
         indicates if we are using denoising
     """
     mask = get_mask(path)
-    path_PDDN_model = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'PDDN_model/PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
-        
+    path_PDDN_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_model/PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
+
     if PDDN and os.path.exists(path_PDDN_model):
         polarimetry_path = 'polarimetry_PDDN'
     else:
         polarimetry_path = 'polarimetry'
 
     # get wavelength and call line_visualization_routine  
-    line_visualization(os.path.join(path, polarimetry_path, str(wavelength[0]) + 'nm', 'MM.npz'), mask, parameters_set, PDDN = PDDN,
-                       save_pdf_figs = save_pdf_figs)
+    line_visualization(path, parameters, polarimetry_path, wavelength, mask, PDDN = PDDN, save_pdf_figs = save_pdf_figs)
 
 
 def get_mask(path: str):
@@ -197,7 +186,7 @@ def get_mask(path: str):
     return mask
 
 
-def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title: str = 'Azimuth of optical axis', PDDN = False, save_pdf_figs = False):
+def line_visualization(path: str, parameters, polarimetry_path, wavelength, mask: np.ndarray, title: str = 'Azimuth of optical axis', PDDN = False, save_pdf_figs = False):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -212,7 +201,9 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
     title : str
         the title of the graph
     """
-    parameters_visualizations = load_parameters_visualization()
+    parameters_set = parameters['parameter_set']
+    
+    parameters_visualizations = utils.load_parameters_visualization()
 
     # 1. deplarization and retardance are higher than the tresholds
     # remove the points for which depolarization < depolarization_parameter and linear_retardance < linear_retardance_parameter
@@ -235,9 +226,9 @@ def line_visualization(path: str, mask: np.ndarray, parameters_set : str, title:
     scale = parameters_visualizations[parameters_set]['scale']
 
     # load the MM and creates, if necessary, the results folder
-    orientation = load_MM(path)
+    orientation = utils.load_MM(os.path.join(path, polarimetry_path, wavelength[0], 'MM.npz'))
     
-    path_results = '/'.join(path.split('/')[:-1]) + '/'
+    path_results = os.path.join(path, polarimetry_path, wavelength[0])
     if PDDN:
         path_results = path_results.replace('/polarimetry/', '/polarimetry_PDDN/')
     if os.path.exists(os.path.join(path_results, 'results')):
@@ -305,7 +296,7 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
         the manual mask, if it has been created
     """
     image_size = M11.shape
-    cmap_azi, norm = get_cmap(parameter = 'azimuth')
+    cmap_azi, norm = utils.get_cmap(parameter = 'azimuth')
 
     if type(mask) == np.ndarray:
         new_mask = np.logical_and(mask, new_mask)
@@ -319,7 +310,6 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
         plt.xticks([])
         plt.yticks([])
 
-        plt.savefig(os.path.join(path_results, 'mask.pdf'))
         plt.savefig(os.path.join(path_results, 'mask.png'))
         plt.close(fig)
     
@@ -566,19 +556,8 @@ def get_plot_arrows(u: np.ndarray, v: np.ndarray, new_mask: np.ndarray, n: int):
     return u_plot, v_plot
 
 
-def save_batch(folder: str):
-    """
-    combine the 4 images (linear retardance, depolarization, azimuth and intensity in a single file)
+"""def save_batch(folder: str):
 
-    Parameters
-    ----------
-    folder : str
-        the folder in which to find the images
-    figures : list of str
-        the names of the figures (i.e. 'Depolarization.png', 'Linear Retardance.png'...)
-    names : str
-        the name of the new file to be created
-    """
     names = load_combined_plot_name(viz = True)
     figures = load_filenames_combined_plot(viz = True)
 
@@ -602,4 +581,4 @@ def save_batch(folder: str):
     output[h2:h2+h4, w2:w2+w4, :3] = img_4
 
     # save the new image
-    cv2.imwrite(folder + '/' + names, output)
+    cv2.imwrite(folder + '/' + names, output)"""

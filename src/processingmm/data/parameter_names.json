@@ -1,0 +1,17 @@
+{
+    "full": [
+        "Intensity", "nM", "M11", "Mdetmsk", "Mphymsk", "Isatmsk", "Msk", "Els", 
+        "MD", "MR", "Mdelta", "totD", "linD", "oriD", "cirD", "totR", "linR", 
+        "cirR", "oriR", "azimuth", "totP", "azimuth_local_var", "azimuth_curation"
+    ],
+    
+    "default": [
+        "Intensity", "nM", "M11", "Mdetmsk", "Mphymsk", "Isatmsk", "Msk", "Els", 
+        "MD", "MR", "Mdelta", "totD", "linD", "oriD", "cirD", "totR", "linR", 
+        "cirR", "oriR", "azimuth", "totP", "azimuth_local_var", "azimuth_curation"
+    ],
+    
+    "no_viz": [
+        "M11", "Msk", "totD", "linR", "azimuth", "totP", "azimuth_curation"
+    ]
+}

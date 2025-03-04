@@ -1,8 +1,8 @@
 {
     "full": [
-        "Azimuth_local_variability.png",
-        "Azimuth_local_variability.pdf",
-        "Azimuth_local_variability_img.png",
+        "Azimuth local variability.png",
+        "Azimuth local variability.pdf",
+        "Azimuth local variability_img.png",
         "Azimuth of optical axis.pdf",
         "Azimuth of optical axis.png",
         "Azimuth of optical axis_img.png",
@@ -28,7 +28,7 @@
         "parameters_histogram.png"
     ],
     "default": [
-        "Azimuth_local_variability_img.png",
+        "Azimuth local variability_img.png",
         "Azimuth of optical axis_img.png",
         "Depolarization_img.png",
         "Diattenuation_img.png",
@@ -38,5 +38,13 @@
     ],
     "no_viz": [
         "MM.npz"
-    ]
-}
+    ],
+    "results": [
+        "line_fig.pdf",
+        "line_fig.png",
+        "line_fig_weighted.pdf",
+        "line_fig_weighted.png",
+        "mask.pdf",
+        "mask.png"
+      ]
+    }
