@@ -6,11 +6,21 @@ MMP is a toolbox allowing to process automatically Mueller Matrices and plotting
 
 Download the repository using:
 ```sh
-git clone https://github.com/RomGr/processingMM.git
-```
-Install the processingmm package by using:
-```sh
+git clone https://github.com/eleagros/processingMM.git
 cd processingmm
+```
+
+You can install the processingmm package by using a conda environement:
+```sh
+conda create ---name processingmm python=3.12
+conda activate processingmm
+pip install -e .
+```
+
+or using a virtual envionnement using:
+```sh
+python3 -m venv myenv
+source myenv/bin/activate
 pip install -e .
 ```
 If you want to use denoising (Work from [S. Moriconi](https://github.com/stefanomoriconi)), please contact me to get the models.

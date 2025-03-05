@@ -9,6 +9,8 @@ import imageio
 import SimpleITK as sitk
 from tqdm import tqdm
 
+import sys
+import subprocess
 
 def align_wavelengths(directories: list, PDDN: bool = False, run_all: bool = False, wlen_to_align=None):
     """
@@ -44,6 +46,7 @@ def align_wavelengths(directories: list, PDDN: bool = False, run_all: bool = Fal
     
     
 def align_wavelength(directories, PDDN, run_all, wl_to_align, imgj_processing = False):
+
     data_folder, _ = utils.get_all_folders(directories)
     
     wl_to_align_with_nm = wl_to_align + 'nm'
@@ -99,9 +102,19 @@ def align_wavelength(directories, PDDN, run_all, wl_to_align, imgj_processing = 
                 shutil.rmtree('temp_output')
             except FileNotFoundError:
                 pass
-            os.mkdir('temp_output')
-            cmd = r'python3 ' + path_superglue + r' --input temp/ --output_dir temp_output --no_display --resize -1'
-            os.system(cmd)
+            # Ensure temp_output directory exists
+            os.makedirs('temp_output', exist_ok=True)
+            
+            # Construct command using sys.executable
+            cmd = [
+                sys.executable, path_superglue,
+                '--input', 'temp/',
+                '--output_dir', 'temp_output',
+                '--no_display',
+                '--resize', '-1'
+            ]
+            # Run command with subprocess
+            result = subprocess.run(cmd, shell=(os.name == "nt"))
 
             # recover the matching points and save them into a text file
             try:
@@ -111,7 +124,7 @@ def align_wavelength(directories, PDDN, run_all, wl_to_align, imgj_processing = 
                     points_global = matching_points[1]
             except FileNotFoundError:
                 raise ValueError('No matching points found. Please check the superglue installation - it should be located in ./third_party/superglue.')
-                
+
             text = write_mp_fp_txt_format([points_folder, points_global])
             f = open(os.path.join('temp', 'coordinates.txt').replace("\\","/"), "w")
             f.write(text)
@@ -171,7 +184,7 @@ def align_wavelength(directories, PDDN, run_all, wl_to_align, imgj_processing = 
                 libmpMuelMat.write_cod_data_X3D(val, key.replace('.cod', '_aligned.cod'))
 
             for key, val in intensities_remapped.items():
-                if 'PDDN' in key:
+                if 'PDDN' in key or 'Bruit' in key:
                     pass
                 else:
                     initial = libmpMuelMat.read_cod_data_X3D(key, isRawFlag = 1)

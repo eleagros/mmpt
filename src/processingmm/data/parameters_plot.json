@@ -1,6 +1,6 @@
 {
     "azimuth": {
-        "title": "Azimuth of optical axis (°)",
+        "title": "Azimuth of optical axis (\u00B0)",
         "cbar": [0, 180],
         "cbar_hist": [0, 180],
         "cbar_step": 30,
@@ -43,7 +43,7 @@
     },
     
     "linR": {
-        "title": "Linear retardance (°)",
+        "title": "Linear retardance (\u00B0)",
         "cbar": [0, 32],
         "cbar_hist": [0, 60],
         "cbar_step": 8,
@@ -68,7 +68,7 @@
     },
     
     "azimuth_local_var": {
-        "title": "Azimuth local variability (°)",
+        "title": "Azimuth local variability (\u00B0)",
         "cbar": [0, 40],
         "cbar_step": 8,
         "formatter": "{:.0f}",

@@ -7,8 +7,9 @@ class TestProcessingMM(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up the test environment, including log file path."""
-        cls.path_test_folder = f"{processingmm.__file__.split('src/processingmm')[0]}tests"
-        cls.log_file = f"{cls.path_test_folder}/logfile_PDDN.log"
+        base_path = os.path.dirname(os.path.abspath(processingmm.__file__))
+        cls.path_test_folder = os.path.join(base_path, "..", "..", "tests")
+        cls.log_file = os.path.join(cls.path_test_folder, "logfile.log")
 
         # Remove the log file if it already exists
         if os.path.exists(cls.log_file):

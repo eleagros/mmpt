@@ -96,11 +96,15 @@ def get_folder_name(root: str, data_folders: list, folder_names: list):
     folder_names : list
         List of measurement folder names.
     """
-    match = re.search(r"[\d]{4}-[\d]{2}-[\d]{2}", root)
-    if match and "/" not in root.split(match.group(0))[-1]:
-        data_folders.append(root)
-        folder_names.append(os.path.basename(root))
+    match = re.search(r"\d{4}-\d{2}-\d{2}", root)
+    if match:
+        match_index = root.find(match.group(0)) + len(match.group(0))
+        remaining_path = root[match_index:]
 
+        # Ensure there's no extra path separator after the date
+        if not os.sep in remaining_path:
+            data_folders.append(root)
+            folder_names.append(os.path.basename(root))
 
 def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     """
@@ -451,7 +455,7 @@ def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_
         Path to the calibration directory with the closest date to the folder.
     """
     # Get the date of the measurement folder
-    date_measurement = folder_eu_time.get(path.split('/')[-1], get_date_measurement(path, idx))
+    date_measurement = folder_eu_time.get(path.split(os.sep)[-1], get_date_measurement(path, idx))
 
     # Find the closest date in the calibration directory
     closest_date = find_closest_date(date_measurement, calib_directory_dates_num, wavelength, calib_directory, Flag)
@@ -527,7 +531,7 @@ def get_last_calibration_idx(dates_calibrated: list) -> int:
 
 def get_date_measurement(path: str, idx=-1) -> datetime:
     """Returns the date of the measured folder."""
-    return datetime.strptime(path.split('/')[idx].split('_')[0], '%Y-%m-%d')
+    return datetime.strptime(path.split(os.sep)[idx].split('_')[0], '%Y-%m-%d')
 
 
 def incorrect_date(closest: int):
@@ -729,7 +733,24 @@ def save_file_as_npz(variable: dict, path: str):
     """
     np.savez(path, **variable)
                   
-      
+
+def load_npz_file(path: str) -> dict:
+    """
+    load_npz_file loads a Mueller Matrix stored as a numpy zipped file.
+
+    Parameters
+    ----------
+    path : str
+        The path of the MM file to load.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the loaded MM data.
+    """
+    with np.load(path, allow_pickle=True) as data:
+        return {key: data[key] for key in data}
+    
 ####################################################################################################################################
 ####################################################################################################################################
 ################################################## 5. Visualization lines ##########################################################
@@ -894,7 +915,7 @@ def get_data_folder_path():
 def getSupergluePath():
     import processingmm
     module_path = os.path.dirname(processingmm.__file__)
-    return os.path.join(module_path, 'third_party', 'superglue').replace('src/processingmm', '')
+    return os.path.join(module_path, '..', '..', 'third_party', 'superglue')
 
 
 def test_pddn_models_existence(PDDN_models_path):
@@ -903,7 +924,7 @@ def test_pddn_models_existence(PDDN_models_path):
         
     missing_models = []
     for model in models:
-        if not os.path.exists(f"{PDDN_models_path}/{model}"):
+        if not os.path.exists(os.path.join(PDDN_models_path, model)):
             missing_models.append(model)
             
     return len(missing_models) == 0, missing_models

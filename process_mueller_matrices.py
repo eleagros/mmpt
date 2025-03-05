@@ -8,7 +8,7 @@ parser = argparse.ArgumentParser(description="Process Mueller Matrices with opti
 parser.add_argument("--directory", type=str, help="Path to the main processing directory")
 parser.add_argument("--calib", type=str, help="Path to the calibration directory")
 parser.add_argument("--PDDN_mode", type=str, choices=['no', 'pddn', 'both'], default='no', help="Processing mode: 'no', 'pddn', or 'both'")
-parser.add_argument("--wavelengths", type=int, nargs='+', default=[550, 600], help="List of wavelengths to process (default: 550, 600)")
+parser.add_argument("--wavelengths", type=int, nargs='+', default=[550, 600, 650], help="List of wavelengths to process (default: 550, 600)")
 parser.add_argument("--processing_mode", type=str, choices=['no_viz', 'default', 'full'], default='default', help="Processing mode")
 parser.add_argument("--save_pdf_figs", action="store_true", help="Save PDF figures (default: False)")
 parser.add_argument("--run_all", action="store_true", help="Process all folders, even if already processed")

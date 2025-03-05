@@ -213,13 +213,14 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
             
         # Step 3: Save the MM
         start_save_npz = time.time()
-        utils.save_file_as_npz(MM, f"{path_save}/MM.npz")
+        utils.save_file_as_npz(MM, os.path.join(path_save, "MM.npz"))
         end_save_npz = time.time()
         times['save_npz'] = end_save_npz - start_save_npz
             
         # Step 4: Visualize the MM
         start_viz = time.time()
-        visualize_MM(parameters, MM, path_save)
+        plot_polarimetry.visualize_MM(path_save, MM = MM, processing_mode = parameters.get('processing_mode', 'default'),
+                                      save_pdf_figs = parameters.get('save_pdf_figs', False))
         end_viz = time.time()
         times['viz'] = end_viz - start_viz
         
@@ -316,7 +317,7 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     time_azimuth_curation = time.time() - start_processing
     
     start_processing = time.time()
-    azimuth_std, _ = azimuth_local_var.get_and_plots_stds(f"{path}/{polarimetry_fname}", 5, 
+    azimuth_std, _ = azimuth_local_var.get_and_plots_stds(os.path.join(path, polarimetry_fname), 5, 
                                     wavelength, azimuth = MM['azimuth'], processing_mode = processing_mode, save_pdf_figs = save_pdf_figs)
     MM['azimuth_local_var'] = azimuth_std
     time_azimuth_std_processing = time.time() - start_processing
@@ -345,39 +346,4 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     return MM, calibration_directory_closest, times, os.path.join(path, polarimetry_fname, f"{wavelength}")
 
 
-def visualize_MM(parameters: dict, MM: dict, path_save: str):
-    """
-    Visualizes and generates plots based on the provided parameters and MM (measurement) data.
 
-    Parameters:
-    ----------
-    parameters: dict
-        the processing parameters in a dictionary format
-    MM: dict
-        the Mueller matrix data
-    path_save : str
-        the path to the folder where the plots should be saved
-
-    Returns:
-    -------
-    None
-
-    Description:
-    This function processes and visualizes data based on the specified 'processing_mode'. 
-    Depending on the mode, it generates various plots, including histograms and MM details, 
-    and saves them as PDF files if the 'save_pdf_figs' flag is set to True. In 'full' mode, 
-    additional histograms and a batch save process are performed.
-    """
-    processing_mode = parameters.get('processing_mode', 'default')
-    
-    if processing_mode == 'full':
-        plot_polarimetry.parameters_histograms(MM, path_save, save_pdf_figs=parameters['save_pdf_figs'])
-        plot_polarimetry.show_MM(MM['nM'], path_save, save_pdf_figs=parameters['save_pdf_figs'])
-        plot_polarimetry.MM_histogram(MM, path_save, save_pdf_figs=parameters['save_pdf_figs'])
-
-    if processing_mode != 'no_viz':
-        plot_polarimetry.generate_plots(MM, path_save, save_pdf_figs=parameters['save_pdf_figs'])
-        if processing_mode == 'full':
-            plot_polarimetry.save_batch(path_save)
-            
-            

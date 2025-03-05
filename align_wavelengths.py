@@ -24,4 +24,4 @@ print(f"PDDN mode: {args.mode}")
 print(f"Run all: {args.run_all}")
 
 # Run wavelength alignment
-align_wavelengths.align_wavelenghts([args.directory], args.mode, args.run_all)
+align_wavelengths.align_wavelengths([args.directory], args.mode, args.run_all)

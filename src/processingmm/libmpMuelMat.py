@@ -92,7 +92,7 @@ def _get_CLib_path():
 	'''
     import processingmm
     module_path = os.path.dirname(processingmm.__file__)
-    # Clibs_pth = os.path.join(dir_path, 'C-libs', 'libmpMuelMat.dll')
+    # Clibs_pth = os.path.join(module_path, 'C-libs', 'libmpMuelMat.dll')
     Clibs_pth = os.path.join(module_path, 'C-libs', 'libmpMuelMat.so')  # << Change the Global (or Local) path here if necessary!
     
     return Clibs_pth

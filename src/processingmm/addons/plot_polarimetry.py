@@ -2,7 +2,6 @@ import numpy as np
 import os
 import cv2
 
-import time
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -10,9 +9,48 @@ from matplotlib.ticker import FixedLocator
 from matplotlib import cm, rcParams
 rcParams['backend'] = 'Agg'
 
-from processingmm.utils import get_cmap, load_plot_parameters, load_combined_plot_name
+from processingmm.utils import get_cmap, load_plot_parameters, load_combined_plot_name, load_npz_file
 
 
+def visualize_MM(path_save: str, MM: dict = None, MM_path: str = None, processing_mode: str = "default", save_pdf_figs: str = False):
+    """
+    Visualizes and generates plots based on the provided parameters and MM (measurement) data.
+
+    Parameters:
+    ----------
+    parameters: dict
+        the processing parameters in a dictionary format
+    MM: dict
+        the Mueller matrix data
+    path_save : str
+        the path to the folder where the plots should be saved
+
+    Returns:
+    -------
+    None
+
+    Description:
+    This function processes and visualizes data based on the specified 'processing_mode'. 
+    Depending on the mode, it generates various plots, including histograms and MM details, 
+    and saves them as PDF files if the 'save_pdf_figs' flag is set to True. In 'full' mode, 
+    additional histograms and a batch save process are performed.
+    """
+    if MM is None:
+        MM = load_npz_file(MM_path)
+    
+    os.makedirs(path_save, exist_ok=True)
+    
+    if processing_mode == 'full':
+        parameters_histograms(MM, path_save, save_pdf_figs)
+        show_MM(MM['nM'], path_save, save_pdf_figs)
+        MM_histogram(MM, path_save, save_pdf_figs)
+        
+    if processing_mode != 'no_viz':
+        generate_plots(MM, path_save, save_pdf_figs)
+        if processing_mode == 'full':
+            save_batch(path_save)
+            
+            
 ###################################################################################################################
 ###################################################################################################################
 #################################### 1. Plot histograms of the parameters #########################################
@@ -120,13 +158,12 @@ def generate_plots(MM: dict, folder: str, save_pdf_figs=False):
     parameters_map.pop('MM')
 
     for key, param in parameters_map.items():
-        param_name = param['title'].replace(' (°)', '').lower()
+
+        param_name = param['title'].replace(' (\u00B0)', '').lower()
         path_save = os.path.join(folder, f"{param_name}.png".capitalize())
         
         cmap, norm = get_cmap(key)
-        plot_polarimetric_parameter(
-            MM[key], cmap, norm, key, param['title'], path_save, folder, save_pdf_figs
-        )
+        plot_polarimetric_parameter(MM[key], cmap, norm, key, param['title'], path_save, folder, save_pdf_figs)
 
 
 def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, title:str, path_save: str, folder: str, save_pdf_figs: bool = False):
@@ -181,7 +218,8 @@ def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, tit
     cbar.ax.set_yticklabels([formatter.format(a) for a in ticks], fontsize=40, weight='bold')
 
     if parameter == 'M11':
-        ax.text(500, -10, "x10⁴", fontsize=40, fontweight="bold")
+        ax.text(500, -10, "x10\u2074", fontsize=40, fontweight="bold")
+
 
     # Set title
     title = title
@@ -194,9 +232,6 @@ def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, tit
     if save_pdf_figs:
         fig.savefig(path_save.replace('.png', '.pdf'), dpi=100)
     plt.close(fig)
-
- 
-
 
 ###################################################################################################################
 ###################################################################################################################

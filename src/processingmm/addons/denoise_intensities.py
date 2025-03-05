@@ -33,15 +33,17 @@ def denoise_intensities(parameters: dict, to_process: list) -> None:
     print('Denoising inference...')
     for folder in tqdm(to_process):
         for wavelength, model in PDDN_models.items():
-            pathDenoisedCod = os.path.join(f"{folder}/raw_data", f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod")
+            pathDenoisedCod = os.path.join(f"{folder['folder_name']}", "raw_data", f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod")
+            print(pathDenoisedCod)
             if os.path.exists(pathDenoisedCod):
                 pass
             else:
-                if os.path.exists(f"{folder}/raw_data/{wavelength}nm"):
-                    if len(os.listdir(f"{folder}/raw_data/{wavelength}nm")) > 0:
-                        I, _ = get_intensity(f"{folder}/raw_data", str(wavelength), False, False)
+                if os.path.exists(os.path.join(f"{folder['folder_name']}", "raw_data", f"{wavelength}nm")):
+                    if len(os.listdir(os.path.join(f"{folder['folder_name']}", "raw_data", f"{wavelength}nm"))) > 0:
+                        I, _ = get_intensity(f"{folder['folder_name']}", f"{str(wavelength)}nm", False, False)
                         I, _ = model.Denoise(I)
-                        libmpMuelMat.write_cod_data_X3D(I, os.path.join(f"{folder}/raw_data", 
+                        print('here')
+                        libmpMuelMat.write_cod_data_X3D(I, os.path.join(os.path.join(f"{folder['folder_name']}", "raw_data"), 
                                                             f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)
     print('Denoising inference done.')
     print()

@@ -113,7 +113,7 @@ def remove_computed_folders_viz(folders: list, parameters: dict, run_all: bool =
         visualized = True
         for wl in check_wl:
             path_model = os.path.join(parameters['PDDN_models_path'], 
-                                      f'PDDN_model/PDDN_model_{str(wl).split("nm")[0]}_Fresh_HB.pt')
+                                      'PDDN_model', f'PDDN_model_{str(wl).split("nm")[0]}_Fresh_HB.pt')
 
             path_polarimetry = 'polarimetry_PDDN' if PDDN and os.path.exists(path_model) else 'polarimetry'
             path_wl = os.path.join(folder, path_polarimetry, str(wl))
@@ -147,7 +147,7 @@ def perform_visualisation(path: str, parameters, run_all: bool = False, PDDN = F
         indicates if we are using denoising
     """
     mask = get_mask(path)
-    path_PDDN_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_model/PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
+    path_PDDN_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_mode', 'PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
 
     if PDDN and os.path.exists(path_PDDN_model):
         polarimetry_path = 'polarimetry_PDDN'
@@ -230,7 +230,7 @@ def line_visualization(path: str, parameters, polarimetry_path, wavelength, mask
     
     path_results = os.path.join(path, polarimetry_path, wavelength[0])
     if PDDN:
-        path_results = path_results.replace('/polarimetry/', '/polarimetry_PDDN/')
+        path_results = path_results.replace(f"{os.sep}polarimetry{os.sep}", "{os.sep}polarimetry_PDDN{os.sep}")
     if os.path.exists(os.path.join(path_results, 'results')):
         if os.path.isdir(os.path.join(path_results, 'results')):
             pass
