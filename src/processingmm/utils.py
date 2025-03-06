@@ -39,15 +39,18 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
     """
     directories = parameters["directories"]
     data_folders, _ = get_all_folders(directories)
-
+    
+    for folder in data_folders:
+        move_folder_for_processing(parameters, folder)
+        
     # Remove old processing logs if present
     for folder in data_folders:
         log_file = os.path.join(folder, "processing_logbook.txt")
         if os.path.exists(log_file):
             os.remove(log_file)
 
-    processed, data_folder_nm, wl = find_processed_folders(data_folders, parameters, PDDN)
-    folder_data = create_folder_dict(data_folders, processed, data_folder_nm, wl)
+    processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN)
+    folder_data = create_folder_dict(data_folders, processed, data_folder_nm, all_data_paths, wl)
     
     if parameters['run_all']:
         to_process = folder_data
@@ -85,7 +88,8 @@ def get_all_folders(directories: list):
 
 def get_folder_name(root: str, data_folders: list, folder_names: list):
     """
-    Checks if a folder follows the YYYY-MM-DD format and adds it to the folder list.
+    Checks if a folder follows the YYYY-MM-DD format and adds it to the folder list,
+    unless it contains 'C_X' where X is a number.
 
     Parameters
     ----------
@@ -100,11 +104,16 @@ def get_folder_name(root: str, data_folders: list, folder_names: list):
     if match:
         match_index = root.find(match.group(0)) + len(match.group(0))
         remaining_path = root[match_index:]
-
+        
+        # Check if 'C_X' where X is a number exists in the folder name
+        if re.search(r"C_\d+", os.path.basename(root)):
+            return
+        
         # Ensure there's no extra path separator after the date
         if not os.sep in remaining_path:
             data_folders.append(root)
             folder_names.append(os.path.basename(root))
+
 
 def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     """
@@ -128,16 +137,18 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     wavelengths : list
         List of wavelengths to be processed.
     """
-    processed_dict, data_presence = {}, {}
+    processed_dict, data_presence, all_data_paths = {}, {}, {}
     wavelengths = get_wavelengths_processing(parameters["wavelengths"])
     polarimetry_path = {wl: "polarimetry_PDDN" if PDDN else "polarimetry" for wl in wavelengths}
 
     for path in data_folders:
-        data, processed = [], []
+        data, data_paths, processed = [], [], []
 
         for wl in wavelengths:
-            raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data")) else os.path.join(path, wl)
-            data.append(is_there_data(raw_data_path, wl))
+            raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data", wl)) else os.path.join(path, "raw_data")
+            data_pres, data_path = is_there_data(raw_data_path, wl)
+            data.append(data_pres)
+            data_paths.append(data_path)
 
             if parameters["run_all"]:
                 processed.append(False)
@@ -149,8 +160,9 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
 
         processed_dict[path] = processed
         data_presence[path] = data
+        all_data_paths[path] = data_paths
 
-    return processed_dict, data_presence, wavelengths
+    return processed_dict, data_presence, all_data_paths, wavelengths
 
 
 def get_wavelengths_processing(wavelengths):
@@ -174,7 +186,7 @@ def get_wavelengths_processing(wavelengths):
     return [f"{wl}nm" for wl in wavelengths]
 
 
-def create_folder_dict(data_folders, processed, data_folder_nm, wavelengths):
+def create_folder_dict(data_folders, processed, data_folder_nm, all_data_paths, wavelengths):
     """
     Creates a list of dictionaries storing folder processing information.
 
@@ -202,6 +214,7 @@ def create_folder_dict(data_folders, processed, data_folder_nm, wavelengths):
                     "folder_name": folder,
                     "processed": is_processed,
                     "wavelength": wavelengths[idx],
+                    "path_intensite": all_data_paths[folder][idx]
                 })
     return folder_data
 
@@ -215,7 +228,7 @@ def is_there_data(path: str, wl: str) -> bool:
     if not os.path.isdir(path):
         return False
     expected_file = f"{wl.replace('nm', '')}_Intensite.cod"
-    return expected_file in set(os.listdir(path))
+    return expected_file in set(os.listdir(path)), os.path.join(path, expected_file)
 
 
 def is_processed(path: str, wl: str, polarimetry_fname: str, processing_mode: str = "full", save_pdf_figs: bool = False) -> bool:
@@ -230,7 +243,7 @@ def is_processed(path: str, wl: str, polarimetry_fname: str, processing_mode: st
     expected_filenames = load_filenames(processing_mode, save_pdf_figs)
     return all(f in set(os.listdir(folder_path)) for f in expected_filenames)
 
-def move_folder_for_processing(parameters: dict, folder_dct: dict):
+def move_folder_for_processing(parameters: dict, folder: str):
     """
     Move a measurement folder to the temp_processing folder.
     
@@ -248,8 +261,6 @@ def move_folder_for_processing(parameters: dict, folder_dct: dict):
     to_process_temp : list
         List containing the processed folder in the temp_processing directory.
     """
-    folder = folder_dct["folder_name"]
-
     # Ensure 'raw_data' directory exists
     raw_data_path = os.path.join(folder, 'raw_data')
     if not os.path.exists(raw_data_path):
@@ -545,7 +556,7 @@ def incorrect_date(closest: int):
 ####################################################################################################################################
 ####################################################################################################################################
 
-def get_intensity(path: str, wavelength: int, align_wls=False, PDDN=False):
+def get_intensity_old(path: str, wavelength: int, align_wls=False, PDDN=False):
     """
     Retrieves the intensity data from a specified directory based on the wavelength and alignment settings.
 
@@ -573,6 +584,33 @@ def get_intensity(path: str, wavelength: int, align_wls=False, PDDN=False):
         I = libmpMuelMat.read_cod_data_X3D(pathCod, isRawFlag=1)
 
     return I, polarimetry_fname
+
+def get_intensity(path: str):
+    """
+    Retrieves the intensity data from a specified directory based on the wavelength and alignment settings.
+
+    Parameters
+    ----------
+    path : str
+        The path to the directory containing the raw data.
+    wavelength : int
+        The wavelength to process.
+    align_wls : bool, optional
+        Whether to align wavelengths (default: False).
+    PDDN : bool, optional
+        Whether to apply PDDN processing (default: False).
+
+    Returns
+    -------
+    tuple
+        A tuple containing the intensity data and the polarimetry file name.
+    """
+    try:
+        I = libmpMuelMat.read_cod_data_X3D(path, isRawFlag=0)
+    except Exception:
+        I = libmpMuelMat.read_cod_data_X3D(path, isRawFlag=1)
+
+    return I
 
 
 def get_pathCod(directory: str, wavelength: int, align_wls=False, PDDN=False):

@@ -2,13 +2,9 @@ import os
 from tqdm import tqdm
 from processingmm import libmpMuelMat
 from processingmm.utils import get_intensity
+import traceback
+from processingmm import libmpMPIdenoisePDDN
 
-try:
-    from processingmm import libmpMPIdenoisePDDN
-except:
-    print('PDDN not available. Please install the PDDN package to use it.')
-    
-    
 def denoise_intensities(parameters: dict, to_process: list) -> None:
     """
     denoises the intensities for the given wavelengths
@@ -33,18 +29,20 @@ def denoise_intensities(parameters: dict, to_process: list) -> None:
     print('Denoising inference...')
     for folder in tqdm(to_process):
         for wavelength, model in PDDN_models.items():
-            pathDenoisedCod = os.path.join(f"{folder['folder_name']}", "raw_data", f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod")
-            print(pathDenoisedCod)
+            if folder['wavelength'].replace('nm', '') != str(wavelength):
+                continue
+            
+            pathDenoisedCod = folder['path_intensite'].replace('Intensite', 'Intensite_PDDN')
+            
             if os.path.exists(pathDenoisedCod):
-                pass
+                folder['path_intensite'] = pathDenoisedCod
             else:
-                if os.path.exists(os.path.join(f"{folder['folder_name']}", "raw_data", f"{wavelength}nm")):
-                    if len(os.listdir(os.path.join(f"{folder['folder_name']}", "raw_data", f"{wavelength}nm"))) > 0:
-                        I, _ = get_intensity(f"{folder['folder_name']}", f"{str(wavelength)}nm", False, False)
-                        I, _ = model.Denoise(I)
-                        print('here')
-                        libmpMuelMat.write_cod_data_X3D(I, os.path.join(os.path.join(f"{folder['folder_name']}", "raw_data"), 
-                                                            f"{wavelength}nm", f"{wavelength}_Intensite_PDDN.cod"), VerboseFlag=1)
+                I = get_intensity(folder['path_intensite'])
+                I, _ = model.Denoise(I)
+                libmpMuelMat.write_cod_data_X3D(I, pathDenoisedCod, VerboseFlag=1)
+                folder['path_intensite'] = pathDenoisedCod
+            
+            folder['polarimetry_fname'] = 'polarimetry_PDDN'
     print('Denoising inference done.')
     print()
     

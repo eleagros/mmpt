@@ -69,12 +69,20 @@ from multiprocessing import cpu_count
 from pathlib import Path
 
 import torch
-import torchsummary
+try:
+    import torchsummary
+except:
+    print(' [wrn] torchsummary not available - training not possible')
 from torch import nn, einsum
 import torch.nn.functional as F
 from torch.amp import GradScaler # autocast, 
 from torch.optim import Adam
-from torchvision import transforms, utils
+try:
+    from torchvision import transforms, utils
+except:
+    print(' [wrn] torchvision not available - denoising not possible')
+
+    
     
 from PIL import Image, ImageDraw, ImageFont
 
@@ -86,8 +94,14 @@ from ema_pytorch import EMA
 
 ## Added components (Stefano)
 # Training Monitoring
-from tensorboard import program
-from torch.utils.tensorboard import SummaryWriter
+try:
+    from tensorboard import program
+except:
+    print(' [wrn] tensorboard not available - training not possible')
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    print(' [wrn] tensorboard not available - training not possible')
 
     
 

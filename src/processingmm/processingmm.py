@@ -90,6 +90,11 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
         PDDN_models_path = os.path.join(processingmm.__file__.split('__init__')[0], 'PDDN_model')
         
     if PDDN_mode in {'pddn', 'both'}:
+        try:
+            import torchvision
+        except ImportError:
+            raise ValueError('Please install the torchvision package to use PDDN.')
+        
         models_found, missing_models = utils.test_pddn_models_existence(PDDN_models_path)
         if not models_found:
             print('Missing models:', missing_models)
@@ -187,9 +192,18 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
         
     if PDDN:
         denoise_intensities.denoise_intensities(parameters, to_process)
+    else:
+        for folder in to_process:
+            folder['polarimetry_fname'] = 'polarimetry'
+            
     
     if parameters['align_wls']:
         align_wavelengths.align_wavelengths(parameters['directories'], parameters['PDDN'], False, parameters['wavelengths'])
+        for folder in to_process:
+            if os.path.exists(folder['path_intensite'].replace('.cod', '_aligned.cod')):
+                folder['path_intensite'] = folder['path_intensite'].replace('.cod', '_aligned.cod')
+            else:
+                assert folder['wavelength'] != '600nm', "The wavelength 600nm is not aligned."
     
     start = time.time()
     
@@ -198,7 +212,7 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
         print('Processing:', folder['folder_name'])
     
         # Step 1: Organize the folders    
-        utils.move_folder_for_processing(parameters, folder)
+        # utils.move_folder_for_processing(parameters, folder)
         utils.reorganize_folders(folder)
 
         calib_directory_dates_num = utils.get_calibration_dates(parameters['calib_directory'])
@@ -288,7 +302,7 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     -------
     calibration_directory_closest : str
         the path to the calibration folder that will be used
-    """
+    """    
     path = measurement['folder_name']
     wavelength = measurement['wavelength']
 
@@ -304,7 +318,8 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
             
     # Load calibration & intensity data
     A, W = utils.load_calibration_data(calibration_directory_wl, wavelength)
-    I, polarimetry_fname = utils.get_intensity(path, wavelength, align_wls, PDDN)
+    # I, polarimetry_fname = utils.get_intensity(path, wavelength, align_wls, PDDN)
+    I = utils.get_intensity(measurement['path_intensite'])
     time_data_loading = time.time() - start_full_processing
     
     start_processing = time.time()  
@@ -313,11 +328,11 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     
     start_processing = time.time()  
     # remove the NaNs from the atzimuth measurements
-    MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'], f"{path}/{polarimetry_fname}")
+    MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'], f"{path}/{measurement['polarimetry_fname']}")
     time_azimuth_curation = time.time() - start_processing
     
     start_processing = time.time()
-    azimuth_std, _ = azimuth_local_var.get_and_plots_stds(os.path.join(path, polarimetry_fname), 5, 
+    azimuth_std, _ = azimuth_local_var.get_and_plots_stds(os.path.join(path, measurement['polarimetry_fname']), 5, 
                                     wavelength, azimuth = MM['azimuth'], processing_mode = processing_mode, save_pdf_figs = save_pdf_figs)
     MM['azimuth_local_var'] = azimuth_std
     time_azimuth_std_processing = time.time() - start_processing
@@ -343,7 +358,7 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     times = {'azimuth_curation': time_azimuth_curation, 'data_loading': time_data_loading, 
              'MM_processing': time_MM_processing, 'azimuth_std_processing': time_azimuth_std_processing,
              'full_processing': time_full_processing}
-    return MM, calibration_directory_closest, times, os.path.join(path, polarimetry_fname, f"{wavelength}")
+    return MM, calibration_directory_closest, times, os.path.join(path, measurement['polarimetry_fname'], f"{wavelength}")
 
 
 

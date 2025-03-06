@@ -2,6 +2,8 @@ import unittest
 import subprocess
 import processingmm
 import os
+import importlib.util
+import torch
 
 class TestProcessingMM(unittest.TestCase):
     @classmethod
@@ -16,6 +18,15 @@ class TestProcessingMM(unittest.TestCase):
             os.remove(cls.log_file)
 
         print(f"Log file: {cls.log_file}")
+    
+    def test_torchvision_installed(self):
+        """Check if torchvision is installed."""
+        torchvision_spec = importlib.util.find_spec("torchvision")
+        self.assertIsNotNone(torchvision_spec, "torchvision is not installed")
+    
+    def test_torch_with_cuda(self):
+        """Check if torch is installed and CUDA is available."""
+        self.assertTrue(torch.cuda.is_available(), "Torch is installed but CUDA is not available")
 
     def test_dependencies(self):
         """Test if dependencies are listed correctly."""
