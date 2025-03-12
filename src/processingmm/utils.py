@@ -359,25 +359,25 @@ def clean_up_old_files(folder_path: str, dirs_to_check: list):
         for wl in os.listdir(polarimetry_dir):
             folder = os.path.join(polarimetry_dir, wl)
             
-            if folder.startswith('.DS'):
+            if wl.startswith('.DS'):
                 os.remove(folder)
-            else:
+                continue
                 
-                # Process the files within each wavelength folder
-                for file in os.listdir(folder):
-                    file_path = os.path.join(folder, file)
+            # Process the files within each wavelength folder
+            for file in os.listdir(folder):
+                file_path = os.path.join(folder, file)
                     
-                    if file in filenames:
-                        continue
+                if file in filenames:
+                    continue
                     
-                    if file == 'results':
-                        clean_up_results(folder, file, filenames_results)
-                        continue
+                if file == 'results':
+                    clean_up_results(folder, file, filenames_results)
+                    continue
                     
-                    if os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                    else:
-                        os.remove(file_path)
+                if os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+                else:
+                    os.remove(file_path)
 
 
 def clean_up_results(folder: str, results_folder: str, filenames_results: list):
