@@ -112,7 +112,7 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
                             'time_mode': True,
                             'save_pdf_figs': save_pdf_figs,
                             'align_wls': align_wls,
-                            'remove_reflection': True} 
+                            'remove_reflection': False} 
     
     return processing_parameters
 
@@ -219,11 +219,9 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
         
         # Step 2: Compute the MM
         MM, calibration_directory, times, path_save = compute_one_MM(folder, calib_directory_dates_num, 
-                                    parameters['calib_directory'], PDDN = PDDN, folder_eu_time = folder_eu_time, 
-                                    remove_reflection = parameters.get('remove_reflection', False), 
-                                    wavelengths = wavelengths, Flag = False, processing_mode = parameters.get('processing_mode', 'default'), 
-                                    run_all = parameters.get('run_all', False), time_mode = parameters.get('time_mode', False),
-                                    save_pdf_figs = parameters.get('save_pdf_figs', False), align_wls = parameters.get('align_wls', False))
+                                    parameters['calib_directory'], folder_eu_time = folder_eu_time, 
+                                    remove_reflection = parameters.get('remove_reflection', False), Flag = False, processing_mode = parameters.get('processing_mode', 'default'),
+                                    save_pdf_figs = parameters.get('save_pdf_figs', False))
             
         # Step 3: Save the MM
         start_save_npz = time.time()
@@ -268,10 +266,8 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
     
 
 
-def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory: str, 
-                   PDDN = False, folder_eu_time: dict = {}, 
-                   remove_reflection = True, wavelengths = [], pbar = None, Flag = False, processing_mode = '',
-                   run_all = False, time_mode = False, save_pdf_figs = True, align_wls = False):
+def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory: str, folder_eu_time: dict = {}, 
+                   remove_reflection = True, pbar = None, Flag = False, processing_mode = '', save_pdf_figs = True):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -323,7 +319,11 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     time_data_loading = time.time() - start_full_processing
     
     start_processing = time.time()  
-    MM = utils.process_mm(I, remove_reflection, A, W)
+    MM, dilated_mask = utils.process_mm(I, remove_reflection, A, W)
+    if dilated_mask is not None:
+        MM['dilated_mask'] = dilated_mask
+    else:
+        MM['dilated_mask'] = None
     time_MM_processing = time.time() - start_processing
     
     start_processing = time.time()  

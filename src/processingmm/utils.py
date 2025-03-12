@@ -359,21 +359,25 @@ def clean_up_old_files(folder_path: str, dirs_to_check: list):
         for wl in os.listdir(polarimetry_dir):
             folder = os.path.join(polarimetry_dir, wl)
             
-            # Process the files within each wavelength folder
-            for file in os.listdir(folder):
-                file_path = os.path.join(folder, file)
+            if folder.startswith('.DS'):
+                os.remove(folder)
+            else:
                 
-                if file in filenames:
-                    continue
-                
-                if file == 'results':
-                    clean_up_results(folder, file, filenames_results)
-                    continue
-                
-                if os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-                else:
-                    os.remove(file_path)
+                # Process the files within each wavelength folder
+                for file in os.listdir(folder):
+                    file_path = os.path.join(folder, file)
+                    
+                    if file in filenames:
+                        continue
+                    
+                    if file == 'results':
+                        clean_up_results(folder, file, filenames_results)
+                        continue
+                    
+                    if os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                    else:
+                        os.remove(file_path)
 
 
 def clean_up_results(folder: str, results_folder: str, filenames_results: list):
@@ -730,13 +734,14 @@ def select_region(shape: tuple, azimuth: np.ndarray, idx: int, idy: int) -> np.n
 
 def process_mm(I, remove_reflection: bool, A, W):
     """Processes the Mueller matrix, removing reflections if necessary."""
+    I_ref, dilated_mask = libmpMuelMat.removeReflections3D(I)
+
     if remove_reflection:
-        try:
-            I, dilated_mask = libmpMuelMat.removeReflections3D(I)
-        except OSError:
-            pass
-        return libmpMuelMat.process_MM_pipeline(A, I, W, dilated_mask)
-    return libmpMuelMat.process_MM_pipeline(A, I, W, I)
+        processed = libmpMuelMat.process_MM_pipeline(A, I_ref, W, dilated_mask)
+    else:
+        processed = libmpMuelMat.process_MM_pipeline(A, I, W, I)
+
+    return processed, dilated_mask
 
 def load_calibration_data(calibration_directory_wl: str, wavelength: str):
     """Loads the calibration data (A and W) from the corresponding files."""
