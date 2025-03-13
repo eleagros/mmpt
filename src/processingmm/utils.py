@@ -49,13 +49,13 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
         if os.path.exists(log_file):
             os.remove(log_file)
 
-    processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN)
-    folder_data = create_folder_dict(data_folders, processed, data_folder_nm, all_data_paths, wl)
+    to_process, processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN)
+    folder_data = create_folder_dict(data_folders, to_process, processed, data_folder_nm, all_data_paths, wl)
     
     if parameters['run_all']:
         to_process = folder_data
     else:
-        to_process = [f for f in folder_data if not f["processed"]]
+        to_process = [f for f in folder_data if f["to_process"]]
 
     return to_process, wl  # Ensure uniqueness
     
@@ -137,12 +137,12 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     wavelengths : list
         List of wavelengths to be processed.
     """
-    processed_dict, data_presence, all_data_paths = {}, {}, {}
+    to_process_dict, processed_dict, data_presence, all_data_paths = {}, {}, {}, {}
     wavelengths = get_wavelengths_processing(parameters["wavelengths"])
     polarimetry_path = {wl: "polarimetry_PDDN" if PDDN else "polarimetry" for wl in wavelengths}
 
     for path in data_folders:
-        data, data_paths, processed = [], [], []
+        data, data_paths, processed, to_process = [], [], [], []
 
         for wl in wavelengths:
             raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data", wl)) else os.path.join(path, "raw_data")
@@ -150,19 +150,20 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
             data.append(data_pres)
             data_paths.append(data_path)
 
+            pol_path = os.path.join(path, polarimetry_path[wl])
+            condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["processing_mode"], parameters["save_pdf_figs"])
+            processed.append(condition_processed)
             if parameters["run_all"]:
-                processed.append(False)
+                to_process.append(True)
             else:
-                pol_path = os.path.join(path, polarimetry_path[wl])
-                processed.append(
-                    os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["processing_mode"], parameters["save_pdf_figs"])
-                )
+                to_process.append(not condition_processed)
 
+        to_process_dict[path] = to_process
         processed_dict[path] = processed
         data_presence[path] = data
         all_data_paths[path] = data_paths
 
-    return processed_dict, data_presence, all_data_paths, wavelengths
+    return to_process_dict, processed_dict, data_presence, all_data_paths, wavelengths
 
 
 def get_wavelengths_processing(wavelengths):
@@ -186,7 +187,7 @@ def get_wavelengths_processing(wavelengths):
     return [f"{wl}nm" for wl in wavelengths]
 
 
-def create_folder_dict(data_folders, processed, data_folder_nm, all_data_paths, wavelengths):
+def create_folder_dict(data_folders, to_process, processed, data_folder_nm, all_data_paths, wavelengths):
     """
     Creates a list of dictionaries storing folder processing information.
 
@@ -212,6 +213,7 @@ def create_folder_dict(data_folders, processed, data_folder_nm, all_data_paths, 
             if data_folder_nm[folder][idx]:  # Only include folders with data
                 folder_data.append({
                     "folder_name": folder,
+                    "to_process": to_process[folder][idx],
                     "processed": is_processed,
                     "wavelength": wavelengths[idx],
                     "path_intensite": all_data_paths[folder][idx]
@@ -960,6 +962,10 @@ def getSupergluePath():
     module_path = os.path.dirname(processingmm.__file__)
     return os.path.join(module_path, '..', '..', 'third_party', 'superglue')
 
+def getPredictionPath():
+    import processingmm
+    module_path = os.path.dirname(processingmm.__file__)
+    return os.path.join(module_path, '..', '..', 'third_party', 'polarfeat_mar25')
 
 def test_pddn_models_existence(PDDN_models_path):
     """Check if required PDDN models exist."""

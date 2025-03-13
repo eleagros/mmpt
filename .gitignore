@@ -105,7 +105,8 @@ temp_processing/
 
 src/processingmm/PDDN_model
 src/processingmm/deprecated
-tmp_gif/
+third_party/polar*
+tmp_gif/*
 tests/log*
 tests/data/MMProcessing.txt
 tests/data/2022-11-02_T_HORAO-59-AF_FR_S1_1/histology/

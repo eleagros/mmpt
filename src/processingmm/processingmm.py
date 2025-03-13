@@ -188,7 +188,7 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
     None
     """        
     # get all the names of the measurement folders
-    to_process, wavelengths = utils.get_measurements_to_process(parameters, PDDN=PDDN)
+    to_process, _ = utils.get_measurements_to_process(parameters, PDDN=PDDN)
         
     if PDDN:
         denoise_intensities.denoise_intensities(parameters, to_process)
