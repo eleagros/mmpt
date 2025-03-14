@@ -19,7 +19,7 @@ from processingmm.libmpMuelMat import _isNumStable
 from processingmm import utils
 
 
-def batch_prediction(parameters, run_all = True):
+def batch_prediction(parameters, no_labels = True):
     """"""
         
     start = time.time()
@@ -34,10 +34,11 @@ def batch_prediction(parameters, run_all = True):
     for entry in to_process:
         samples.append(entry['folder_name'].replace(basedir + '/', ''))
         
-    cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --run_no_labels --performance"
+    if no_labels:
+        cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --run_no_labels --performance"
+    else:
+        cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --performance"
     os.system(cmd)
-    # python main.py --data_dir /media/elea/ssd/NPP/test --calib_dir /media/elea/ssd/NPP/calib --samples 2022-06-29_T_HORAO-21-AF_FR_S2_1 --run_no_labels --performance
-
 
 def visualization_auto(to_process: list, parameters, parameters_set: str, batch_processing = False,
                        run_all = True, PDDN = False, wavelengths = [], save_pdf_figs: bool = False):
