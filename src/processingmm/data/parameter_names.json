@@ -1,20 +1,20 @@
 {
     "full": [
-        "Intensity", "nM", "M11", "Mdetmsk", "Mphymsk", "Isatmsk", "Msk", "Els", 
+        "Intensity", "nM", "M11", "M11_normalized", "Mdetmsk", "Mphymsk", "Isatmsk", "Msk", "Els", 
         "MD", "MR", "Mdelta", "totD", "linD", "oriD", "cirD", "totR", "linR", 
         "cirR", "oriR", "azimuth", "totP", "azimuth_local_var", "azimuth_curation",
         "dilated_mask"
     ],
     
     "default": [
-        "Intensity", "nM", "M11", "Mdetmsk", "Mphymsk", "Isatmsk", "Msk", "Els", 
+        "Intensity", "nM", "M11", "M11_normalized", "Mdetmsk", "Mphymsk", "Isatmsk", "Msk", "Els", 
         "MD", "MR", "Mdelta", "totD", "linD", "oriD", "cirD", "totR", "linR", 
         "cirR", "oriR", "azimuth", "totP", "azimuth_local_var", "azimuth_curation",
         "dilated_mask"
     ],
     
     "no_viz": [
-        "M11", "Msk", "totD", "linR", "azimuth", "totP", "azimuth_curation",
+        "M11", "M11_normalized", "Msk", "totD", "linR", "azimuth", "totP", "azimuth_curation",
         "dilated_mask"
     ]
 }

@@ -660,6 +660,9 @@ def get_pathCod(directory: str, wavelength: int, align_wls=False, PDDN=False):
 
     return pathCod, polarimetry_fname
 
+def normalize_M11(M11: np.ndarray) -> np.ndarray:
+    gaussian_fit = np.load(os.path.join(get_data_folder_path(), 'gaussian_fit.npy'), allow_pickle=True)
+    return M11 / np.max(M11) * (1 / gaussian_fit) * np.max(M11)
 
 def curate_azimuth(azimuth: np.ndarray, folder=None) -> np.ndarray:
     """
@@ -758,12 +761,17 @@ def load_calibration_data(calibration_directory_wl: str, wavelength: str):
 
 def get_angle_correction(path: str) -> int:
     """Gets the angle correction from a file if available."""
-    try:
-        with open(os.path.join(path, 'rotation_MM.txt')) as f:
-            return int(f.readline().strip())
-    except FileNotFoundError:
-        return 0
+    primary_path = os.path.join(path, 'rotation_MM.txt')
+    secondary_path = os.path.join(path, 'annotation', 'rotation_MM.txt')
 
+    for file_path in [primary_path, secondary_path]:
+        if os.path.exists(file_path):
+            try:
+                with open(file_path) as f:
+                    return int(f.readline().strip())
+            except (FileNotFoundError, ValueError):
+                return 0  # Return 0 if file not found or contains invalid integer
+    return 0  # Return 0 if neither file exists
 
 def save_file_as_npz(variable: dict, path: str):   
     """

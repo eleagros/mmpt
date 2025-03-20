@@ -19,7 +19,7 @@ from processingmm.libmpMuelMat import _isNumStable
 from processingmm import utils
 
 
-def batch_prediction(parameters, no_labels = True):
+def batch_prediction(parameters, no_labels = True, MM = False, model_name = 'None'):
     """"""
         
     start = time.time()
@@ -32,12 +32,19 @@ def batch_prediction(parameters, no_labels = True):
     
     samples = []
     for entry in to_process:
-        samples.append(entry['folder_name'].replace(basedir + '/', ''))
-        
-    if no_labels:
-        cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --run_no_labels --performance"
+        if entry['wavelength'] =='550nm':
+            samples.append(entry['folder_name'].replace(basedir + '/', ''))
+
+    cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --performance"
+    
+    if MM:
+        cmd = cmd + " --MM --model_name MM.pt"
     else:
-        cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --performance"
+        model_name = model_name if model_name is not None else "intensities_1.pt"
+        cmd = cmd + " --model_name " + model_name
+    if no_labels:
+        cmd = cmd + " --run_no_labels"
+        
     os.system(cmd)
 
 def visualization_auto(to_process: list, parameters, parameters_set: str, batch_processing = False,

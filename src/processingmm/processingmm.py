@@ -112,7 +112,7 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
                             'time_mode': True,
                             'save_pdf_figs': save_pdf_figs,
                             'align_wls': align_wls,
-                            'remove_reflection': False} 
+                            'remove_reflection': True} 
     
     return processing_parameters
 
@@ -329,11 +329,11 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     start_processing = time.time()  
     # remove the NaNs from the atzimuth measurements
     MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'], f"{path}/{measurement['polarimetry_fname']}")
+    MM['M11_normalized'] = utils.normalize_M11(MM['M11'])
     time_azimuth_curation = time.time() - start_processing
     
     start_processing = time.time()
-    azimuth_std, _ = azimuth_local_var.get_and_plots_stds(os.path.join(path, measurement['polarimetry_fname']), 5, 
-                                    wavelength, azimuth = MM['azimuth'], processing_mode = processing_mode, save_pdf_figs = save_pdf_figs)
+    azimuth_std = azimuth_local_var.get_azimuth_local_var(azimuth = MM['azimuth'], patch_size = 5)
     MM['azimuth_local_var'] = azimuth_std
     time_azimuth_std_processing = time.time() - start_processing
 
