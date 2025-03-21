@@ -2,8 +2,9 @@ import os
 from tqdm import tqdm
 from processingmm import libmpMuelMat
 from processingmm.utils import get_intensity
-import traceback
 from processingmm import libmpMPIdenoisePDDN
+import numpy as np
+
 
 def denoise_intensities(parameters: dict, to_process: list) -> None:
     """
@@ -32,16 +33,23 @@ def denoise_intensities(parameters: dict, to_process: list) -> None:
             if folder['wavelength'].replace('nm', '') != str(wavelength):
                 continue
             
-            pathDenoisedCod = folder['path_intensite'].replace('Intensite', 'Intensite_PDDN')
-            
-            if os.path.exists(pathDenoisedCod):
-                folder['path_intensite'] = pathDenoisedCod
+            pathDenoised = folder['path_intensite'].replace('Intensite', 'Intensite_PDDN') if parameters['instrument'] == 'IMP' else folder['path_intensite'].replace('I', 'I_PDDN')
+
+            if os.path.exists(pathDenoised):
+                folder['path_intensite'] = pathDenoised
             else:
-                I = get_intensity(folder['path_intensite'])
-                I, _ = model.Denoise(I)
-                libmpMuelMat.write_cod_data_X3D(I, pathDenoisedCod, VerboseFlag=1)
-                folder['path_intensite'] = pathDenoisedCod
-            
+                I = get_intensity(parameters, folder['path_intensite'])
+                if parameters['denoise_patch']:
+                    I = denoise_patch(I, model)
+                else:
+                    I, _ = model.Denoise(I)
+                    
+                if pathDenoised.endswith('.npy'):
+                    np.save(pathDenoised, I)
+                else:
+                    libmpMuelMat.write_cod_data_X3D(I, pathDenoised, VerboseFlag=1)
+                folder['path_intensite'] = pathDenoised
+                
             folder['polarimetry_fname'] = 'polarimetry_PDDN'
     print('Denoising inference done.')
     print()
@@ -80,3 +88,24 @@ def load_PDDN_models(parameters: dict) -> dict:
 
     return PDDN_models
 
+
+def denoise_patch(I, model):
+    height, width = I.shape[0], I.shape[1]  # assuming I is in the format (batch, channels, height, width)
+    half_height = height // 2
+    half_width = width // 2
+    patches = [
+        I[:half_height, :half_width],      # top-left
+        I[half_height:, :half_width],      # bottom-left
+        I[:half_height, half_width:],      # top-right
+        I[half_height:, half_width:]       # bottom-right
+    ]
+                    
+    denoised_patches = []
+    for i, patch in enumerate(patches):
+        patch_denoised, _ = model.Denoise(patch)
+        denoised_patches.append(patch_denoised)
+                    
+    top_row = np.concatenate([denoised_patches[0], denoised_patches[1]])  # Concatenate along width (axis 2)
+    bottom_row = np.concatenate([denoised_patches[2], denoised_patches[3]])  # Concatenate along width (axis 2)
+    I_denoised = np.concatenate([top_row, bottom_row], axis=1)  # Concatenate along height (axis 1)
+    return I_denoised

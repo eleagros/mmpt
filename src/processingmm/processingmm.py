@@ -15,9 +15,9 @@ from processingmm import libmpMuelMat
 from processingmm.addons import denoise_intensities, align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
 import processingmm
 
-def get_parameters(directories: list, calib_directory: str, wavelengths: list, parameter_set: str = 'TheoniPics', PDDN_mode: str = 'both', 
-                   PDDN_models_path: str = None, processing_mode: str = 'default', run_all: bool = True,
-                   save_pdf_figs: bool = True, align_wls: bool =True) -> dict:
+def get_parameters(directories: list, calib_directory: str, wavelengths: list, parameter_set: str = 'default', PDDN_mode: str = 'both', 
+                   PDDN_models_path: str = None, instrument: str = 'IMP', remove_reflection: bool = True, processing_mode: str = 'default',
+                   run_all: bool = True, save_pdf_figs: bool = True, align_wls: bool =True, denoise_patch: bool = False) -> dict:
     """
     Returns the processing parameters in a dictionary format, readable by the next functions in the pipeline, for the given inputs.
 
@@ -58,7 +58,6 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
         if PDDN_mode is not one of 'no', 'pddn' or 'both'
         if processing_mode is not one of 'full', 'no_visualization' or 'fast'
     """
-    
     # check the input parameters are valid
     for directory in directories:
         if not os.path.isdir(directory):
@@ -67,7 +66,30 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
     if not os.path.isdir(calib_directory):
         raise ValueError('The calib_directory parameter {} should be the path to an existing folder.'.format(calib_directory))
 
-    valid_wavelengths = utils.load_wavelengths()
+    if instrument not in {'IMP', 'IMPv2'}:
+        raise ValueError('The list of instruments supported is ["IMP", "IMPv2"].')
+    else:
+        print(' [info] Processing data from the {} instrument.'.format(instrument))
+        
+    if instrument == 'IMPv2':
+        if wavelengths != [630]:
+            print(' [info] Switching wavelength selection from {} to 630nm.'.format(wavelengths))
+            wavelengths = [630]
+        if align_wls:
+            align_wls = False
+            print(' [info] Switching align_wls to False.')
+        if remove_reflection:
+            remove_reflection = False
+            print(' [info] Switching remove_reflection to False (not supported).')
+        if denoise_patch:
+            print(' [info] Denoising is applied by patch, results might not be optimal.')
+            
+    elif instrument == 'IMP':
+        if denoise_patch:
+            denoise_patch = False
+            print(' [info] Switching denoise_patch to False.')
+            
+    valid_wavelengths = utils.load_wavelengths(instrument)
     valid_wavelengths_num = []
     for wl in valid_wavelengths:
         valid_wavelengths_num.append(int(wl.split('nm')[0]))
@@ -84,7 +106,7 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
     
     if processing_mode not in {'full', 'default', 'no_viz'}:
         raise ValueError('processing_mode must be one of "full", "default", or "no_viz".')
-    
+        
     import processingmm
     if PDDN_models_path is None:
         PDDN_models_path = os.path.join(processingmm.__file__.split('__init__')[0], 'PDDN_model')
@@ -95,7 +117,7 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
         except ImportError:
             raise ValueError('Please install the torchvision package to use PDDN.')
         
-        models_found, missing_models = utils.test_pddn_models_existence(PDDN_models_path)
+        models_found, missing_models = utils.test_pddn_models_existence(PDDN_models_path, instrument)
         if not models_found:
             print('Missing models:', missing_models)
             raise ValueError('The PDDN models are missing. Please check the path to the PDDN models or change PDDN_mode to no.')
@@ -112,7 +134,9 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
                             'time_mode': True,
                             'save_pdf_figs': save_pdf_figs,
                             'align_wls': align_wls,
-                            'remove_reflection': True} 
+                            'remove_reflection': remove_reflection,
+                            'instrument': instrument,
+                            'denoise_patch': denoise_patch} 
     
     return processing_parameters
 
@@ -213,18 +237,17 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
     
         # Step 1: Organize the folders    
         # utils.move_folder_for_processing(parameters, folder)
-        utils.reorganize_folders(folder)
+        utils.reorganize_folders(folder, parameters['instrument'])
 
-        calib_directory_dates_num = utils.get_calibration_dates(parameters['calib_directory'])
+        calib_directory_dates_num = utils.get_calibration_dates(parameters)
         
         # Step 2: Compute the MM
-        MM, calibration_directory, times, path_save = compute_one_MM(folder, calib_directory_dates_num, 
-                                    parameters['calib_directory'], folder_eu_time = folder_eu_time, 
-                                    remove_reflection = parameters.get('remove_reflection', False), Flag = False, processing_mode = parameters.get('processing_mode', 'default'),
-                                    save_pdf_figs = parameters.get('save_pdf_figs', False))
+        MM, calibration_directory, times, path_save = compute_one_MM(parameters, folder, calib_directory_dates_num, 
+                                    folder_eu_time = folder_eu_time, Flag = False)
             
         # Step 3: Save the MM
         start_save_npz = time.time()
+        os.makedirs(path_save, exist_ok = True)
         utils.save_file_as_npz(MM, os.path.join(path_save, "MM.npz"))
         end_save_npz = time.time()
         times['save_npz'] = end_save_npz - start_save_npz
@@ -232,7 +255,7 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
         # Step 4: Visualize the MM
         start_viz = time.time()
         plot_polarimetry.visualize_MM(path_save, MM = MM, processing_mode = parameters.get('processing_mode', 'default'),
-                                      save_pdf_figs = parameters.get('save_pdf_figs', False))
+                                      save_pdf_figs = parameters.get('save_pdf_figs', False), instrument = parameters['instrument'])
         end_viz = time.time()
         times['viz'] = end_viz - start_viz
         
@@ -266,8 +289,8 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
     
 
 
-def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory: str, folder_eu_time: dict = {}, 
-                   remove_reflection = True, pbar = None, Flag = False, processing_mode = '', save_pdf_figs = True):
+def compute_one_MM(parameters, measurement, calib_directory_dates_num: list, folder_eu_time: dict = {}, 
+                   pbar = None, Flag = False):
     """
     compute_one_MM is a function that computes the MM for the folders in c
 
@@ -302,20 +325,22 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     path = measurement['folder_name']
     wavelength = measurement['wavelength']
 
+    processing_mode = parameters.get('processing_mode', 'default')
+    remove_reflection = parameters.get('remove_reflection', True)
+    
     angle_correction = utils.get_angle_correction(measurement['folder_name'])
     
-    
     # Find the closest calibration directory based on the wavelength
-    calibration_directory_closest = utils.get_calibration_directory(calib_directory_dates_num, path, calib_directory, wavelength, 
-                                                              folder_eu_time, Flag)
+    calibration_directory_closest = utils.get_calibration_directory(parameters, calib_directory_dates_num, path, wavelength, folder_eu_time, Flag)
     calibration_directory_wl = os.path.join(calibration_directory_closest, wavelength)
     
     start_full_processing = time.time()
             
     # Load calibration & intensity data
-    A, W = utils.load_calibration_data(calibration_directory_wl, wavelength)
+    A, W = utils.load_calibration_data(parameters, calibration_directory_wl, wavelength)
     # I, polarimetry_fname = utils.get_intensity(path, wavelength, align_wls, PDDN)
-    I = utils.get_intensity(measurement['path_intensite'])
+    I = utils.get_intensity(parameters, measurement['path_intensite'])
+    
     time_data_loading = time.time() - start_full_processing
     
     start_processing = time.time()  
@@ -329,7 +354,8 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     start_processing = time.time()  
     # remove the NaNs from the atzimuth measurements
     MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'], f"{path}/{measurement['polarimetry_fname']}")
-    MM['M11_normalized'] = utils.normalize_M11(MM['M11'])
+    MM['M11'] = utils.correct_M11(MM['M11'], parameters['instrument'])
+    MM['M11_normalized'] = utils.normalize_M11(MM['M11'], parameters['instrument'])
     time_azimuth_curation = time.time() - start_processing
     
     start_processing = time.time()
@@ -343,10 +369,6 @@ def compute_one_MM(measurement, calib_directory_dates_num: list, calib_directory
     MM = {key: value for key, value in MM.items() if key in parameter_names}
 
     MM = rotate_MM.apply_angle_correction(MM, angle_correction)
-        
-    # start_save_npz = time.time()
-    # utils.save_file_as_npz(MM, , 'MM.npz'))
-    # time_save_npz = time.time() - start_save_npz
         
     time_full_processing = time.time() - start_full_processing
     

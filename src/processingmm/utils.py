@@ -40,6 +40,7 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
     directories = parameters["directories"]
     data_folders, _ = get_all_folders(directories)
     
+    
     for folder in data_folders:
         move_folder_for_processing(parameters, folder)
         
@@ -146,7 +147,7 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
 
         for wl in wavelengths:
             raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data", wl)) else os.path.join(path, "raw_data")
-            data_pres, data_path = is_there_data(raw_data_path, wl)
+            data_pres, data_path = is_there_data(raw_data_path, wl, parameters["instrument"])
             data.append(data_pres)
             data_paths.append(data_path)
 
@@ -221,7 +222,7 @@ def create_folder_dict(data_folders, to_process, processed, data_folder_nm, all_
     return folder_data
 
 
-def is_there_data(path: str, wl: str) -> bool:
+def is_there_data(path: str, wl: str, instrument: str) -> bool:
     """
     Checks if raw data is available in the given folder.
 
@@ -229,7 +230,7 @@ def is_there_data(path: str, wl: str) -> bool:
     """
     if not os.path.isdir(path):
         return False
-    expected_file = f"{wl.replace('nm', '')}_Intensite.cod"
+    expected_file = f"{wl.replace('nm', '')}_Intensite.cod" if instrument == "IMP" else f"{wl.replace('nm', '')}_I.npy"
     return expected_file in set(os.listdir(path)), os.path.join(path, expected_file)
 
 
@@ -287,7 +288,7 @@ def move_folder_for_processing(parameters: dict, folder: str):
 ####################################################################################################################################
 ####################################################################################################################################
 
-def reorganize_folders(folder_path: str):
+def reorganize_folders(folder_path: str, instrument: str):
     """
     Reorganize the folders in the measurement directory by creating necessary subdirectories
     for polarimetry data and moving raw data into appropriate folders.
@@ -302,7 +303,7 @@ def reorganize_folders(folder_path: str):
     None
     """
     directories_tbc = ['polarimetry', 'polarimetry_PDDN']
-    wavelengths = load_wavelengths()
+    wavelengths = load_wavelengths(instrument)
 
     # Create necessary directories for polarimetry and polarimetry_PDDN data
     for directory in directories_tbc:
@@ -415,7 +416,7 @@ def clean_up_results(folder: str, results_folder: str, filenames_results: list):
 ####################################################################################################################################
 
 
-def get_calibration_dates(calib_directory: str):
+def get_calibration_dates(parameters: dict):
     """
     Returns the dates of all calibration folders containing calibration data for 550nm and 650nm.
 
@@ -429,13 +430,15 @@ def get_calibration_dates(calib_directory: str):
     list of datetime
         A list containing the dates of the calibration folders.
     """
+    calib_directory = parameters['calib_directory']
+    
     calib_directory_dates = os.listdir(calib_directory)
-    wavelengths = load_wavelengths()
-
+    wavelengths = parameters['wavelengths']
+     
     calib_directory_dates_cleaned = [
         c for c in calib_directory_dates
-        if any(os.path.exists(os.path.join(calib_directory, c, wl, f"{wl.split('nm')[0]}_W.mat"))
-               or os.path.exists(os.path.join(calib_directory, c, wl, f"{wl.split('nm')[0]}_W.cod"))
+        if any(os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.mat"))
+               or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.cod" if parameters['instrument'] == 'IMP' else f"W.npy"))
                for wl in wavelengths)
     ]
 
@@ -444,7 +447,7 @@ def get_calibration_dates(calib_directory: str):
 
 
 
-def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_directory: str,
+def get_calibration_directory(parameters:dict, calib_directory_dates_num: list, path: str,
                               wavelength: str, folder_eu_time: dict = {}, Flag=False, idx=-1):
     """
     Gets the calibration directory with the date closest to the folder given as input.
@@ -471,16 +474,18 @@ def get_calibration_directory(calib_directory_dates_num: list, path: str, calib_
     str
         Path to the calibration directory with the closest date to the folder.
     """
+    calib_directory = parameters['calib_directory']
+    
     # Get the date of the measurement folder
     date_measurement = folder_eu_time.get(path.split(os.sep)[-1], get_date_measurement(path, idx))
 
     # Find the closest date in the calibration directory
-    closest_date = find_closest_date(date_measurement, calib_directory_dates_num, wavelength, calib_directory, Flag)
+    closest_date = find_closest_date(parameters, date_measurement, calib_directory_dates_num, wavelength, calib_directory, Flag)
     
     return os.path.join(calib_directory, closest_date)
 
 
-def find_closest_date(date_measurement: datetime, calib_dates_complete: list, wavelength: str, calib_directory: str, Flag=False):
+def find_closest_date(parameters: dict, date_measurement: datetime, calib_dates_complete: list, wavelength: str, calib_directory: str, Flag=False):
     """
     Finds the directory with the closest date to the measurement date.
 
@@ -521,7 +526,7 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, wa
         last_calibration = dates_calibrated[idx_last_calib]
 
         # Check if all required calibration files exist
-        if all_calibration_files_exist(last_calibration, calib_directory, wavelength):
+        if all_calibration_files_exist(parameters, last_calibration, calib_directory, wavelength):
             return last_calibration
         else:
             # Remove invalid calibration and check the previous one
@@ -529,9 +534,9 @@ def find_closest_date(date_measurement: datetime, calib_dates_complete: list, wa
 
     raise FileNotFoundError('No valid calibration found for the closest 1000 days.')
 
-def all_calibration_files_exist(calibration_folder: str, calib_directory: str, wavelength: str) -> bool:
+def all_calibration_files_exist(parameters: dict, calibration_folder: str, calib_directory: str, wavelength: str) -> bool:
     """Checks if all required calibration files exist for a given calibration folder and wavelength."""
-    required_files = [f"{wavelength.split('nm')[0]}_A.cod", f"{wavelength.split('nm')[0]}_W.cod"]
+    required_files = [f"{wavelength.split('nm')[0]}_A.cod", f"{wavelength.split('nm')[0]}_W.cod"] if parameters['instrument'] == 'IMP' else [f"A.npy", f"W.npy"]
     if all(os.path.isfile(os.path.join(calib_directory, calibration_folder, wavelength, f)) for f in required_files):
         return True
     else:
@@ -591,7 +596,7 @@ def get_intensity_old(path: str, wavelength: int, align_wls=False, PDDN=False):
 
     return I, polarimetry_fname
 
-def get_intensity(path: str):
+def get_intensity(parameters: dict, path: str):
     """
     Retrieves the intensity data from a specified directory based on the wavelength and alignment settings.
 
@@ -611,10 +616,16 @@ def get_intensity(path: str):
     tuple
         A tuple containing the intensity data and the polarimetry file name.
     """
-    try:
-        I = libmpMuelMat.read_cod_data_X3D(path, isRawFlag=0)
-    except Exception:
-        I = libmpMuelMat.read_cod_data_X3D(path, isRawFlag=1)
+    if parameters['instrument'] == 'IMP':
+
+        try:
+            I = libmpMuelMat.read_cod_data_X3D(path, isRawFlag=0)
+        except Exception:
+            I = libmpMuelMat.read_cod_data_X3D(path, isRawFlag=1)
+    
+    else:
+        I = np.load(path, allow_pickle=True)
+        I = I.astype(np.double)
 
     return I
 
@@ -660,9 +671,21 @@ def get_pathCod(directory: str, wavelength: int, align_wls=False, PDDN=False):
 
     return pathCod, polarimetry_fname
 
-def normalize_M11(M11: np.ndarray) -> np.ndarray:
-    gaussian_fit = np.load(os.path.join(get_data_folder_path(), 'gaussian_fit.npy'), allow_pickle=True)
-    return M11 / np.max(M11) * (1 / gaussian_fit) * np.max(M11)
+def normalize_M11(M11: np.ndarray, instrument: str) -> np.ndarray:
+    if os.path.exists(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy')):
+        gaussian_fit = np.load(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy'), allow_pickle=True)
+        return M11 / np.max(M11) * (1 / gaussian_fit) * np.max(M11)
+    else:
+        print(' [wrn] No Gaussian fit found for normalization. Returning unnormalized M11.')
+        return M11
+    
+def correct_M11(M11: np.ndarray, instrument: str) -> np.ndarray:
+    if instrument == 'IMPv2':
+        M11 = np.nan_to_num(M11, nan=0)
+        M11[M11 > 255] = 255
+        M11[M11 < 0] = 0
+        
+    return M11
 
 def curate_azimuth(azimuth: np.ndarray, folder=None) -> np.ndarray:
     """
@@ -739,22 +762,30 @@ def select_region(shape: tuple, azimuth: np.ndarray, idx: int, idy: int) -> np.n
 
 def process_mm(I, remove_reflection: bool, A, W):
     """Processes the Mueller matrix, removing reflections if necessary."""
+    I = np.nan_to_num(I)
     I_ref, dilated_mask = libmpMuelMat.removeReflections3D(I)
-
+        
     if remove_reflection:
-        processed = libmpMuelMat.process_MM_pipeline(A, I_ref, W, dilated_mask)
+        processed = libmpMuelMat.process_MM_pipeline(A, I_ref, W, dilated_mask, CamType = 'IMPv2')
     else:
-        processed = libmpMuelMat.process_MM_pipeline(A, I, W, I)
-
+        processed = libmpMuelMat.process_MM_pipeline(A, I, W, I, CamType = 'IMPv2')
+        
     return processed, dilated_mask
 
-def load_calibration_data(calibration_directory_wl: str, wavelength: str):
+def load_calibration_data(parameters: dict, calibration_directory_wl: str, wavelength: str):
     """Loads the calibration data (A and W) from the corresponding files."""
     files = os.listdir(calibration_directory_wl)
     wavelength_number = wavelength.replace('nm', '')
-    if f"{wavelength_number}_A.cod" in files and f"{wavelength_number}_W.cod" in files:
-        A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_A.cod"), isRawFlag=0)
-        W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_W.cod"), isRawFlag=0)
+    
+    calib_files = [f"{wavelength_number}_A.cod", f"{wavelength_number}_W.cod"] if parameters['instrument'] == 'IMP' else [f"A.npy", f"W.npy"]
+    
+    if all(f in files for f in calib_files):
+        if parameters['instrument'] == 'IMP':
+            A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_A.cod"), isRawFlag=0)
+            W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_W.cod"), isRawFlag=0)
+        else:
+            A = np.load(os.path.join(calibration_directory_wl, 'A.npy'))
+            W = np.load(os.path.join(calibration_directory_wl, 'W.npy'))
     else:
         A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen=int(wavelength_number))
     return A, W
@@ -811,7 +842,7 @@ def load_npz_file(path: str) -> dict:
 ####################################################################################################################################
 
 
-def get_cmap(parameter: str):
+def get_cmap(parameter: str, instrument: str = 'IMP'):
     """
     master function to get the cmap for plot of a polarimetric parameter
 
@@ -828,7 +859,7 @@ def get_cmap(parameter: str):
         the nromalized cmap for the azimuth plot
     """
     # load the parameters used to generate the colormap
-    parameters_plot = load_plot_parameters()[parameter]
+    parameters_plot = load_plot_parameters(instrument)[parameter]
     colors = parameters_plot['colors']
     n_bins = parameters_plot['n_bins']
     cmap_name = parameters_plot['cmap_name']
@@ -865,7 +896,7 @@ def load_MM(path: str):
     return mat
 
 
-def load_wavelengths():
+def load_wavelengths(instrument: str = 'IMP'):
     """
     load and returns the wavelengths usable by the IMP
 
@@ -874,7 +905,8 @@ def load_wavelengths():
     wavelenghts : list
         the wavelengths usable by the IMP
     """
-    return ['450nm', '500nm', '550nm', '600nm', '650nm', '700nm']
+    wavelenghts = {'IMP': ['450nm', '500nm', '550nm', '600nm', '650nm', '700nm'], 'IMPv2': ['630nm']}
+    return wavelenghts[instrument]
 
 def load_filenames(processing_mode = 'full', save_pdf_figs = False):
     """
@@ -896,7 +928,7 @@ def load_filenames(processing_mode = 'full', save_pdf_figs = False):
             fnames.remove(name)
     return fnames
 
-def load_plot_parameters():
+def load_plot_parameters(instrument: str = 'IMP'):
     """
     load and returns the parameters for the polarimetric parameter plots
 
@@ -907,7 +939,7 @@ def load_plot_parameters():
     """
     with open(os.path.join(get_data_folder_path(), 'parameters_plot.json')) as json_file:
         data = json.load(json_file)
-    return data
+    return data[instrument]
 
 
 def load_parameters_visualization():
@@ -962,6 +994,12 @@ def load_parameter_names(processing_mode):
         data = json.load(json_file)
     return data[processing_mode]
 
+def getCongfigPath():
+    import processingmm
+    module_path = os.path.dirname(processingmm.__file__)
+    return os.path.join(module_path, 'config')
+
+
 def get_data_folder_path():
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
  
@@ -975,17 +1013,18 @@ def getPredictionPath():
     module_path = os.path.dirname(processingmm.__file__)
     return os.path.join(module_path, '..', '..', 'third_party', 'polarfeat_mar25')
 
-def test_pddn_models_existence(PDDN_models_path):
+def test_pddn_models_existence(PDDN_models_path, instrument = 'IMP'):
     """Check if required PDDN models exist."""
-    models = ['PDDN_model_550_Fresh_HB.pt', 'PDDN_model_600_Fresh_HB.pt']
-        
+    models = {'IMP': ['PDDN_model_550_Fresh_HB.pt', 'PDDN_model_600_Fresh_HB.pt'],
+              'IMPv2': ['PDDN_model_630_Fresh_HB.pt']}
+    models = models[instrument]
+    
     missing_models = []
     for model in models:
         if not os.path.exists(os.path.join(PDDN_models_path, model)):
             missing_models.append(model)
             
     return len(missing_models) == 0, missing_models
-
 
 def remove_previous_temp_folders(prefix: str, base_path: str):
     """Check for all directories in the specified base_path and remove those with the given prefix."""

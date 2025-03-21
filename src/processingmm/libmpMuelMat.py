@@ -197,7 +197,7 @@ def default_CamType(CamID=None):
     if (CamID == 0):
         CamType = 'Stingray IPM2'
     if (CamID == 1):
-        CamType = 'Prosilica'
+        CamType = 'IMPv2'
     if (CamID == 2):
         CamType = 'JAI'
     if (CamID == 3):
@@ -230,9 +230,9 @@ def get_Cam_Params(CamType):
     ImgShape2D = None
     GammaDynamic = None
 
-    if (CamType == 'Prosilica'):
-        GammaDynamic = 16384
-        ImgShape2D = [600, 800]
+    if (CamType == 'IMPv2'):
+        GammaDynamic = 255
+        ImgShape2D = [1024, 1216]
 
     if (CamType == 'JAI'):
         GammaDynamic = 16384
