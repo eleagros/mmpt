@@ -12,7 +12,7 @@ from tqdm import tqdm
 import sys
 import subprocess
 
-def align_wavelengths(directories: list, PDDN: bool = False, run_all: bool = False, wlen_to_align=None):
+def align_wavelengths(directories: list, PDDN: bool = False, run_all: bool = False, wlen_to_align=None, instrument: str = 'IMP') -> None:
     """
     Aligns the wavelengths for the measurements in the given directories.
     
@@ -31,6 +31,9 @@ def align_wavelengths(directories: list, PDDN: bool = False, run_all: bool = Fal
     -------
     None
     """
+    if instrument == 'IMPv2':
+        raise NotImplementedError('The alignment of wavelengths is not implemented for IMPv2.')
+    
     if wlen_to_align is None:
         wlen_to_align = [600]
 

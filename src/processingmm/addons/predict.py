@@ -21,8 +21,9 @@ from processingmm import utils
 
 def batch_prediction(parameters, no_labels = True, MM = False, model_name = 'None'):
     """"""
-        
-    start = time.time()
+    if parameters['instrument'] == 'IMPv2':
+        raise NotImplementedError("The batch prediction is not yet implemented for the IMPv2 instrument.")
+    
     parameters['run_all'] = True
     to_process, wls = utils.get_measurements_to_process(parameters)
     basedir = parameters['directories'][0]

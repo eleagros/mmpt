@@ -21,6 +21,8 @@ from processingmm import utils
 
 def batch_visualization(parameters, run_all = True):
     """"""
+    if parameters["instrument"] == "IMPv2":
+        print(" [wrn] Visualization was not optimized to support IMPv2.")
         
     start = time.time()
     parameters['run_all'] = True
@@ -100,7 +102,7 @@ def remove_computed_folders_viz(folders: list, parameters: dict, run_all: bool =
 
     for folder in folders:
         check_wl = [
-            wl for wl in wavelengths if utils.is_there_data(os.path.join(folder, 'raw_data', wl), wl)
+            wl for wl in wavelengths if utils.is_there_data(os.path.join(folder, 'raw_data', wl), wl, parameters['instrument'])
         ]
 
         if not check_wl:  # Skip folders without data if run_all is False
