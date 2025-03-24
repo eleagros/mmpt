@@ -63,8 +63,10 @@ def get_parameters(directories: list, calib_directory: str, wavelengths: list, p
         if not os.path.isdir(directory):
             raise ValueError('The folder {} does not exist.'.format(directory))
 
-    if not os.path.isdir(calib_directory):
+    if not os.path.isdir(calib_directory) and instrument == 'IMP':
         raise ValueError('The calib_directory parameter {} should be the path to an existing folder.'.format(calib_directory))
+    else:
+        print(' [info] Calibration directory {} will not be used.'.format(calib_directory))
 
     if instrument not in {'IMP', 'IMPv2'}:
         raise ValueError('The list of instruments supported is ["IMP", "IMPv2"].')
@@ -213,7 +215,7 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
     """        
     # get all the names of the measurement folders
     to_process, _ = utils.get_measurements_to_process(parameters, PDDN=PDDN)
-        
+    
     if PDDN:
         denoise_intensities.denoise_intensities(parameters, to_process)
     else:
@@ -229,6 +231,7 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
             else:
                 assert folder['wavelength'] != '600nm', "The wavelength 600nm is not aligned."
     
+    
     start = time.time()
     
     for folder in tqdm(to_process):
@@ -238,13 +241,16 @@ def batch_process(parameters: dict, PDDN: bool = False, folder_eu_time: dict = {
         # Step 1: Organize the folders    
         # utils.move_folder_for_processing(parameters, folder)
         utils.reorganize_folders(folder, parameters['instrument'])
-
-        calib_directory_dates_num = utils.get_calibration_dates(parameters)
+        
+        if parameters['instrument'] == 'IMP':
+            calib_directory_dates_num = utils.get_calibration_dates(parameters)
+        else:
+            calib_directory_dates_num = []
         
         # Step 2: Compute the MM
         MM, calibration_directory, times, path_save = compute_one_MM(parameters, folder, calib_directory_dates_num, 
                                     folder_eu_time = folder_eu_time, Flag = False)
-            
+                
         # Step 3: Save the MM
         start_save_npz = time.time()
         os.makedirs(path_save, exist_ok = True)
@@ -331,13 +337,16 @@ def compute_one_MM(parameters, measurement, calib_directory_dates_num: list, fol
     angle_correction = utils.get_angle_correction(measurement['folder_name'])
     
     # Find the closest calibration directory based on the wavelength
-    calibration_directory_closest = utils.get_calibration_directory(parameters, calib_directory_dates_num, path, wavelength, folder_eu_time, Flag)
-    calibration_directory_wl = os.path.join(calibration_directory_closest, wavelength)
-    
+    if parameters['instrument'] == 'IMP':
+        calibration_directory_closest = utils.get_calibration_directory(parameters, calib_directory_dates_num, path, wavelength, folder_eu_time, Flag)
+        calibration_directory_wl = os.path.join(calibration_directory_closest, wavelength)
+    else:
+        calibration_directory_closest, calibration_directory_wl = None, None
+        
     start_full_processing = time.time()
             
     # Load calibration & intensity data
-    A, W = utils.load_calibration_data(parameters, calibration_directory_wl, wavelength)
+    A, W = utils.load_calibration_data(parameters, measurement, calibration_directory_wl, wavelength)
     # I, polarimetry_fname = utils.get_intensity(path, wavelength, align_wls, PDDN)
     I = utils.get_intensity(parameters, measurement['path_intensite'])
     
@@ -380,7 +389,11 @@ def compute_one_MM(parameters, measurement, calib_directory_dates_num: list, fol
     times = {'azimuth_curation': time_azimuth_curation, 'data_loading': time_data_loading, 
              'MM_processing': time_MM_processing, 'azimuth_std_processing': time_azimuth_std_processing,
              'full_processing': time_full_processing}
-    return MM, calibration_directory_closest, times, os.path.join(path, measurement['polarimetry_fname'], f"{wavelength}")
+    if parameters['instrument'] == 'IMP':
+        path_save = os.path.join(path, measurement['polarimetry_fname'], f"{wavelength}")
+    else:
+        path_save = os.path.join(path, measurement['polarimetry_fname'], measurement['path_intensite'].split(os.sep)[-1].replace('.npy', '').replace('PDDN_', ''), f"{wavelength}")
+    return MM, calibration_directory_closest, times, path_save
 
 
 

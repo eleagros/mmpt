@@ -38,12 +38,12 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
         List of available wavelengths.
     """
     directories = parameters["directories"]
-    data_folders, _ = get_all_folders(directories)
+    data_folders, _ = get_all_folders(directories)    
     
-    
-    for folder in data_folders:
-        move_folder_for_processing(parameters, folder)
-        
+    if parameters['instrument'] == 'IMP':
+        for folder in data_folders:
+            move_folder_for_processing(folder)
+
     # Remove old processing logs if present
     for folder in data_folders:
         log_file = os.path.join(folder, "processing_logbook.txt")
@@ -51,7 +51,7 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
             os.remove(log_file)
 
     to_process, processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN)
-    folder_data = create_folder_dict(data_folders, to_process, processed, data_folder_nm, all_data_paths, wl)
+    folder_data = create_folder_dict(parameters, data_folders, to_process, processed, data_folder_nm, all_data_paths, wl)
     
     if parameters['run_all']:
         to_process = folder_data
@@ -141,24 +141,35 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     to_process_dict, processed_dict, data_presence, all_data_paths = {}, {}, {}, {}
     wavelengths = get_wavelengths_processing(parameters["wavelengths"])
     polarimetry_path = {wl: "polarimetry_PDDN" if PDDN else "polarimetry" for wl in wavelengths}
-
+    
     for path in data_folders:
         data, data_paths, processed, to_process = [], [], [], []
 
         for wl in wavelengths:
-            raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data", wl)) else os.path.join(path, "raw_data")
-            data_pres, data_path = is_there_data(raw_data_path, wl, parameters["instrument"])
-            data.append(data_pres)
-            data_paths.append(data_path)
-
-            pol_path = os.path.join(path, polarimetry_path[wl])
-            condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["processing_mode"], parameters["save_pdf_figs"])
-            processed.append(condition_processed)
-            if parameters["run_all"]:
-                to_process.append(True)
+            if parameters["instrument"] == 'IMP':
+                raw_data_path = os.path.join(path, "raw_data", wl) if os.path.exists(os.path.join(path, "raw_data", wl)) else os.path.join(path, "raw_data")
             else:
-                to_process.append(not condition_processed)
+                raw_data_path = os.path.join(path, "to_process")
+            
+            data_pres, data_path = is_there_data(raw_data_path, wl, parameters["instrument"])
 
+            if type(data_path) == str:
+                data.append(data_pres)
+                data_paths.append(data_path)
+            else:
+                for path_dat in data_path:
+                    data.append(data_pres)
+                    data_paths.append(path_dat)
+            
+            pol_path = os.path.join(path, polarimetry_path[wl])
+            if parameters["instrument"] == 'IMP':
+                process_condition(parameters, pol_path, path, wl, polarimetry_path, processed, to_process)
+            else:
+                print(' [wrn] IMPv2 processing of only unprocessed files not implemented yet.')
+                for path_dat in data_paths:
+                    pol_folder_name = path_dat.split('.npy')[0]
+                    process_condition(parameters, os.path.join(pol_path, pol_folder_name), path_dat, wl, polarimetry_path, processed, to_process)
+                
         to_process_dict[path] = to_process
         processed_dict[path] = processed
         data_presence[path] = data
@@ -166,6 +177,13 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
 
     return to_process_dict, processed_dict, data_presence, all_data_paths, wavelengths
 
+def process_condition(parameters: dict, pol_path: str, path: str, wl: str, polarimetry_path: str, processed: list, to_process: list):
+    condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["processing_mode"], parameters["save_pdf_figs"])
+    processed.append(condition_processed)
+    if parameters["run_all"]:
+        to_process.append(True)
+    else:
+        to_process.append(not condition_processed)
 
 def get_wavelengths_processing(wavelengths):
     """
@@ -188,7 +206,7 @@ def get_wavelengths_processing(wavelengths):
     return [f"{wl}nm" for wl in wavelengths]
 
 
-def create_folder_dict(data_folders, to_process, processed, data_folder_nm, all_data_paths, wavelengths):
+def create_folder_dict(parameters, data_folders, to_process, processed, data_folder_nm, all_data_paths, wavelengths):
     """
     Creates a list of dictionaries storing folder processing information.
 
@@ -216,13 +234,30 @@ def create_folder_dict(data_folders, to_process, processed, data_folder_nm, all_
                     "folder_name": folder,
                     "to_process": to_process[folder][idx],
                     "processed": is_processed,
-                    "wavelength": wavelengths[idx],
+                    "wavelength": wavelengths[idx] if parameters['instrument'] == 'IMP' else wavelengths[0],
                     "path_intensite": all_data_paths[folder][idx]
                 })
     return folder_data
 
-
 def is_there_data(path: str, wl: str, instrument: str) -> bool:
+    """
+    """
+    if instrument == 'IMP':
+        return is_there_data_IMP(path, wl)
+    else:
+        return is_there_data_IMPv2(path, wl)
+
+def is_there_data_IMPv2(path: str, wl: str):
+    # Regular expression pattern
+    pattern = re.compile(r"^630_Image_Number_\d+\.npy$")
+    intensity_files = [os.path.join(path, f) for f in os.listdir(path) if pattern.match(f)]
+    if os.path.exists(os.path.join(path, f"A.npy")) and os.path.exists(os.path.join(path, f"W.npy")):
+        pass
+    else:
+        print(" [wrn] Missing calibration files in folder: ", path)
+    return len(intensity_files) > 0, intensity_files
+    
+def is_there_data_IMP(path: str, wl: str):
     """
     Checks if raw data is available in the given folder.
 
@@ -230,7 +265,7 @@ def is_there_data(path: str, wl: str, instrument: str) -> bool:
     """
     if not os.path.isdir(path):
         return False
-    expected_file = f"{wl.replace('nm', '')}_Intensite.cod" if instrument == "IMP" else f"{wl.replace('nm', '')}_I.npy"
+    expected_file = f"{wl.replace('nm', '')}_Intensite.cod"
     return expected_file in set(os.listdir(path)), os.path.join(path, expected_file)
 
 
@@ -246,7 +281,7 @@ def is_processed(path: str, wl: str, polarimetry_fname: str, processing_mode: st
     expected_filenames = load_filenames(processing_mode, save_pdf_figs)
     return all(f in set(os.listdir(folder_path)) for f in expected_filenames)
 
-def move_folder_for_processing(parameters: dict, folder: str):
+def move_folder_for_processing(folder: str):
     """
     Move a measurement folder to the temp_processing folder.
     
@@ -307,13 +342,13 @@ def reorganize_folders(folder_path: str, instrument: str):
 
     # Create necessary directories for polarimetry and polarimetry_PDDN data
     for directory in directories_tbc:
-        create_directory_structure(folder_path, directory, wavelengths)
-
+        create_directory_structure(folder_path, directory, wavelengths, instrument)
+    
     # Clean up old computations (remove unnecessary files)
-    clean_up_old_files(folder_path['folder_name'], directories_tbc)
+    clean_up_old_files(folder_path['folder_name'], directories_tbc, instrument)
 
 
-def create_directory_structure(folder_path: str, directory: str, wavelengths: list):
+def create_directory_structure(folder_path: str, directory: str, wavelengths: list, instrument: str):
     """
     Creates the necessary directory structure for a given directory (polarimetry or polarimetry_PDDN)
     for each wavelength.
@@ -330,15 +365,19 @@ def create_directory_structure(folder_path: str, directory: str, wavelengths: li
     Returns
     -------
     None
-    """
+    """    
     target_path = os.path.join(folder_path['folder_name'], directory)
     os.makedirs(target_path, exist_ok=True)
     
+    if instrument == 'IMPv2':
+        target_path = os.path.join(target_path, folder_path['path_intensite'].split(os.sep)[-1].replace('.npy', '').replace('PDDN_', ''))
+        os.makedirs(target_path, exist_ok=True)
+        
     for wl in wavelengths:
         os.makedirs(os.path.join(target_path, wl), exist_ok=True)
 
 
-def clean_up_old_files(folder_path: str, dirs_to_check: list):
+def clean_up_old_files(folder_path: str, dirs_to_check: list, instrument: str):
     """
     Cleans up old files in the specified directories by removing files that are not in the allowed list.
     
@@ -353,6 +392,10 @@ def clean_up_old_files(folder_path: str, dirs_to_check: list):
     -------
     None
     """
+    if instrument == 'IMPv2':
+        print(' [wrn] clean_up_old_files not implemented yet for IMPv2.')
+        return None
+    
     filenames = load_filenames(save_pdf_figs=True)
     filenames_results = load_filenames(processing_mode='results', save_pdf_figs=True)
     
@@ -772,24 +815,33 @@ def process_mm(I, remove_reflection: bool, A, W):
         
     return processed, dilated_mask
 
-def load_calibration_data(parameters: dict, calibration_directory_wl: str, wavelength: str):
+def load_calibration_data(parameters: dict, measurement: dict, 
+                          calibration_directory_wl: str, wavelength: str):
+    if parameters['instrument'] == 'IMP':
+        return load_calibration_data_IMP(calibration_directory_wl, wavelength)
+    else:
+        return load_calibration_data_IMPv2(measurement)
+    
+def load_calibration_data_IMP(calibration_directory_wl: str, wavelength: str):
     """Loads the calibration data (A and W) from the corresponding files."""
     files = os.listdir(calibration_directory_wl)
     wavelength_number = wavelength.replace('nm', '')
-    
-    calib_files = [f"{wavelength_number}_A.cod", f"{wavelength_number}_W.cod"] if parameters['instrument'] == 'IMP' else [f"A.npy", f"W.npy"]
+
+    calib_files = [f"{wavelength_number}_A.cod", f"{wavelength_number}_W.cod"] 
     
     if all(f in files for f in calib_files):
-        if parameters['instrument'] == 'IMP':
-            A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_A.cod"), isRawFlag=0)
-            W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_W.cod"), isRawFlag=0)
-        else:
-            A = np.load(os.path.join(calibration_directory_wl, 'A.npy'))
-            W = np.load(os.path.join(calibration_directory_wl, 'W.npy'))
+        A = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_A.cod"), isRawFlag=0)
+        W = libmpMuelMat.read_cod_data_X3D(os.path.join(calibration_directory_wl, f"{wavelength_number}_W.cod"), isRawFlag=0)
     else:
         A, W = libmpMuelMat.calib_System_AW(calibration_directory_wl, wlen=int(wavelength_number))
     return A, W
 
+def load_calibration_data_IMPv2(measurement: dict):
+    path_folder = os.path.join(measurement['folder_name'], 'to_process')
+    A = np.load(os.path.join(path_folder, 'A.npy'))
+    W = np.load(os.path.join(path_folder, 'W.npy'))
+    return A, W
+    
 def get_angle_correction(path: str) -> int:
     """Gets the angle correction from a file if available."""
     primary_path = os.path.join(path, 'rotation_MM.txt')

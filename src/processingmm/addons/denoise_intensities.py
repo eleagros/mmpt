@@ -33,7 +33,7 @@ def denoise_intensities(parameters: dict, to_process: list) -> None:
             if folder['wavelength'].replace('nm', '') != str(wavelength):
                 continue
             
-            pathDenoised = folder['path_intensite'].replace('Intensite', 'Intensite_PDDN') if parameters['instrument'] == 'IMP' else folder['path_intensite'].replace('I', 'I_PDDN')
+            pathDenoised = folder['path_intensite'].replace('Intensite', 'Intensite_PDDN') if parameters['instrument'] == 'IMP' else folder['path_intensite'].replace('Image', 'Image_PDDN')
 
             if os.path.exists(pathDenoised):
                 folder['path_intensite'] = pathDenoised
