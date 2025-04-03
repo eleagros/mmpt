@@ -2060,7 +2060,7 @@ def _rota(theta):
     return R
 
 
-def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
+def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0, lu_chipman_backend = 'processing'):
     '''# Function to run the end-to-end processing pipeline:
 	# 1) Intensities and Calibrated Polarisation States are used to compute the Mueller Matrix
 	# 2) Masks of valid pixels are retrieved from determinant, physical criterion and intensity saturation
@@ -2162,9 +2162,14 @@ def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
     t = time.time()
 
     M, nM = compute_MM_AIW(A, I, W, idx, VerboseFlag)
-
     M11 = M[:, :, 0].squeeze()
-
+    
+    time_MM_computation = time.time() - t
+    
+    if lu_chipman_backend == 'prediction':
+        return [nM, M11], {'MM_computation': time_MM_computation}
+    
+    start_lu_chipman = time.time()
     _, Mdetmsk = compute_MM_det(nM, idx, VerboseFlag)
 
     Els, Elsmsk = compute_MM_eig_REls(nM, idx, VerboseFlag)
@@ -2202,7 +2207,7 @@ def process_MM_pipeline(A, I, W, IN, idx=-1, CamType=None, VerboseFlag=0):
 
     MMParams.update(polParams)
 
-    return MMParams
+    return MMParams, {'MM_computation': time_MM_computation, 'lu_chipman': time.time() - start_lu_chipman}
 
 
 def validate_libmpMuelMat_testDataMAT():
@@ -2819,13 +2824,8 @@ def removeReflections3D(I3D, maxThr=65530, SE=None, SErad=4):
 	# * Outputs *
 	# I3Drr: 3D stack of Intensity Components with Removed Reflections.
 	'''
-
-    Isatmsk = np.any(I3D >= maxThr,axis=-1)
-
-    if SE == None:
-        SE = _getCircStrEl(SErad) # Create a circular structuring element for Dilation
-
-    Isatmskdil = cv2.dilate(Isatmsk.astype(np.uint8), SE.astype(np.uint8)).astype(np.bool_)
+    Isatmskdil = maskReflections3D(I3D, maxThr=maxThr, SE=SE, SErad=SErad)
+    
     h2 = _getGaussWin2D(2 * SErad + 1)
     Iweight = cv2.filter2D((~Isatmskdil).astype(np.double), -1, h2)
 
@@ -2838,6 +2838,13 @@ def removeReflections3D(I3D, maxThr=65530, SE=None, SErad=4):
 
     return I3Drr, ~Isatmskdil
 
+def maskReflections3D(I3D, maxThr=65530, SE=None, SErad=4):
+    Isatmsk = np.any(I3D >= maxThr,axis=-1)
+
+    if SE == None:
+        SE = _getCircStrEl(SErad) # Create a circular structuring element for Dilation
+
+    return cv2.dilate(Isatmsk.astype(np.uint8), SE.astype(np.uint8)).astype(np.bool_)
 
 def removeReflections2D(I2D, maxThr=65530, SE=None, SErad=4):
     '''# Function to Remove Intensity-based supra-threshold specular reflections acquired with the polarimetric camera.

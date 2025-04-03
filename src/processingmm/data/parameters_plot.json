@@ -1,331 +1,66 @@
-{
+{"c": {
     "IMP": {
         "M11": {
-            "cbar": [
-                0,
-                7
-            ],
-            "cbar_hist": [
-                0,
-                7
-            ],
+            "cbar": [0, 7],
+            "cbar_hist": [0, 7],
             "cbar_step": 1,
             "cmap_name": "intensity",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    1,
-                    1
-                ]
-            ],
+            "colors": [[0, 0, 0], [1, 1, 1]],
             "formatter": "{:.0f}",
             "n_bins": 200,
             "title": "Intensity"
         },
         "MM": {
-            "cbar": [
-                -1,
-                1
-            ],
+            "cbar": [-1, 1],
             "cbar_step": 0.2,
             "cmap_name": "MM",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.1f}",
             "n_bins": 200
         },
         "azimuth": {
-            "cbar": [
-                0,
-                180
-            ],
-            "cbar_hist": [
-                0,
-                180
-            ],
+            "cbar": [0, 180],
+            "cbar_hist": [0, 180],
             "cbar_step": 30,
             "cmap_name": "azimuth",
-            "colors": [
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    0.5,
-                    0
-                ],
-                [
-                    0,
-                    0.5,
-                    0
-                ],
-                [
-                    0,
-                    1,
-                    0
-                ],
-                [
-                    0,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ]
-            ],
-            "formatter": "{:.0f}",
-            "n_bins": 12,
-            "title": "Azimuth of optical axis (°)"
+            "colors": [[0, 0, 1], [0, 0.5, 0], [0, 0.5, 0], [0, 1, 0], [0, 1, 0], [1, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 0], [0, 1, 1], [0, 1, 1], [0, 0, 1]],
+            "formatter": "{:.0f}", "n_bins": 12, "title": "Azimuth of optical axis (°)"
         },
         "azimuth_local_var": {
-            "cbar": [
-                0,
-                40
-            ],
+            "cbar": [0, 40],
             "cbar_step": 8,
             "cmap_name": "azimuth_local_var",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.0f}",
             "n_bins": 200,
             "title": "Azimuth local variability (°)"
         },
         "linR": {
-            "cbar": [
-                0,
-                32
-            ],
-            "cbar_hist": [
-                0,
-                60
-            ],
+            "cbar": [0, 32],
+            "cbar_hist": [0, 60],
             "cbar_step": 8,
             "cmap_name": "retardance",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.0f}",
             "n_bins": 200,
             "title": "Linear retardance (°)"
         },
         "totD": {
-            "cbar": [
-                0,
-                0.2
-            ],
-            "cbar_hist": [
-                0,
-                0.2
-            ],
+            "cbar": [0, 0.2],
+            "cbar_hist": [0, 0.2],
             "cbar_step": 0.05,
             "cmap_name": "diattenuation",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.2f}",
             "n_bins": 200,
             "title": "Diattenuation"
         },
         "totP": {
-            "cbar": [
-                0.6,
-                1
-            ],
-            "cbar_hist": [
-                0,
-                1
-            ],
+            "cbar": [0.6, 1],
+            "cbar_hist": [0, 1],
             "cbar_step": 0.1,
             "cmap_name": "depolarization",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.1f}",
             "n_bins": 200,
             "title": "Depolarization"
@@ -333,334 +68,205 @@
     },
     "IMPv2": {
         "M11": {
-            "cbar": [
-                0,
-                255
-            ],
-            "cbar_hist": [
-                0,
-                256
-            ],
+            "cbar": [0, 255],
+            "cbar_hist": [0, 256],
             "cbar_step": 32,
             "cmap_name": "intensity",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    1,
-                    1
-                ]
-            ],
+            "colors": [[0, 0, 0], [1, 1, 1]],
             "formatter": "{:.0f}",
             "n_bins": 200,
             "title": "Intensity"
         },
         "MM": {
-            "cbar": [
-                -1,
-                1
-            ],
+            "cbar": [-1, 1],
             "cbar_step": 0.2,
             "cmap_name": "MM",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.1f}",
             "n_bins": 200
         },
         "azimuth": {
-            "cbar": [
-                0,
-                180
-            ],
-            "cbar_hist": [
-                0,
-                180
-            ],
+            "cbar": [0, 180],
+            "cbar_hist": [0, 180],
             "cbar_step": 30,
             "cmap_name": "azimuth",
-            "colors": [
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    0.5,
-                    0
-                ],
-                [
-                    0,
-                    0.5,
-                    0
-                ],
-                [
-                    0,
-                    1,
-                    0
-                ],
-                [
-                    0,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ]
-            ],
-            "formatter": "{:.0f}",
-            "n_bins": 12,
-            "title": "Azimuth of optical axis (°)"
+            "colors": [[0, 0, 1], [0, 0.5, 0], [0, 0.5, 0], [0, 1, 0], [0, 1, 0], [1, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 0], [0, 1, 1], [0, 1, 1], [0, 0, 1]],
+            "formatter": "{:.0f}", "n_bins": 12, "title": "Azimuth of optical axis (°)"
         },
         "azimuth_local_var": {
-            "cbar": [
-                0,
-                40
-            ],
+            "cbar": [0, 32],
             "cbar_step": 8,
             "cmap_name": "azimuth_local_var",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.0f}",
             "n_bins": 200,
             "title": "Azimuth local variability (°)"
         },
         "linR": {
-            "cbar": [
-                0,
-                32
-            ],
-            "cbar_hist": [
-                0,
-                60
-            ],
+            "cbar": [0, 32],
+            "cbar_hist": [0, 60],
             "cbar_step": 8,
             "cmap_name": "retardance",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.0f}",
             "n_bins": 200,
             "title": "Linear retardance (°)"
         },
         "totD": {
-            "cbar": [
-                0,
-                0.2
-            ],
-            "cbar_hist": [
-                0,
-                0.2
-            ],
+            "cbar": [0, 0.2],
+            "cbar_hist": [0, 0.2],
             "cbar_step": 0.05,
             "cmap_name": "diattenuation",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.2f}",
             "n_bins": 200,
             "title": "Diattenuation"
         },
         "totP": {
-            "cbar": [
-                0.6,
-                1
-            ],
-            "cbar_hist": [
-                0,
-                1
-            ],
+            "cbar": [0.6, 1],
+            "cbar_hist": [0, 1],
             "cbar_step": 0.1,
             "cmap_name": "depolarization",
-            "colors": [
-                [
-                    0,
-                    0,
-                    0.5
-                ],
-                [
-                    0,
-                    0,
-                    1
-                ],
-                [
-                    0,
-                    1,
-                    1
-                ],
-                [
-                    1,
-                    1,
-                    0
-                ],
-                [
-                    1,
-                    0,
-                    0
-                ],
-                [
-                    0.5,
-                    0,
-                    0
-                ]
-            ],
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.1f}",
             "n_bins": 200,
             "title": "Depolarization"
         }
     }
-}
+},
+"torch": {
+    "IMP": {
+        "M11": {
+            "cbar": [0, 7],
+            "cbar_hist": [0, 7],
+            "cbar_step": 1,
+            "cmap_name": "intensity",
+            "colors": [[0, 0, 0], [1, 1, 1]],
+            "formatter": "{:.0f}",
+            "n_bins": 200,
+            "title": "Intensity"
+        },
+        "MM": {
+            "cbar": [-1, 1],
+            "cbar_step": 0.2,
+            "cmap_name": "MM",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.1f}",
+            "n_bins": 200
+        },
+        "azimuth": {
+            "cbar": [0, 180],
+            "cbar_hist": [0, 180],
+            "cbar_step": 30,
+            "cmap_name": "azimuth",
+            "colors": [[0, 0, 1], [0, 0.5, 0], [0, 0.5, 0], [0, 1, 0], [0, 1, 0], [1, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 0], [0, 1, 1], [0, 1, 1], [0, 0, 1]],
+            "formatter": "{:.0f}", "n_bins": 12, "title": "Azimuth of optical axis (°)"
+        },
+        "azimuth_local_var": {
+            "cbar": [0, 40],
+            "cbar_step": 8,
+            "cmap_name": "azimuth_local_var",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.0f}",
+            "n_bins": 200,
+            "title": "Azimuth local variability (°)"
+        },
+        "linR": {
+            "cbar": [0, 32],
+            "cbar_hist": [0, 60],
+            "cbar_step": 8,
+            "cmap_name": "retardance",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.0f}",
+            "n_bins": 200,
+            "title": "Linear retardance (°)"
+        },
+        "totD": {
+            "cbar": [0, 0.2],
+            "cbar_hist": [0, 0.2],
+            "cbar_step": 0.05,
+            "cmap_name": "diattenuation",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.2f}",
+            "n_bins": 200,
+            "title": "Diattenuation"
+        },
+        "totP": {
+            "cbar": [0.8, 1],
+            "cbar_hist": [0, 1],
+            "cbar_step": 0.05,
+            "cmap_name": "depolarization",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.2f}",
+            "n_bins": 200,
+            "title": "Depolarization"
+        }
+    },
+    "IMPv2": {
+        "M11": {
+            "cbar": [0, 255],
+            "cbar_hist": [0, 256],
+            "cbar_step": 32,
+            "cmap_name": "intensity",
+            "colors": [[0, 0, 0], [1, 1, 1]],
+            "formatter": "{:.0f}",
+            "n_bins": 200,
+            "title": "Intensity"
+        },
+        "MM": {
+            "cbar": [-1, 1],
+            "cbar_step": 0.2,
+            "cmap_name": "MM",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.1f}",
+            "n_bins": 200
+        },
+        "azimuth": {
+            "cbar": [0, 180],
+            "cbar_hist": [0, 180],
+            "cbar_step": 30,
+            "cmap_name": "azimuth",
+            "colors": [[0, 0, 1], [0, 0.5, 0], [0, 0.5, 0], [0, 1, 0], [0, 1, 0], [1, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 0], [0, 1, 1], [0, 1, 1], [0, 0, 1]],
+            "formatter": "{:.0f}", "n_bins": 12, "title": "Azimuth of optical axis (°)"
+        },
+        "azimuth_local_var": {
+            "cbar": [0, 32],
+            "cbar_step": 8,
+            "cmap_name": "azimuth_local_var",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.0f}",
+            "n_bins": 200,
+            "title": "Azimuth local variability (°)"
+        },
+        "linR": {
+            "cbar": [0, 32],
+            "cbar_hist": [0, 60],
+            "cbar_step": 8,
+            "cmap_name": "retardance",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.0f}",
+            "n_bins": 200,
+            "title": "Linear retardance (°)"
+        },
+        "totD": {
+            "cbar": [0, 0.2],
+            "cbar_hist": [0, 0.2],
+            "cbar_step": 0.05,
+            "cmap_name": "diattenuation",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.2f}",
+            "n_bins": 200,
+            "title": "Diattenuation"
+        },
+        "totP": {
+            "cbar": [0.8, 1],
+            "cbar_hist": [0, 1],
+            "cbar_step": 0.05,
+            "cmap_name": "depolarization",
+            "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
+            "formatter": "{:.2f}",
+            "n_bins": 200,
+            "title": "Depolarization"
+        }
+    }
+}}

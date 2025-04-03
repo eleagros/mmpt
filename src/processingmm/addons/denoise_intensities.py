@@ -6,7 +6,7 @@ from processingmm import libmpMPIdenoisePDDN
 import numpy as np
 
 
-def denoise_intensities(parameters: dict, to_process: list) -> None:
+def denoise_intensities(parameters: dict, PDDN_models: dict, to_process: list) -> None:
     """
     denoises the intensities for the given wavelengths
 
@@ -24,9 +24,7 @@ def denoise_intensities(parameters: dict, to_process: list) -> None:
     Raises
     ------
     None
-    """    
-    PDDN_models = load_PDDN_models(parameters)
-    
+    """        
     print('Denoising inference...')
     for folder in tqdm(to_process):
         for wavelength, model in PDDN_models.items():

@@ -13,7 +13,7 @@ from processingmm.utils import get_cmap, load_plot_parameters, load_combined_plo
 
 
 def visualize_MM(path_save: str, MM: dict = None, MM_path: str = None, processing_mode: str = "default", save_pdf_figs: str = False,
-                 instrument: str = "IMP"):
+                 instrument: str = "IMP", mm_processing: str = "torch"):
     """
     Visualizes and generates plots based on the provided parameters and MM (measurement) data.
 
@@ -42,12 +42,12 @@ def visualize_MM(path_save: str, MM: dict = None, MM_path: str = None, processin
     os.makedirs(path_save, exist_ok=True)
     
     if processing_mode == 'full':
-        parameters_histograms(MM, path_save, save_pdf_figs, instrument)
-        show_MM(MM['nM'], path_save, save_pdf_figs, instrument)
-        MM_histogram(MM, path_save, save_pdf_figs, instrument)
+        parameters_histograms(MM, path_save, save_pdf_figs = save_pdf_figs, instrument = instrument, mm_processing = mm_processing)
+        show_MM(MM['nM'], path_save, save_pdf_figs = save_pdf_figs, instrument = instrument, mm_processing = mm_processing)
+        MM_histogram(MM, path_save, save_pdf_figs = save_pdf_figs)
         
     if processing_mode != 'no_viz':
-        generate_plots(MM, path_save, save_pdf_figs, instrument)
+        generate_plots(MM, path_save, save_pdf_figs = save_pdf_figs, instrument = instrument, mm_processing = mm_processing)
         if processing_mode == 'full':
             if instrument == 'IMP':
                 save_batch(path_save)
@@ -61,7 +61,7 @@ def visualize_MM(path_save: str, MM: dict = None, MM_path: str = None, processin
 ###################################################################################################################
 ###################################################################################################################
 
-def parameters_histograms(MM: dict, path_save: str, max_ = False, save_pdf_figs = False, instrument: str = "IMP"):
+def parameters_histograms(MM: dict, path_save: str, max_ = False, save_pdf_figs = False, instrument: str = "IMP", mm_processing: str = "torch"):
     """
     Generate histograms for the four parameters extracted from Mueller Matrices.
 
@@ -77,7 +77,7 @@ def parameters_histograms(MM: dict, path_save: str, max_ = False, save_pdf_figs 
         If True, also saves the figure as a PDF (default: False).
     """
     parameters = ['azimuth', 'totP', 'totD', 'linR']
-    parameters_map = {key:  load_plot_parameters(instrument)[key] for key in parameters if key in  load_plot_parameters(instrument)}
+    parameters_map = {key: load_plot_parameters(instrument, mm_processing)[key] for key in parameters}
     
     fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(15, 11))
 
@@ -145,7 +145,7 @@ def parameters_histograms(MM: dict, path_save: str, max_ = False, save_pdf_figs 
 ###################################################################################################################
 ###################################################################################################################
 
-def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str = "IMP"):
+def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str = "IMP", mm_processing: str = "torch"):
     """
     Generates and saves plots for polarimetric parameter maps.
 
@@ -166,11 +166,12 @@ def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str =
         param_name = param['title'].replace(' (\u00B0)', '').lower()
         path_save = os.path.join(folder, f"{param_name}.png".capitalize())
         
-        cmap, norm = get_cmap(key, instrument)
-        plot_polarimetric_parameter(MM[key], cmap, norm, key, param['title'], path_save, folder, save_pdf_figs, instrument)
+        cmap, norm = get_cmap(key, instrument, mm_processing=mm_processing)
+        plot_polarimetric_parameter(MM[key], cmap, norm, key, param['title'], path_save, folder, save_pdf_figs, instrument, mm_processing)
 
 
-def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, title:str, path_save: str, folder: str, save_pdf_figs: bool = False, instrument: str = "IMP"):
+def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, title:str, path_save: str, folder: str, 
+                                save_pdf_figs: bool = False, instrument: str = "IMP", mm_processing: str = "torch"):
     """
     Displays and saves an individual 2D polarimetric parameter map.
 
@@ -195,7 +196,7 @@ def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, tit
         X2D = np.nan_to_num(X2D)
 
     # Load plot parameters
-    plot_parameters = load_plot_parameters(instrument)[parameter]
+    plot_parameters = load_plot_parameters(instrument, mm_processing)[parameter]
     [cbar_min, cbar_max], cbar_step = plot_parameters['cbar'], plot_parameters['cbar_step']
     formatter = plot_parameters['formatter']
 
@@ -223,8 +224,7 @@ def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, tit
 
     if parameter == 'M11':
         ax.text(500, -10, "x10\u2074", fontsize=40, fontweight="bold")
-
-
+        
     # Set title
     title = title
     plt.title(title, fontsize=35, fontweight="bold", pad=14)
@@ -244,7 +244,7 @@ def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, tit
 ###################################################################################################################
 
 
-def show_MM(X3D, folder, save_pdf_figs=False, instrument: str = "IMP"):
+def show_MM(X3D, folder, save_pdf_figs=False, instrument: str = "IMP", mm_processing: str = "torch"):
     """
     Display the 16 components (e.g., of Mueller Matrix) in a 4x4 montage.
 
@@ -269,7 +269,7 @@ def show_MM(X3D, folder, save_pdf_figs=False, instrument: str = "IMP"):
         [5*X3D[:, :, 12], 5*X3D[:, :, 13], 5*X3D[:, :, 14], rescale_MM(X3D[:, :, 15])]
     ])
     
-    cmap, norm = get_cmap(parameter='MM')
+    cmap, norm = get_cmap(parameter='MM', instrument = instrument, mm_processing = mm_processing)
     cbar_min, cbar_max, cbar_step = -1, 1, 0.5
     X_montage = np.clip(X_montage, cbar_min, cbar_max)
     
@@ -356,7 +356,7 @@ def rescale_MM(X2D: np.ndarray):
     return X2D if np.max(X2D) == np.min(X2D) == 1 else X2D / np.max(np.abs(X2D))
 
 
-def MM_histogram(MM: dict, folder: str, save_pdf_figs: bool = False, instrument: str = "IMP"):
+def MM_histogram(MM: dict, folder: str, save_pdf_figs: bool = False):
     """
     Create histograms for the Mueller matrices components.
 
