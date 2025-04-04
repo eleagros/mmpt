@@ -103,8 +103,8 @@ ENV/
 
 temp_processing/
 
-src/processingmm/PDDN_model
-src/processingmm/deprecated
+src/mmpt/PDDN_model
+src/mmpt/deprecated
 third_party/polar*
 tmp_gif/*
 tests/log*
@@ -118,5 +118,5 @@ tests/data/2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/600nm/600_Intensite_PDDN.co
 tests/data/2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/600nm/600_Intensite_aligned.cod
 tests/data/2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/600nm/600_Intensite_PDDN_aligned.cod
 tests/data/2022-11-02_T_HORAO-59-AF_FR_S1_1/MMProcessing.txt
-src/processingmm/addons/polarpred
-src/processingmm/addons/luchipmanpred
+src/mmpt/addons/polarpred
+src/mmpt/addons/luchipmanpred

@@ -1,6 +1,6 @@
 import argparse
 import os
-from processingmm.addons import align_wavelengths
+from mmpt.addons import align_wavelengths
 
 # Set up argument parsing
 parser = argparse.ArgumentParser(description="Align wavelengths for the given database path.")

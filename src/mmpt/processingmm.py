@@ -2,9 +2,12 @@ import os
 
 import json
 
+import numpy as np
 import traceback
 from tqdm import tqdm
 import time
+
+import matplotlib.pyplot as plt
 
 import torch
 
@@ -15,11 +18,11 @@ import traceback
 from packaging.version import Version
 from omegaconf import OmegaConf
 
-from processingmm import utils, libmpMuelMat, libmpMPIdenoisePDDN
-from processingmm.addons import denoise_intensities, align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
-from processingmm.addons.polarpred.mm.models import init_mm_model
+from mmpt import utils, libmpMuelMat, libmpMPIdenoisePDDN
+from mmpt.addons import denoise_intensities, align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
+from mmpt.addons.polarpred.mm.models import init_mm_model
 
-import processingmm
+import mmpt
 
 class MuellerMatrixProcessor:
     def __init__(self, data_source, wavelengths = [], input_dirs = '', calib_dir = '', visualization_preset='default', PDDN_mode='both', 
@@ -43,6 +46,7 @@ class MuellerMatrixProcessor:
         self.mm_computation_backend = mm_computation_backend
         self.lu_chipman_backend = lu_chipman_backend
         self.folder_eu_time = folder_eu_time
+        self.test_mode = False
         
         self.validate_inputs()
         self.prepare_parameters()
@@ -109,7 +113,7 @@ class MuellerMatrixProcessor:
             raise ValueError('processing_mode must be "full", "default", or "no_viz".')
         
         if self.PDDN_models_path is None:
-            self.PDDN_models_path = os.path.join(processingmm.__file__.split('__init__')[0], 'PDDN_model')
+            self.PDDN_models_path = os.path.join(mmpt.__file__.split('__init__')[0], 'PDDN_model')
         
         if self.PDDN_mode in {'pddn', 'both'}:
             try:
@@ -148,22 +152,30 @@ class MuellerMatrixProcessor:
         """Returns the processing parameters as a dictionary."""
         return {
             'data_source': self.data_source,
+            'instrument': self.instrument,
+            
             'input_dirs': self.input_dirs,
             'calib_dir': self.calib_dir,
+            
+            
             'wavelengths': self.wavelengths,
-            'visualization_preset': self.visualization_preset,
+            'align_wls': self.align_wls,
+            
             'PDDN': self.PDDN_mode,
             'PDDN_models_path': self.PDDN_models_path,
-            'force_reprocess': self.force_reprocess,
-            'workflow_mode': self.workflow_mode,
-            'time_mode': True,
-            'save_pdf_figs': self.save_pdf_figs,
-            'align_wls': self.align_wls,
-            'remove_reflection': self.remove_reflection,
-            'instrument': self.instrument,
             'denoise_patch': self.denoise_patch,
-            'mm_processing': self.mm_computation_backend,
-            'lu_chipman_processing': self.lu_chipman_backend,
+            
+            'visualization_preset': self.visualization_preset,
+            'workflow_mode': self.workflow_mode,
+            'save_pdf_figs': self.save_pdf_figs,
+            
+            'force_reprocess': self.force_reprocess,
+            'time_mode': True,
+            
+            'remove_reflection': self.remove_reflection,
+            
+            'mm_computation_backend': self.mm_computation_backend,
+            'lu_chipman_backend': self.lu_chipman_backend,
             'folder_eu_time': self.folder_eu_time,
         }
 
@@ -177,7 +189,7 @@ class MuellerMatrixProcessor:
             if os.path.isfile(path_model):
                 PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(path_model)
                     
-        assert len(PDDN_models) > 0, ("Problem when loading the PDDN models. Do they exist? They should be located in ./src/processingmm/PDDN_model/")
+        assert len(PDDN_models) > 0, ("Problem when loading the PDDN models. Do they exist? They should be located in ./src/mmpt/PDDN_model/")
         print(' [info] Loading PDDN models done.')
 
         self.PDDN_models = PDDN_models
@@ -243,7 +255,7 @@ class MuellerMatrixProcessor:
             print('processing without PDDN done.')
         
         if self.PDDN_mode in {'pddn', 'both'}:
-            assert Version(processingmm.__version__) >= Version('1.1'), ("Please update the processingmm package to version 1.1 or higher to use PDDN.")
+            assert Version(mmpt.__version__) >= Version('1.1'), ("Please update the mmpt package to version 1.1 or higher to use PDDN.")
                         
             print('Processing with PDDN...')
             times, time_complete = self.batch_process(PDDN = True)
@@ -306,6 +318,16 @@ class MuellerMatrixProcessor:
             
             measurement, time_data_loading = self.load_input_data(folder)
             
+            # regorganize the output folder, for the test mode
+            if self.test_mode:
+                path_save_test_mode = measurement['path_save'].replace(f'{os.sep}polarimetry{os.sep}', f'{os.sep}test_backends{os.sep}')
+                os.makedirs(os.sep.join(path_save_test_mode.split(os.sep)[:-1]), exist_ok = True)
+                os.makedirs(path_save_test_mode, exist_ok = True)
+                path_save_test_mode = os.path.join(path_save_test_mode, f"{self.mm_computation_backend}_{self.lu_chipman_backend}")
+                os.makedirs(path_save_test_mode, exist_ok = True)
+                print(' [info] Test mode: saving to', path_save_test_mode)
+                measurement['path_save'] = path_save_test_mode
+            
             # Step 2: Compute the MM
             # only required inputs (I, A, W)
             measurement['MM'], times_compute_mm = compute_and_curate_mm(measurement['I'], measurement['A'], measurement['W'],
@@ -349,7 +371,7 @@ class MuellerMatrixProcessor:
                 'wavelenght': folder['wavelength'],
                 'parameters': self.get_parameters(),
                 'libmpMuelMat': libmpMuelMat.__version__,
-                'processingmm': processingmm.__version__
+                'mmpt': mmpt.__version__
             }
 
             try:
@@ -480,6 +502,26 @@ class MuellerMatrixProcessor:
         
         return preds, input, times
     
+    def compare_backends(self, mm_computation_backends, lu_chipman_backends):
+        """Compare the backends for the MM computation and lu-chipman prediction."""
+        import itertools
+        combinations = list(itertools.product(mm_computation_backends, lu_chipman_backends))
+
+        self.test_mode = True
+        self.force_reprocess = True
+        self.workflow_mode = 'no_viz'
+        self.load_mm_model()
+        self.load_lu_chipman_prediction_model()
+        
+        for combo in combinations:
+            self.mm_computation_backend = combo[0]
+            self.lu_chipman_backend = combo[1]
+            print(f"\nmm_computation_backend: {self.mm_computation_backend}, lu_chipman_backend: {self.lu_chipman_backend}")
+            self.batch_process_master()
+            print(f"Done.")
+            
+        plot_polarimetry.visualize_comparison(self, mm_computation_backends, lu_chipman_backends)
+        
 def compute_and_curate_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'processing', 
                           mm_model = None, lu_chipman_model = None, remove_reflection = False, path_save = None,
                           instrument = 'IMP', workflow_mode = 'default', angle_correction = 0):

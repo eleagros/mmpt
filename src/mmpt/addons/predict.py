@@ -5,11 +5,11 @@ from omegaconf import OmegaConf
 import time
 from tqdm import tqdm
 
-from processingmm import utils
-from processingmm import libmpMuelMat
-from processingmm.addons.polarpred.mm.models import init_mm_model
-from processingmm.addons.polarpred.multi_loss import reduce_htgm
-from processingmm.addons.polarpred import save_results
+from mmpt import utils
+from mmpt import libmpMuelMat
+from mmpt.addons.polarpred.mm.models import init_mm_model
+from mmpt.addons.polarpred.multi_loss import reduce_htgm
+from mmpt.addons.polarpred import save_results
 
 
 def load_models(cfg):
@@ -87,7 +87,7 @@ def load_model(mm_model, cfg):
 
     n_channels = mm_model.ochs if cfg.data_subfolder.__contains__('raw') else len(cfg.feature_keys)
     if cfg.model == 'unet':
-        from processingmm.addons.polarpred.segment_models.unet import UNet
+        from mmpt.addons.polarpred.segment_models.unet import UNet
         model = UNet(n_channels=n_channels, n_classes=cfg.class_num+cfg.bg_opt, shallow=cfg.shallow)
     else:
         raise Exception('Model %s not recognized' % cfg.model)

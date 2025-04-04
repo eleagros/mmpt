@@ -15,8 +15,8 @@ from skimage.restoration import unwrap_phase
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import binary_dilation
 
-from processingmm.libmpMuelMat import _isNumStable
-from processingmm import utils
+from mmpt.libmpMuelMat import _isNumStable
+from mmpt import utils
 
 
 def batch_visualization(parameters, run_all = True):

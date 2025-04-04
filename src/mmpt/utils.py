@@ -12,7 +12,7 @@ import re
 import matplotlib.colors as clr
 
 
-from processingmm import libmpMuelMat
+from mmpt import libmpMuelMat
 
 ####################################################################################################################################
 ####################################################################################################################################
@@ -1109,7 +1109,7 @@ def load_model(mm_model, cfg):
 
     n_channels = mm_model.ochs if cfg.data_subfolder.__contains__('raw') else len(cfg.feature_keys)
     if cfg.model == 'unet':
-        from processingmm.addons.polarpred.segment_models.unet import UNet
+        from mmpt.addons.polarpred.segment_models.unet import UNet
         model = UNet(n_channels=n_channels, n_classes=cfg.class_num+cfg.bg_opt, shallow=cfg.shallow)
     else:
         raise Exception('Model %s not recognized' % cfg.model)
@@ -1123,7 +1123,7 @@ def load_model(mm_model, cfg):
     model.load_state_dict(state_dict) if cfg.model != 'resnet' else model.model.load_state_dict(state_dict)    
     return model, model_path
 
-from processingmm.addons.polarpred.multi_loss import reduce_htgm
+from mmpt.addons.polarpred.multi_loss import reduce_htgm
 
 def predict(model, input):
     preds = model(input)
@@ -1254,36 +1254,36 @@ def load_parameter_names(processing_mode):
     return data[processing_mode]
 
 def getCongfigPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, 'config')
 
 def get_data_folder_path():
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
  
 def getSupergluePath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, '..', '..', 'third_party', 'superglue')
 
 def getPredictionPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, '..', '..', 'third_party', 'polarfeat_mar25')
 
 def getPolarPredPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, 'addons', 'polarpred')
 
 def getLuChipmanPredPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, 'addons', 'luchipmanpred')
 
 def getPredModelsPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, 'addons', 'polarpred', 'ckpts')
 
 def test_pddn_models_existence(PDDN_models_path, instrument = 'IMP'):

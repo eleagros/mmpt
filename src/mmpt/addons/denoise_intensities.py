@@ -1,8 +1,8 @@
 import os
 from tqdm import tqdm
-from processingmm import libmpMuelMat
-from processingmm.utils import get_intensity
-from processingmm import libmpMPIdenoisePDDN
+from mmpt import libmpMuelMat
+from mmpt.utils import get_intensity
+from mmpt import libmpMPIdenoisePDDN
 import numpy as np
 
 
@@ -80,7 +80,7 @@ def load_PDDN_models(parameters: dict) -> dict:
         if os.path.isfile(path_model):
             PDDN_models[wavelength] = libmpMPIdenoisePDDN.MPI_PDDN(path_model)
                 
-    assert len(PDDN_models) > 0, ("Problem when loading the PDDN models. Do they exist? They should be located in ./src/processingmm/PDDN_model/")
+    assert len(PDDN_models) > 0, ("Problem when loading the PDDN models. Do they exist? They should be located in ./src/mmpt/PDDN_model/")
     print('Loading PDDN models done.\n')
     print()
 

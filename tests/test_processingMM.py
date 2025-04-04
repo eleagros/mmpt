@@ -1,14 +1,14 @@
 import unittest
 import subprocess
-import processingmm
+import mmpt
 import os
 import sys
 
-class TestProcessingMM(unittest.TestCase):
+class TestMMPT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up the test environment, including log file path."""
-        base_path = os.path.dirname(os.path.abspath(processingmm.__file__))
+        base_path = os.path.dirname(os.path.abspath(mmpt.__file__))
         cls.path_test_folder = os.path.join(base_path, "..", "..", "tests")
         cls.log_file = os.path.join(cls.path_test_folder, "logfile.log")
 
@@ -20,7 +20,7 @@ class TestProcessingMM(unittest.TestCase):
 
     def test_dependencies(self):
         """Test if dependencies are listed correctly."""
-        from processingmm import libmpMuelMat
+        from mmpt import libmpMuelMat
         libmpMuelMat.list_Dependencies()
         
     def run_subprocess(self, command):

@@ -1,6 +1,6 @@
 import argparse
 import os
-from processingmm.addons import plot_polarimetry
+from mmpt.addons import plot_polarimetry
 
 # Set up argument parsing
 parser = argparse.ArgumentParser(description="Align wavelengths for the given database path.")

@@ -6,8 +6,8 @@ MMP is a toolbox allowing to process automatically Mueller Matrices and plotting
 
 Download the repository using:
 ```sh
-git clone https://github.com/eleagros/processingMM.git
-cd processingmm
+git clone https://github.com/eleagros/mmpt.git
+cd mmpt
 ```
 
 You can install the processingmm package by using a conda environement:
@@ -70,16 +70,16 @@ It is rather straightforward in Unix based OS, but can be more complicated in Wi
 
 	* Compiling the C source code into the shared library 'libmpMuelMat.so'
 
-		open (with a text editor) and check first instructions (commented lines) in ./src/processingmm/C-libs/compileMeFirst.sh
+		open (with a text editor) and check first instructions (commented lines) in ./src/mmpt/C-libs/compileMeFirst.sh
 
 		[LINUX, MAC] after possible adjustments run in the terminal:
 
-		$ cd ./src/processingmm/C-libs/C-libs
+		$ cd ./src/mmpt/C-libs/C-libs
 		$ bash compileMeFirst.sh
 
 		[WINDOWS] after editing the *adjustments* (e.g. using notepad) launch the MINGW64 environment and run in the terminal:
 
-		$ cd ./src/processingmm/C-libs/C-libs
+		$ cd ./src/mmpt/C-libs/C-libs
 		$ bash compileMeFirst.sh 
 		
         [WINDOWS] once succesfully compiled, *add* the MINGW64 shared library folder to the PATHS of the System:
@@ -91,7 +91,7 @@ It is rather straightforward in Unix based OS, but can be more complicated in Wi
 
     [Configuration]
 
-	[WINDOWS ONLY]: edit (notepad) the python library '.src/processingmm/libmpMuelMat.py' lines: (94,95) to correctly reference the compiled shared library (.dll)
+	[WINDOWS ONLY]: edit (notepad) the python library '.src/mmpt/libmpMuelMat.py' lines: (94,95) to correctly reference the compiled shared library (.dll)
 	
 
 	* Loading the library in python (after launching e.g. ipython):
@@ -114,11 +114,11 @@ It is rather straightforward in Unix based OS, but can be more complicated in Wi
 
 You can verify the installation without (and with) denoising by running the following command:
 ```sh
-python ./tests/test_processingMM.py
+python ./tests/test_mmpt.py
 ```
 
 ```sh
-python ./tests/test_processingMM_PDDN.py
+python ./tests/test_mmpt_PDDN.py
 ```
 The output, if the installation is successful should be something like:
 ```sh
@@ -167,7 +167,7 @@ You need to set several parameters:
 
 **`calib_directory`**: the path to the folder containing the calibration folders.
 
-**`parameter_set`**: the set of parameters to be used for the line visualisation (file accessible at `./src/processingmm/data/parameters_visualisations.json`).
+**`parameter_set`**: the set of parameters to be used for the line visualisation (file accessible at `./src/mmpt/data/parameters_visualisations.json`).
 
 **`run_all`**: boolean indicating if the pipeline should be ran on all the folders (even the ones already processed).
 

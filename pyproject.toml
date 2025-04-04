@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 # https://peps.python.org/pep-0621/
 [project]
-name = "processingmm"
+name = "mmpt"
 description = "Automatic Mueller Matrix processing and plotting of the different polariemtric parameters."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -14,11 +14,11 @@ maintainers = [
     { name = "Elea Gros", email = "elearomy.gros@unibe.ch" },
 ]
 dynamic = ["version"]
-dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "ema_pytorch", "imageio", "Pillow", "simpleITK", "omegaconf", "scikit-learn"]
-# dependencies for machine learning "tensorboard", "torch", "torchsummary", "torchvision"
+dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "imageio", "Pillow", "simpleITK", "omegaconf", "scikit-learn"]
+# dependencies for machine learning "tensorboard", "torch", "torchsummary", "torchvision", "ema_pytorch",
 
 [tool.hatch.version]
-path = "src/processingmm/__init__.py"
+path = "src/mmpt/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 only-include = ["src"]
@@ -30,5 +30,5 @@ sources = ["src"]
 test = ["pytest>=6.0"]
 
 [project.urls]
-homepage = "https://github.com/eleagros/processingMM"
-repository = "https://github.com/eleagros/processingMM"
+homepage = "https://github.com/eleagros/mmpt"
+repository = "https://github.com/eleagros/mmpt"
