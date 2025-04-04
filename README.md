@@ -1,4 +1,4 @@
-# Mueller Matrix Processing Toolbox (MMP)
+# Mueller Matrix Processing Toolbox (mmpt)
 
 MMP is a toolbox allowing to process automatically Mueller Matrices and plotting the different polarimetric parameters.
 
