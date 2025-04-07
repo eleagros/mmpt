@@ -1,15 +1,15 @@
 import unittest
 import subprocess
-import processingmm
+import mmpt
 import os
 import importlib.util
 import torch
 
-class TestProcessingMM(unittest.TestCase):
+class TestMMPT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up the test environment, including log file path."""
-        base_path = os.path.dirname(os.path.abspath(processingmm.__file__))
+        base_path = os.path.dirname(os.path.abspath(mmpt.__file__))
         cls.path_test_folder = os.path.join(base_path, "..", "..", "tests")
         cls.log_file = os.path.join(cls.path_test_folder, "logfile.log")
 
@@ -30,12 +30,12 @@ class TestProcessingMM(unittest.TestCase):
 
     def test_dependencies(self):
         """Test if dependencies are listed correctly."""
-        from processingmm import libmpMuelMat
+        from mmpt import libmpMuelMat
         libmpMuelMat.list_Dependencies()
 
     def test_pddn_models_existence(self):
         """Check if required PDDN models exist."""
-        path_models = f"{processingmm.__file__.split('__init__')[0]}PDDN_model/"
+        path_models = f"{mmpt.__file__.split('__init__')[0]}PDDN_model/"
         models = ['PDDN_model_550_Fresh_HB.pt', 'PDDN_model_600_Fresh_HB.pt']
         
         missing_models = []
@@ -53,7 +53,11 @@ class TestProcessingMM(unittest.TestCase):
 
     def test_processing_mm_with_pddn(self):
         """Test running process_MM.py with 'pddn' argument."""
-        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'pddn'])
+        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'pddn', 'IMP'])
+        
+    # def test_processing_mm_with_pddn(self):
+        # """Test running process_MM.py with 'pddn' argument."""
+        # self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'pddn', 'IMPv2'])
 
 if __name__ == '__main__':
     unittest.main()

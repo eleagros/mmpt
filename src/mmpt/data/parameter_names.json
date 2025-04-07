@@ -14,7 +14,7 @@
     ],
     
     "no_viz": [
-        "M11", "M11_normalized", "Msk", "totD", "linR", "azimuth", "totP", "azimuth_curation",
+        "M11", "M11_normalized", "Msk", "totD", "linR", "azimuth", "azimuth_local_var", "totP", "azimuth_curation",
         "dilated_mask"
     ]
 }

@@ -1,14 +1,14 @@
 import unittest
 import subprocess
-import processingmm
+import mmpt
 import os
 import sys
 
-class TestProcessingMM(unittest.TestCase):
+class TestMMPT(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up the test environment, including log file path."""
-        base_path = os.path.dirname(os.path.abspath(processingmm.__file__))
+        base_path = os.path.dirname(os.path.abspath(mmpt.__file__))
         cls.path_test_folder = os.path.join(base_path, "..", "..", "tests")
         cls.log_file = os.path.join(cls.path_test_folder, "logfile.log")
 
@@ -20,7 +20,7 @@ class TestProcessingMM(unittest.TestCase):
 
     def test_dependencies(self):
         """Test if dependencies are listed correctly."""
-        from processingmm import libmpMuelMat
+        from mmpt import libmpMuelMat
         libmpMuelMat.list_Dependencies()
         
     def run_subprocess(self, command):
@@ -36,7 +36,11 @@ class TestProcessingMM(unittest.TestCase):
 
     def test_processing_mm_without_pddn(self):
         """Test running process_MM.py with 'no' argument."""
-        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'no'])
+        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'no', 'IMP'])
+        
+    def test_processing_mm_impv2(self):
+        """Test running process_MM.py with 'no' argument."""
+        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'no', 'IMPv2'])
         
 if __name__ == '__main__':
     unittest.main()

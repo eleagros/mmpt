@@ -1,5 +1,5 @@
 import argparse
-from processingmm import processingmm
+from mmpt import mmpt
 import os
 
 # Set up argument parsing
@@ -39,7 +39,7 @@ print(f"Run all: {args.run_all}")
 print(f"Process NPP: {args.process_NPP}")
 
 # Get parameters
-parameters = processingmm.get_parameters(
+parameters = mmpt.get_parameters(
     directories=[args.directory], 
     calib_directory=args.calib, 
     wavelengths=args.wavelengths, 
@@ -52,4 +52,4 @@ parameters = processingmm.get_parameters(
 )
 
 # Run batch processing
-processingmm.batch_process_master(parameters)
+mmpt.batch_process_master(parameters)

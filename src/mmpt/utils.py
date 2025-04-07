@@ -11,7 +11,8 @@ import re
 
 import matplotlib.colors as clr
 
-from processingmm import libmpMuelMat
+
+from mmpt import libmpMuelMat
 
 ####################################################################################################################################
 ####################################################################################################################################
@@ -37,7 +38,7 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
     wl : list
         List of available wavelengths.
     """
-    directories = parameters["directories"]
+    directories = parameters["input_dirs"]
     data_folders, _ = get_all_folders(directories)    
     
     if parameters['instrument'] == 'IMP':
@@ -53,7 +54,7 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
     to_process, processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN)
     folder_data = create_folder_dict(parameters, data_folders, to_process, processed, data_folder_nm, all_data_paths, wl)
     
-    if parameters['run_all']:
+    if parameters['force_reprocess']:
         to_process = folder_data
     else:
         to_process = [f for f in folder_data if f["to_process"]]
@@ -178,9 +179,9 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
     return to_process_dict, processed_dict, data_presence, all_data_paths, wavelengths
 
 def process_condition(parameters: dict, pol_path: str, path: str, wl: str, polarimetry_path: str, processed: list, to_process: list):
-    condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["processing_mode"], parameters["save_pdf_figs"])
+    condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["workflow_mode"], parameters["save_pdf_figs"])
     processed.append(condition_processed)
-    if parameters["run_all"]:
+    if parameters["force_reprocess"]:
         to_process.append(True)
     else:
         to_process.append(not condition_processed)
@@ -473,7 +474,7 @@ def get_calibration_dates(parameters: dict):
     list of datetime
         A list containing the dates of the calibration folders.
     """
-    calib_directory = parameters['calib_directory']
+    calib_directory = parameters['calib_dir']
     
     calib_directory_dates = os.listdir(calib_directory)
     wavelengths = parameters['wavelengths']
@@ -482,6 +483,7 @@ def get_calibration_dates(parameters: dict):
         c for c in calib_directory_dates
         if any(os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.mat"))
                or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.cod" if parameters['instrument'] == 'IMP' else f"W.npy"))
+               or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_B0.cod" if parameters['instrument'] == 'IMP' else f"W.npy"))
                for wl in wavelengths)
     ]
 
@@ -517,7 +519,7 @@ def get_calibration_directory(parameters:dict, calib_directory_dates_num: list, 
     str
         Path to the calibration directory with the closest date to the folder.
     """
-    calib_directory = parameters['calib_directory']
+    calib_directory = parameters['calib_dir']
     
     # Get the date of the measurement folder
     date_measurement = folder_eu_time.get(path.split(os.sep)[-1], get_date_measurement(path, idx))
@@ -803,18 +805,40 @@ def select_region(shape: tuple, azimuth: np.ndarray, idx: int, idy: int) -> np.n
 
     return azimuth[min_x:max_x, min_y:max_y]
 
-def process_mm(I, remove_reflection: bool, A, W):
+def process_mm(I, remove_reflection: bool, A, W, lu_chipman_backend, lu_chipman_model):
     """Processes the Mueller matrix, removing reflections if necessary."""
-    I = np.nan_to_num(I)
-    I_ref, dilated_mask = libmpMuelMat.removeReflections3D(I)
-        
+    times_processing = {}
+    
+    I = np.nan_to_num(I, nan=0.0).astype(np.float64)
+    
     if remove_reflection:
-        processed = libmpMuelMat.process_MM_pipeline(A, I_ref, W, dilated_mask, CamType = 'IMPv2')
-    else:
-        processed = libmpMuelMat.process_MM_pipeline(A, I, W, I, CamType = 'IMPv2')
+        start = time.time()
+        I_ref, dilated_mask = libmpMuelMat.removeReflections3D(I)
+        times_processing['remove_reflection'] = time.time() - start
         
-    return processed, dilated_mask
-
+        processed, times = libmpMuelMat.process_MM_pipeline(A, I_ref, W, dilated_mask, lu_chipman_backend = lu_chipman_backend)
+    else:
+        start = time.time()
+        dilated_mask = libmpMuelMat.maskReflections3D(I)
+        times_processing['remove_reflection'] = time.time() - start
+        
+        processed, times = libmpMuelMat.process_MM_pipeline(A, I, W, I, lu_chipman_backend = lu_chipman_backend)
+        
+    for key, value in times.items():
+        times_processing[key] = value
+        
+    start = time.time()
+    print(lu_chipman_backend)
+    if lu_chipman_backend == 'prediction':
+        MM = predict_lu_chipman(processed[0], lu_chipman_model)
+        MM['nM'] = processed[0]
+        MM['M11'] = processed[1]
+        processed = MM
+        times_processing['lu_chipman'] = time.time() - start
+    
+    return processed, dilated_mask, times_processing
+        
+        
 def load_calibration_data(parameters: dict, measurement: dict, 
                           calibration_directory_wl: str, wavelength: str):
     if parameters['instrument'] == 'IMP':
@@ -868,6 +892,19 @@ def save_file_as_npz(variable: dict, path: str):
         the path in which the MM should be saved
     """
     np.savez(path, **variable)
+    
+def save_file_as_npy(variable: dict, path: str):
+    """
+    save_file_as_npy allows to store a Mueller Matrix as a numpy file
+
+    Parameters
+    ----------
+    variable : dict
+        the MM to save (should contain ['Intensity', 'M11', 'Msk', 'totD', 'linR', 'azimuth', 'totP'] as keys)
+    path : str
+        the path in which the MM should be saved
+    """
+    np.save(path, variable)
                   
 
 def load_npz_file(path: str) -> dict:
@@ -894,7 +931,7 @@ def load_npz_file(path: str) -> dict:
 ####################################################################################################################################
 
 
-def get_cmap(parameter: str, instrument: str = 'IMP'):
+def get_cmap(parameter: str, instrument: str = 'IMP', mm_processing: str = 'torch'):
     """
     master function to get the cmap for plot of a polarimetric parameter
 
@@ -911,7 +948,7 @@ def get_cmap(parameter: str, instrument: str = 'IMP'):
         the nromalized cmap for the azimuth plot
     """
     # load the parameters used to generate the colormap
-    parameters_plot = load_plot_parameters(instrument)[parameter]
+    parameters_plot = load_plot_parameters(instrument, mm_processing)[parameter]
     colors = parameters_plot['colors']
     n_bins = parameters_plot['n_bins']
     cmap_name = parameters_plot['cmap_name']
@@ -922,6 +959,182 @@ def get_cmap(parameter: str, instrument: str = 'IMP'):
     norm = clr.Normalize(vmin, vmax)
     
     return cmap, norm
+
+
+####################################################################################################################################
+####################################################################################################################################
+################################################ X. Preprocessing torch MM #########################################################
+####################################################################################################################################
+####################################################################################################################################
+
+import time
+import torch
+
+def preprocess_intensities(parameters, mm_model, times, sample = None, predict = False, amat = None, wmat = None, frame = None, 
+                           lu_chipman_backend = 'prediction', lu_chipman_model = None, path_intensite = None):
+    start_total = time.time()
+
+    processing_mode = 'prediction' if frame is None else 'processing'
+    
+    if predict:
+        if path_intensite is None or '.cod' in path_intensite:
+            intensity = libmpMuelMat.read_cod_data_X3D(os.path.join(sample, 'raw_data/550_Intensite.cod'), isRawFlag=1)
+            bruit = libmpMuelMat.read_cod_data_X3D(os.path.join(sample, 'raw_data/550_Bruit.cod'), isRawFlag=1)
+            frame = intensity - bruit
+        else:
+            frame = np.load(path_intensite, allow_pickle=True)[::2,::2]
+    else:
+        assert frame is not None, "frame should be provided if predict is False"
+    
+    if processing_mode == 'prediction':
+        times['load_cod'].append(time.time() - start_total)
+    
+    start = time.time()        
+    if predict:
+        if path_intensite is None or '.cod' in path_intensite:
+            path_calib_folder = get_calib_folder(parameters, sample)
+            wl = 550
+            amat = libmpMuelMat.read_cod_data_X3D(os.path.join(path_calib_folder, str(wl) + 'nm', str(wl) + '_A.cod'))
+            wmat = libmpMuelMat.read_cod_data_X3D(os.path.join(path_calib_folder, str(wl) + 'nm', str(wl) + '_W.cod'))
+        else:
+            amat = np.load(os.path.join((os.sep).join(path_intensite.split(os.sep)[:-1]), 'A.npy'))[::2,::2]
+            wmat = np.load(os.path.join((os.sep).join(path_intensite.split(os.sep)[:-1]), 'W.npy'))[::2,::2]
+    else:
+        assert amat is not None and wmat is not None, "amat and wmat should be provided if predict is False"
+        
+    frame = np.concatenate([frame, amat, wmat], axis=-1)
+    if processing_mode == 'prediction':
+        times['load_calib'].append(time.time() - start)
+    
+    start = time.time()
+    tensor = torch.from_numpy(frame.astype(np.float32))
+    tensor = tensor.permute(2, 0, 1).unsqueeze(0)
+    if processing_mode == 'prediction':
+        times['switch_cuda'].append(time.time() - start)
+    
+    start = time.time()
+    if processing_mode == 'prediction':
+        try:
+            input = mm_model(tensor, path = os.path.join(sample, 'polarimetry/550nm/nM.npy'))
+        except:
+            input = mm_model(tensor)
+        input = input[:, :-1].to('cuda')
+        times['get_tensor'].append(time.time() - start)
+        
+        times['total'].append(time.time() - start_total)
+        
+        return input, times
+    
+    else:
+        time_load_data_GPU = time.time() - start_total
+        start_processing = time.time()
+        input, times = mm_model(tensor, processMM = True, lu_chipman_backend = lu_chipman_backend)
+        
+        start_lu_chipman = time.time()
+        if lu_chipman_backend == 'prediction':
+            MM = predict_lu_chipman(input[0], lu_chipman_model)
+            MM['nM'] = input[0]
+            MM['M11'] = input[1]
+            input = MM
+            times['lu_chipman'] = time.time() - start_lu_chipman
+            
+        times['total'] = time.time() - start_processing
+        
+        return input, time_load_data_GPU, times
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+    
+class LuChipmanPred(nn.Module):
+    def __init__(self):
+        super(LuChipmanPred, self).__init__()
+        self.fc1 = nn.Linear(16, 128)  # Corrected input dim
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 6)
+            
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)  # Softmax can be added outside if needed
+        return x
+
+
+def predict_lu_chipman(nM, lu_chipman_model):
+    
+    MM = {}        
+    input = nM.reshape(nM.shape[0] * nM.shape[1], 16)
+    input = torch.tensor(input, dtype=torch.float32).to('cuda')
+    # predictions = lu_chipman_model.predict(input, batch_size = input.shape[0])
+    predictions = lu_chipman_model(input).cpu().detach().numpy()
+
+    tissue_dims = (nM.shape[0],  nM.shape[1])
+        
+    MM['totD'] = predictions[:, 0].reshape(tissue_dims)
+    MM['totP'] = predictions[:, 1].reshape(tissue_dims)
+    MM['linR'] = np.degrees(np.arctan2(predictions[:, 3], predictions[:, 2]).reshape(tissue_dims))
+    MM['azimuth'] = np.degrees(np.arctan2(predictions[:, 5], predictions[:, 4]).reshape(tissue_dims)) % 180
+    
+    return MM
+
+
+def get_calib_folder(parameters, sample):
+    if os.path.exists(os.path.join(sample, 'calib_folder.txt')):
+        with open(os.path.join(sample, 'calib_folder.txt'), 'r') as f:
+            calib_folder = f.read().strip()
+        return os.path.join(parameters['calib_dir'], calib_folder.replace('./calib/', ''))
+    else:
+        raise NotImplementedError("The calibration folder is not available in the sample.")
+
+from numpy.lib.stride_tricks import as_strided
+
+def bin_pixels(array, resize_factor=4):
+    """
+    Fast pixel binning using NumPy's stride tricks.
+    Assumes the input array has shape (H, W, C) where H and W are divisible by resize_factor.
+    """
+    H, W, C = array.shape
+    H_new, W_new = H // resize_factor, W // resize_factor
+
+    # Create a strided view
+    strided = as_strided(
+        array,
+        shape=(H_new, resize_factor, W_new, resize_factor, C),
+        strides=(
+            array.strides[0] * resize_factor, array.strides[0], 
+            array.strides[1] * resize_factor, array.strides[1], 
+            array.strides[2]
+        ),
+        writeable=False  # Prevent modification of original data
+    )
+
+    # Compute the mean efficiently
+    return strided.mean(axis=(1, 3))
+
+def load_model(mm_model, cfg):
+
+    n_channels = mm_model.ochs if cfg.data_subfolder.__contains__('raw') else len(cfg.feature_keys)
+    if cfg.model == 'unet':
+        from mmpt.addons.polarpred.segment_models.unet import UNet
+        model = UNet(n_channels=n_channels, n_classes=cfg.class_num+cfg.bg_opt, shallow=cfg.shallow)
+    else:
+        raise Exception('Model %s not recognized' % cfg.model)
+
+    model = model.to(memory_format=torch.channels_last)
+    model.to(device=cfg.device)
+    model.eval()
+    
+    model_path = os.path.join('ckpts', 'MM_1.pt') if not cfg.MM else os.path.join('ckpts', 'parameters_1.pt')
+    state_dict = torch.load(os.path.join(getPolarPredPath(), model_path), map_location=cfg.device)
+    model.load_state_dict(state_dict) if cfg.model != 'resnet' else model.model.load_state_dict(state_dict)    
+    return model, model_path
+
+from mmpt.addons.polarpred.multi_loss import reduce_htgm
+
+def predict(model, input):
+    preds = model(input)
+    preds = reduce_htgm(preds)
+    return preds
 
 ####################################################################################################################################
 ####################################################################################################################################
@@ -980,7 +1193,7 @@ def load_filenames(processing_mode = 'full', save_pdf_figs = False):
             fnames.remove(name)
     return fnames
 
-def load_plot_parameters(instrument: str = 'IMP'):
+def load_plot_parameters(instrument: str = 'IMP',  mm_processing: str = 'torch'):
     """
     load and returns the parameters for the polarimetric parameter plots
 
@@ -991,7 +1204,7 @@ def load_plot_parameters(instrument: str = 'IMP'):
     """
     with open(os.path.join(get_data_folder_path(), 'parameters_plot.json')) as json_file:
         data = json.load(json_file)
-    return data[instrument]
+    return data[mm_processing][instrument]
 
 
 def load_parameters_visualization():
@@ -1047,23 +1260,37 @@ def load_parameter_names(processing_mode):
     return data[processing_mode]
 
 def getCongfigPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, 'config')
-
 
 def get_data_folder_path():
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
  
 def getSupergluePath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, '..', '..', 'third_party', 'superglue')
 
 def getPredictionPath():
-    import processingmm
-    module_path = os.path.dirname(processingmm.__file__)
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, '..', '..', 'third_party', 'polarfeat_mar25')
+
+def getPolarPredPath():
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
+    return os.path.join(module_path, 'addons', 'polarpred')
+
+def getLuChipmanPredPath():
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
+    return os.path.join(module_path, 'addons', 'luchipmanpred')
+
+def getPredModelsPath():
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
+    return os.path.join(module_path, 'addons', 'polarpred', 'ckpts')
 
 def test_pddn_models_existence(PDDN_models_path, instrument = 'IMP'):
     """Check if required PDDN models exist."""

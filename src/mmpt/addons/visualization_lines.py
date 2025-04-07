@@ -15,38 +15,34 @@ from skimage.restoration import unwrap_phase
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import binary_dilation
 
-from processingmm.libmpMuelMat import _isNumStable
-from processingmm import utils
+from mmpt.libmpMuelMat import _isNumStable
+from mmpt import utils
 
 
-def batch_prediction(parameters, no_labels = True, MM = False, model_name = 'None'):
+def batch_visualization(parameters, run_all = True):
     """"""
-    if parameters['instrument'] == 'IMPv2':
-        raise NotImplementedError("The batch prediction is not yet implemented for the IMPv2 instrument.")
-    
+    if parameters["instrument"] == "IMPv2":
+        print(" [wrn] Visualization was not optimized to support IMPv2.")
+        
+    start = time.time()
     parameters['run_all'] = True
     to_process, wls = utils.get_measurements_to_process(parameters)
-    basedir = parameters['directories'][0]
-    calib_dir = parameters['calib_directory']
-
-    path_prediction_script = utils.getPredictionPath()
-    
-    samples = []
-    for entry in to_process:
-        if entry['wavelength'] =='550nm':
-            samples.append(entry['folder_name'].replace(basedir + '/', ''))
-
-    cmd = f"cd {path_prediction_script} && python main.py --data_dir {basedir} --calib_dir {calib_dir} --samples {','.join(samples)} --performance"
-    
-    if MM:
-        cmd = cmd + " --MM --model_name MM.pt"
-    else:
-        model_name = model_name if model_name is not None else "intensities_1.pt"
-        cmd = cmd + " --model_name " + model_name
-    if no_labels:
-        cmd = cmd + " --run_no_labels"
+    to_process = [item['folder_name'] for item in to_process]
         
-    os.system(cmd)
+    for wl in wls:
+        if parameters['PDDN'] in {'no', 'both'}:
+            _ = visualization_auto(to_process, parameters, parameters['parameter_set'], run_all = run_all,
+                                                        batch_processing = False, PDDN = False, wavelengths = [wl], 
+                                                        save_pdf_figs = parameters['save_pdf_figs'])
+        if parameters['PDDN'] in {'pddn', 'both'}:
+            _ = visualization_auto(to_process, parameters, parameters['parameter_set'], run_all = run_all,
+                                                        batch_processing = False, PDDN = True, wavelengths = [wl], 
+                                                        save_pdf_figs = parameters['save_pdf_figs'])
+    
+    end = time.time()
+    time_plotting = end - start
+    return time_plotting/len(to_process) if len(to_process) > 0 else 0
+
 
 def visualization_auto(to_process: list, parameters, parameters_set: str, batch_processing = False,
                        run_all = True, PDDN = False, wavelengths = [], save_pdf_figs: bool = False):
@@ -106,7 +102,7 @@ def remove_computed_folders_viz(folders: list, parameters: dict, run_all: bool =
 
     for folder in folders:
         check_wl = [
-            wl for wl in wavelengths if utils.is_there_data(os.path.join(folder, 'raw_data', wl), wl)
+            wl for wl in wavelengths if utils.is_there_data(os.path.join(folder, 'raw_data', wl), wl, parameters['instrument'])
         ]
 
         if not check_wl:  # Skip folders without data if run_all is False

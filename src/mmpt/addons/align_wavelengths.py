@@ -3,7 +3,7 @@ from PIL import Image
 import shutil, os
 import pickle
 import cv2
-from processingmm import libmpMuelMat, utils
+from mmpt import libmpMuelMat, utils
 import matplotlib.pyplot as plt
 import imageio
 import SimpleITK as sitk
