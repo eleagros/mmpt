@@ -108,6 +108,7 @@ src/mmpt/deprecated
 third_party/polar*
 tmp_gif/*
 tests/log*
+tests/convert*
 tests/data_IMP/MMProcessing.txt
 tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/histology/
 tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/annotation/
