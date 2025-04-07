@@ -94,8 +94,8 @@
             "formatter": "{:.0f}", "n_bins": 12, "title": "Azimuth of optical axis (°)"
         },
         "azimuth_local_var": {
-            "cbar": [0, 32],
-            "cbar_step": 8,
+            "cbar": [0, 60],
+            "cbar_step": 10,
             "cmap_name": "azimuth_local_var",
             "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.0f}",
@@ -103,9 +103,9 @@
             "title": "Azimuth local variability (°)"
         },
         "linR": {
-            "cbar": [0, 32],
+            "cbar": [0, 60],
             "cbar_hist": [0, 60],
-            "cbar_step": 8,
+            "cbar_step": 10,
             "cmap_name": "retardance",
             "colors": [[0, 0, 0.5], [0, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0.5, 0, 0]],
             "formatter": "{:.0f}",

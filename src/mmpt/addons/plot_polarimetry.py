@@ -487,8 +487,13 @@ def visualize_comparison(mmProcessor, mm_computation_backends, lu_chipman_backen
     parameters_map.pop('MM')
 
     for sample in samples:
+        
         MMs = {}
-        output_folder = os.path.join(sample['folder_name'], 'test_backends', sample['wavelength'])
+        if mmProcessor.instrument == 'IMP':
+            output_folder = os.path.join(sample['folder_name'], 'test_backends', sample['wavelength'])
+        else:
+            path_save = os.path.join(sample['folder_name'], 'test_backends', sample['path_intensite'].split(os.sep)[-1].replace('.npy', ''))
+            output_folder = os.path.join(path_save, sample['wavelength'])
         output_plots = os.path.join(output_folder, 'comparison')
         os.makedirs(output_plots, exist_ok=True)
         

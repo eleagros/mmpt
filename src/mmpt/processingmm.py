@@ -11,8 +11,6 @@ import matplotlib.pyplot as plt
 
 import torch
 
-from tensorflow.keras import models
-
 import traceback
 
 from packaging.version import Version
@@ -27,7 +25,8 @@ import mmpt
 class MuellerMatrixProcessor:
     def __init__(self, data_source, wavelengths = [], input_dirs = '', calib_dir = '', visualization_preset='default', PDDN_mode='both', 
                  PDDN_models_path=None, instrument='IMP', remove_reflection=True, workflow_mode='default',
-                 force_reprocess=True, save_pdf_figs=True, align_wls=True, denoise_patch=False, mm_computation_backend='c',
+                 force_reprocess=True, save_pdf_figs=True, align_wls=True, denoise_patch=False, binning_factor = 1,
+                 mm_computation_backend='c',
                  lu_chipman_backend = 'processing', folder_eu_time={}):
         self.data_source = data_source
         self.input_dirs = input_dirs
@@ -43,6 +42,7 @@ class MuellerMatrixProcessor:
         self.save_pdf_figs = save_pdf_figs
         self.align_wls = align_wls
         self.denoise_patch = denoise_patch
+        self.binning_factor = binning_factor
         self.mm_computation_backend = mm_computation_backend
         self.lu_chipman_backend = lu_chipman_backend
         self.folder_eu_time = folder_eu_time
@@ -112,6 +112,9 @@ class MuellerMatrixProcessor:
         if self.workflow_mode not in {'full', 'default', 'no_viz'}:
             raise ValueError('processing_mode must be "full", "default", or "no_viz".')
         
+        if self.binning_factor < 1:
+            raise ValueError('The binning factor should be greater or equal than 1.')
+        
         if self.PDDN_models_path is None:
             self.PDDN_models_path = os.path.join(mmpt.__file__.split('__init__')[0], 'PDDN_model')
         
@@ -156,7 +159,7 @@ class MuellerMatrixProcessor:
             
             'input_dirs': self.input_dirs,
             'calib_dir': self.calib_dir,
-            
+
             
             'wavelengths': self.wavelengths,
             'align_wls': self.align_wls,
@@ -173,6 +176,8 @@ class MuellerMatrixProcessor:
             'time_mode': True,
             
             'remove_reflection': self.remove_reflection,
+            
+            'binning_factor': self.binning_factor,
             
             'mm_computation_backend': self.mm_computation_backend,
             'lu_chipman_backend': self.lu_chipman_backend,
@@ -196,9 +201,11 @@ class MuellerMatrixProcessor:
 
     def load_lu_chipman_prediction_model(self):
         # Load the trained model (update file name as needed).
-        model_path = os.path.join(utils.getLuChipmanPredPath(), 'model', 'full_decomposition', 'model_brain_nn.keras')
-        self.lu_chipman_model = models.load_model(model_path)
-
+        """model_path = os.path.join(utils.getLuChipmanPredPath(), 'model', 'full_decomposition', 'model_brain_nn.keras')
+        self.lu_chipman_model = models.load_model(model_path)"""
+        model_path = os.path.join(utils.getLuChipmanPredPath(), 'model', 'predict_lu_chipman.pth')
+        self.lu_chipman_model = torch.load(model_path, weights_only=False).to('cuda')
+        
     def load_mm_model(self):
         cfg = OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/train_local.yml'))
         cfg = OmegaConf.merge(cfg, OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/test.yml')))
@@ -424,6 +431,15 @@ class MuellerMatrixProcessor:
         I = utils.get_intensity(self.get_parameters(), measurement['path_intensite'])
         measurement['I'] = I
         time_data_loading = time.time() - start_data_loading
+
+        if self.binning_factor == 1:
+            pass
+        elif self.binning_factor > 1:
+            measurement['I'] = utils.bin_pixels(I, self.binning_factor)
+            measurement['A'] = utils.bin_pixels(A, self.binning_factor)
+            measurement['W'] = utils.bin_pixels(W, self.binning_factor)
+        elif self.binning_factor < 1:
+            raise ValueError('The binning factor should be greater or equal than 1.')
         
         return measurement, time_data_loading
     

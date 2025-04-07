@@ -828,6 +828,7 @@ def process_mm(I, remove_reflection: bool, A, W, lu_chipman_backend, lu_chipman_
         times_processing[key] = value
         
     start = time.time()
+    print(lu_chipman_backend)
     if lu_chipman_backend == 'prediction':
         MM = predict_lu_chipman(processed[0], lu_chipman_model)
         MM['nM'] = processed[0]
@@ -836,21 +837,6 @@ def process_mm(I, remove_reflection: bool, A, W, lu_chipman_backend, lu_chipman_
         times_processing['lu_chipman'] = time.time() - start
     
     return processed, dilated_mask, times_processing
-
-def predict_lu_chipman(nM, lu_chipman_model):
-    
-    MM = {}        
-    input = nM.reshape(nM.shape[0] * nM.shape[1], 16)
-    predictions = lu_chipman_model.predict(input, batch_size = input.shape[0])
-        
-    tissue_dims = (nM.shape[0],  nM.shape[1])
-        
-    MM['totD'] = predictions[:, 0].reshape(tissue_dims)
-    MM['totP'] = predictions[:, 1].reshape(tissue_dims)
-    MM['linR'] = np.degrees(np.arctan2(predictions[:, 3], predictions[:, 2]).reshape(tissue_dims))
-    MM['azimuth'] = np.degrees(np.arctan2(predictions[:, 5], predictions[:, 4]).reshape(tissue_dims)) % 180
-    
-    return MM
         
         
 def load_calibration_data(parameters: dict, measurement: dict, 
@@ -1056,12 +1042,32 @@ def preprocess_intensities(parameters, mm_model, times, sample = None, predict =
         
         return input, time_load_data_GPU, times
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+    
+class LuChipmanPred(nn.Module):
+    def __init__(self):
+        super(LuChipmanPred, self).__init__()
+        self.fc1 = nn.Linear(16, 128)  # Corrected input dim
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 6)
+            
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)  # Softmax can be added outside if needed
+        return x
+
+
 def predict_lu_chipman(nM, lu_chipman_model):
     
     MM = {}        
     input = nM.reshape(nM.shape[0] * nM.shape[1], 16)
-    predictions = lu_chipman_model.predict(input, batch_size = input.shape[0])
-        
+    input = torch.tensor(input, dtype=torch.float32).to('cuda')
+    # predictions = lu_chipman_model.predict(input, batch_size = input.shape[0])
+    predictions = lu_chipman_model(input).cpu().detach().numpy()
+
     tissue_dims = (nM.shape[0],  nM.shape[1])
         
     MM['totD'] = predictions[:, 0].reshape(tissue_dims)

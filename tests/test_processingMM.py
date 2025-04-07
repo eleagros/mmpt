@@ -36,7 +36,11 @@ class TestMMPT(unittest.TestCase):
 
     def test_processing_mm_without_pddn(self):
         """Test running process_MM.py with 'no' argument."""
-        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'no'])
+        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'no', 'IMP'])
+        
+    def test_processing_mm_impv2(self):
+        """Test running process_MM.py with 'no' argument."""
+        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'no', 'IMPv2'])
         
 if __name__ == '__main__':
     unittest.main()

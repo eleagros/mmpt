@@ -53,7 +53,11 @@ class TestMMPT(unittest.TestCase):
 
     def test_processing_mm_with_pddn(self):
         """Test running process_MM.py with 'pddn' argument."""
-        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'pddn'])
+        self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'pddn', 'IMP'])
+        
+    # def test_processing_mm_with_pddn(self):
+        # """Test running process_MM.py with 'pddn' argument."""
+        # self.run_subprocess(['python', f"{self.path_test_folder}/process_MM.py", 'pddn', 'IMPv2'])
 
 if __name__ == '__main__':
     unittest.main()
