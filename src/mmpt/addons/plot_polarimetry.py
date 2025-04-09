@@ -1,6 +1,9 @@
 import numpy as np
 import os
 import cv2
+from PIL import Image
+
+import time
 
 from typing import Optional
 import matplotlib.pyplot as plt
@@ -10,6 +13,31 @@ from matplotlib import cm, rcParams
 rcParams['backend'] = 'Agg'
 
 from mmpt.utils import get_cmap, load_plot_parameters, load_combined_plot_name, load_npz_file
+
+
+def plot_polarimetry_online(mmProcessor, MM, parameters_to_visualize):
+    images = {}
+    start = time.time()
+    
+    for param in parameters_to_visualize:
+        key = param
+        cmap, norm = utils.get_cmap(key, mmProcessor.instrument, mm_processing=mmProcessor.mm_computation_backend)
+        plot_parameters = utils.load_plot_parameters(mmProcessor.instrument, mmProcessor.mm_computation_backend)[key]
+        [cbar_min, cbar_max], _ = plot_parameters['cbar'], plot_parameters['cbar_step']
+        
+        # Normalize your data manually
+        normed = (MM[key] - cbar_min) / (cbar_max - cbar_min)
+        normed = np.clip(normed, 0, 1)
+        
+        # Apply colormap and convert to 8-bit RGB
+        rgba_img = (cmap(normed)[:, :, :3] * 255).astype(np.uint8)  # Drop alpha
+        
+        # Convert to PIL Image
+        images[key] = Image.fromarray(rgba_img)
+        
+    print('Generating the images for visualization: ', time.time() - start)
+
+    return images
 
 
 def visualize_MM(path_save: str, MM: dict = None, MM_path: str = None, processing_mode: str = "default", save_pdf_figs: str = False,
