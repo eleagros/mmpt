@@ -119,9 +119,6 @@ tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/600nm/600_Intensite_PDD
 tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/600nm/600_Intensite_aligned.cod
 tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/600nm/600_Intensite_PDDN_aligned.cod
 tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/MMProcessing.txt
-tests/data_IMPv2/2025-03-24_152306_F_FF_HORAO_0005_003/polarimetry/
-tests/data_IMPv2/2025-03-24_152306_F_FF_HORAO_0005_003/test_backends/
-tests/data_IMPv2/2025-03-24_152306_F_FF_HORAO_0005_003/polarimetry_PDDN/
-tests/data_IMPv2/2025-03-24_152306_F_FF_HORAO_0005_003/MM_processing.txt
-src/mmpt/addons/polarpred
-src/mmpt/addons/luchipmanpred
+tests/data_IMPv2/*
+src/mmpt/addons/polarpred/
+src/mmpt/addons/luchipmanpred/
