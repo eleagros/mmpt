@@ -103,6 +103,7 @@ ENV/
 
 temp_processing/
 
+src/mmpt/data/gaussian_fit_IMP.npy
 src/mmpt/PDDN_model
 src/mmpt/deprecated
 third_party/polar*

@@ -39,7 +39,7 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
         List of available wavelengths.
     """
     directories = parameters["input_dirs"]
-    data_folders, _ = get_all_folders(directories)    
+    data_folders, _ = get_all_folders(directories)   
     
     if parameters['instrument'] == 'IMP':
         for folder in data_folders:
@@ -718,7 +718,7 @@ def get_pathCod(directory: str, wavelength: int, align_wls=False, PDDN=False):
 
 def normalize_M11(M11: np.ndarray, instrument: str) -> np.ndarray:
     if os.path.exists(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy')):
-        gaussian_fit = np.load(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy'), allow_pickle=True)
+        gaussian_fit = np.load(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy'))
         return M11 / np.max(M11) * (1 / gaussian_fit) * np.max(M11)
     else:
         print(' [wrn] No Gaussian fit found for normalization. Returning unnormalized M11.')

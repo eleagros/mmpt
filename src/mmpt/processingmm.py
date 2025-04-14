@@ -578,6 +578,7 @@ def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correc
     try:
         MM['M11_normalized'] = utils.normalize_M11(MM['M11'], instrument)
     except:
+        traceback.print_exc()
         pass
     time_azimuth_curation = time.time() - start_processing
     
@@ -597,7 +598,7 @@ def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correc
     
     # Remove keys from MM that are not in parameter_names
     MM = {key: value for key, value in MM.items() if key in parameter_names}
-
+    
     start_rotation = time.time()
     if angle_correction != 0:
         MM = rotate_MM.apply_angle_correction(MM, angle_correction)
