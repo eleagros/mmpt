@@ -103,7 +103,6 @@ ENV/
 
 temp_processing/
 
-src/mmpt/data/gaussian_fit_IMP.npy
 src/mmpt/PDDN_model
 src/mmpt/deprecated
 third_party/polar*
@@ -123,3 +122,4 @@ tests/data_IMP/2022-11-02_T_HORAO-59-AF_FR_S1_1/MMProcessing.txt
 tests/data_IMPv2/*
 src/mmpt/addons/polarpred/
 src/mmpt/addons/luchipmanpred/
+src/mmpt/data/gaussian_fit_IMP.npy
