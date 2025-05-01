@@ -20,7 +20,7 @@ from mmpt import libmpMuelMat
 ####################################################################################################################################
 ####################################################################################################################################
 
-def get_measurements_to_process(parameters: dict, PDDN: bool = False):
+def get_measurements_to_process(parameters: dict, PDDN: bool = False, line_visualization: bool = False):
     """
     Returns the list of folders that need to be processed.
     
@@ -51,7 +51,8 @@ def get_measurements_to_process(parameters: dict, PDDN: bool = False):
         if os.path.exists(log_file):
             os.remove(log_file)
 
-    to_process, processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN)
+    to_process, processed, data_folder_nm, all_data_paths, wl = find_processed_folders(data_folders, parameters, PDDN, 
+                                                                                       line_visualization)
     folder_data = create_folder_dict(parameters, data_folders, to_process, processed, data_folder_nm, all_data_paths, wl)
     
     if parameters['force_reprocess']:
@@ -117,7 +118,7 @@ def get_folder_name(root: str, data_folders: list, folder_names: list):
             folder_names.append(os.path.basename(root))
 
 
-def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
+def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool, line_visualization: bool = False):
     """
     Identifies which folders contain raw data and determines if they have been processed.
 
@@ -152,8 +153,9 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
             else:
                 raw_data_path = os.path.join(path, "to_process")
             
-            data_pres, data_path = is_there_data(raw_data_path, wl, parameters["instrument"])
+            data_pres, data_path, saving_paths = is_there_data(raw_data_path, wl, parameters["instrument"])
 
+            
             if type(data_path) == str:
                 data.append(data_pres)
                 data_paths.append(data_path)
@@ -164,12 +166,14 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
             
             pol_path = os.path.join(path, polarimetry_path[wl])
             if parameters["instrument"] == 'IMP':
-                process_condition(parameters, pol_path, path, wl, polarimetry_path, processed, to_process)
+                process_condition(parameters, pol_path, path, wl, polarimetry_path, processed, to_process, saving_path = None,
+                                  line_visualization = line_visualization)
             else:
-                print(' [wrn] IMPv2 processing of only unprocessed files not implemented yet.')
-                for path_dat in data_paths:
-                    pol_folder_name = path_dat.split('.npy')[0]
-                    process_condition(parameters, os.path.join(pol_path, pol_folder_name), path_dat, wl, polarimetry_path, processed, to_process)
+                for path_dat, saving_path in zip(data_paths, saving_paths):
+                    pol_folder_name = path_dat.split('.npy')[0].split(os.sep)[-1]
+                    process_condition(parameters, os.path.join(pol_path, pol_folder_name), path_dat, 
+                                      wl, polarimetry_path, processed, to_process, saving_path = saving_path,
+                                      line_visualization = line_visualization)
                 
         to_process_dict[path] = to_process
         processed_dict[path] = processed
@@ -178,8 +182,12 @@ def find_processed_folders(data_folders: list, parameters: dict, PDDN: bool):
 
     return to_process_dict, processed_dict, data_presence, all_data_paths, wavelengths
 
-def process_condition(parameters: dict, pol_path: str, path: str, wl: str, polarimetry_path: str, processed: list, to_process: list):
-    condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["workflow_mode"], parameters["save_pdf_figs"])
+def process_condition(parameters: dict, pol_path: str, path: str, wl: str, polarimetry_path: str, processed: list, 
+                      to_process: list, saving_path = None, line_visualization: bool = False):
+    condition_processed = os.path.exists(pol_path) and is_processed(path, wl, polarimetry_path[wl], parameters["workflow_mode"], 
+                                    parameters["save_pdf_figs"], line_visualization = line_visualization) if parameters["instrument"] == 'IMP' else is_processed(pol_path, 
+                                    wl, polarimetry_path[wl], parameters["workflow_mode"], parameters["save_pdf_figs"], 
+                                    instrument = parameters["instrument"], line_visualization = line_visualization) 
     processed.append(condition_processed)
     if parameters["force_reprocess"]:
         to_process.append(True)
@@ -252,11 +260,12 @@ def is_there_data_IMPv2(path: str, wl: str):
     # Regular expression pattern
     pattern = re.compile(r"^630_Image_Number_\d+\.npy$")
     intensity_files = [os.path.join(path, f) for f in os.listdir(path) if pattern.match(f)]
+    saving_paths = [os.path.join(path, 'polarimetry', f).replace('/to_process', '').replace('.npy', '') for f in os.listdir(path) if pattern.match(f)]
     if os.path.exists(os.path.join(path, f"A.npy")) and os.path.exists(os.path.join(path, f"W.npy")):
         pass
     else:
         print(" [wrn] Missing calibration files in folder: ", path)
-    return len(intensity_files) > 0, intensity_files
+    return len(intensity_files) > 0, intensity_files, saving_paths
     
 def is_there_data_IMP(path: str, wl: str):
     """
@@ -267,19 +276,29 @@ def is_there_data_IMP(path: str, wl: str):
     if not os.path.isdir(path):
         return False
     expected_file = f"{wl.replace('nm', '')}_Intensite.cod"
-    return expected_file in set(os.listdir(path)), os.path.join(path, expected_file)
+    return expected_file in set(os.listdir(path)), os.path.join(path, expected_file), None
 
 
-def is_processed(path: str, wl: str, polarimetry_fname: str, processing_mode: str = "full", save_pdf_figs: bool = False) -> bool:
+def is_processed(path: str, wl: str, polarimetry_fname: str, processing_mode: str = "full", save_pdf_figs: bool = False, 
+                 instrument: str = 'IMP', line_visualization: bool = False) -> bool:
     """
     Checks if the required files (e.g., polarimetric plots) were generated.
 
     Returns True if all required files are present.
     """
-    folder_path = os.path.join(path, polarimetry_fname, wl)
+    if instrument == 'IMP':
+        folder_path = os.path.join(path, polarimetry_fname, wl)
+    else:
+        folder_path = os.path.join(path, wl)
+
+    if not line_visualization:
+        expected_filenames = load_filenames(processing_mode, save_pdf_figs)
+    else:
+        expected_filenames = load_filenames(processing_mode = 'results', save_pdf_figs = save_pdf_figs)
+        folder_path = os.path.join(folder_path, 'results')
     if not os.path.exists(folder_path):
         return False
-    expected_filenames = load_filenames(processing_mode, save_pdf_figs)
+    
     return all(f in set(os.listdir(folder_path)) for f in expected_filenames)
 
 def move_folder_for_processing(folder: str):
@@ -1124,7 +1143,13 @@ def load_model(mm_model, cfg):
     model.to(device=cfg.device)
     model.eval()
     
-    model_path = os.path.join('ckpts', 'MM_1.pt') if not cfg.MM else os.path.join('ckpts', 'parameters_1.pt')
+    if cfg.MM:
+        path_models = os.path.join(getPredModelsPath(), 'MM')
+    else:
+        path_models = os.path.join(getPredModelsPath(), 'LuChipman')
+        
+    model_path = os.path.join(path_models, os.listdir(path_models)[0]) 
+    
     state_dict = torch.load(os.path.join(getPolarPredPath(), model_path), map_location=cfg.device)
     model.load_state_dict(state_dict) if cfg.model != 'resnet' else model.model.load_state_dict(state_dict)    
     return model, model_path
@@ -1291,6 +1316,11 @@ def getPredModelsPath():
     import mmpt
     module_path = os.path.dirname(mmpt.__file__)
     return os.path.join(module_path, 'addons', 'polarpred', 'ckpts')
+
+def getTestPath():
+    import mmpt
+    module_path = os.path.dirname(mmpt.__file__)
+    return os.path.join(module_path, '..', '..', 'tests')
 
 def test_pddn_models_existence(PDDN_models_path, instrument = 'IMP'):
     """Check if required PDDN models exist."""

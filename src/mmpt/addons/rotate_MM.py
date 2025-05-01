@@ -15,6 +15,8 @@ def apply_angle_correction(MM: dict, angle_correction: int) -> None:
                 
             else:
                 MM[parameter] = rotate_parameter(parameter, angle_correction, MM_new = MM)
+                if parameter == 'azimuth':
+                    MM[parameter] = (MM[parameter] - angle_correction) % 180
         return MM
        
 

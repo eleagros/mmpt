@@ -295,22 +295,30 @@ def show_MM(X3D, folder, save_pdf_figs=False, instrument: str = "IMP", mm_proces
         raise ValueError(f"X3D must have shape (height, width, 16). Found: {shp3}")
 
     # Create montage matrix
-    X_montage = np.block([
+    if instrument == 'IMP':
+        X_montage = np.block([
         [rescale_MM(X3D[:, :, 0]), 5*X3D[:, :, 1], 5*X3D[:, :, 2], 5*X3D[:, :, 3]],
         [5*X3D[:, :, 4], rescale_MM(X3D[:, :, 5]), 5*X3D[:, :, 6], 5*X3D[:, :, 7]],
         [5*X3D[:, :, 8], 5*X3D[:, :, 9], rescale_MM(X3D[:, :, 10]), 5*X3D[:, :, 11]],
         [5*X3D[:, :, 12], 5*X3D[:, :, 13], 5*X3D[:, :, 14], rescale_MM(X3D[:, :, 15])]
-    ])
+        ])
+    else:
+        X_montage = np.block([
+        [rescale_MM(X3D[:, :, 0]), 5*X3D[:, :, 1], 5*X3D[:, :, 2], 5*X3D[:, :, 3]],
+        [5*X3D[:, :, 4], X3D[:, :, 5], 5*X3D[:, :, 6], 5*X3D[:, :, 7]],
+        [5*X3D[:, :, 8], 5*X3D[:, :, 9], X3D[:, :, 10], 5*X3D[:, :, 11]],
+        [5*X3D[:, :, 12], 5*X3D[:, :, 13], 5*X3D[:, :, 14], X3D[:, :, 15]]
+        ])
     
     cmap, norm = get_cmap(parameter='MM', instrument = instrument, mm_processing = mm_processing)
     cbar_min, cbar_max, cbar_step = -1, 1, 0.5
     X_montage = np.clip(X_montage, cbar_min, cbar_max)
     
-    fig, ax = plt.subplots(figsize=(20, 15))
+    _, ax = plt.subplots(figsize=(20, 15))
     ax.imshow(X_montage, cmap=cmap)
 
     # Constants
-    cell_width, cell_height = 516, 388  # Base dimensions
+    cell_width, cell_height = X3D[:,:,0].shape[1], X3D[:,:,0].shape[0]  # Base dimensions
     last_col_adjust, last_row_adjust = 8, 2  # Adjustments for last column/row
 
     # Line widths
