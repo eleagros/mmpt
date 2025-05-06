@@ -75,12 +75,8 @@ def visualize_MM(path_save: str, MM: dict = None, MM_path: str = None, processin
         MM_histogram(MM, path_save, save_pdf_figs = save_pdf_figs)
         
     if processing_mode != 'no_viz':
-        generate_plots(MM, path_save, save_pdf_figs = save_pdf_figs, instrument = instrument, mm_processing = mm_processing)
-        if processing_mode == 'full':
-            if instrument == 'IMP':
-                save_batch(path_save)
-            else:
-                print(' [wrn] Batch save not implemented for this instrument.')
+        generate_plots(MM, path_save, save_pdf_figs = save_pdf_figs, instrument = instrument, mm_processing = mm_processing,
+                       save_batch = processing_mode == 'full')
             
             
 ###################################################################################################################
@@ -173,7 +169,8 @@ def parameters_histograms(MM: dict, path_save: str, max_ = False, save_pdf_figs 
 ###################################################################################################################
 ###################################################################################################################
 
-def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str = "IMP", mm_processing: str = "torch"):
+def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str = "IMP", mm_processing: str = "torch",
+                   save_batch = False):
     """
     Generates and saves plots for polarimetric parameter maps.
 
@@ -196,7 +193,62 @@ def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str =
         
         cmap, norm = get_cmap(key, instrument, mm_processing=mm_processing)
         plot_polarimetric_parameter(MM[key], cmap, norm, key, param['title'], path_save, save_pdf_figs, instrument, mm_processing)
+        
+    if save_batch:
+        parameters = ['M11', 'totP', 'linR', 'azimuth']
+        path_save = os.path.join(folder, f"combined.png".capitalize())
+        plot_2x2_montage(MM, parameters, parameters_map, path_save, instrument, mm_processing)
 
+
+def plot_2x2_montage(MM, parameters: list, parameters_map, path_save: str, instrument: str = "IMP", mm_processing: str = "torch"):
+    """
+    Create a 2x2 montage figure with different parameters from multiple files.
+
+    Parameters
+    ----------
+    file_paths : List[str]
+        List of file paths containing the data for each parameter.
+    parameters : List[str]
+        List of parameter names corresponding to the files.
+    path_save : str
+        Path to save the final montage figure.
+    instrument : str, optional
+        Instrument name (default: "IMP").
+    mm_processing : str, optional
+        Backend for MM processing (default: "torch").
+    """
+    if len(parameters) != 4:
+        raise ValueError("You must provide exactly 4 file paths and 4 parameters for a 2x2 montage.")
+
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    axes = axes.ravel()  # Flatten the 2x2 grid for easy indexing
+
+    for i, parameter in enumerate(parameters):
+        # Load the data
+        X2D = MM[parameter]
+
+        # Load colormap and normalization
+        cmap, norm = get_cmap(parameter, instrument, mm_processing=mm_processing)
+
+        # Plot the parameter
+        plot_polarimetric_parameter(
+            X2D=X2D,
+            cmap=cmap,
+            norm=norm,
+            parameter=parameter,
+            title=parameters_map[parameter]['title'].capitalize(),
+            path_save=None,  # Do not save individual plots
+            save_pdf_figs=False,
+            instrument=instrument,
+            mm_processing=mm_processing,
+            ax=axes[i]  # Pass the subplot axis
+        )
+
+    # Adjust layout and save the montage
+    plt.tight_layout()
+    plt.savefig(path_save, dpi=100)
+    plt.close()
+    
 
 def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, title:str, path_save: str,
                                 save_pdf_figs: bool = False, instrument: str = "IMP", mm_processing: str = "torch",
@@ -295,22 +347,30 @@ def show_MM(X3D, folder, save_pdf_figs=False, instrument: str = "IMP", mm_proces
         raise ValueError(f"X3D must have shape (height, width, 16). Found: {shp3}")
 
     # Create montage matrix
-    X_montage = np.block([
+    if instrument == 'IMP':
+        X_montage = np.block([
         [rescale_MM(X3D[:, :, 0]), 5*X3D[:, :, 1], 5*X3D[:, :, 2], 5*X3D[:, :, 3]],
         [5*X3D[:, :, 4], rescale_MM(X3D[:, :, 5]), 5*X3D[:, :, 6], 5*X3D[:, :, 7]],
         [5*X3D[:, :, 8], 5*X3D[:, :, 9], rescale_MM(X3D[:, :, 10]), 5*X3D[:, :, 11]],
         [5*X3D[:, :, 12], 5*X3D[:, :, 13], 5*X3D[:, :, 14], rescale_MM(X3D[:, :, 15])]
-    ])
+        ])
+    else:
+        X_montage = np.block([
+        [rescale_MM(X3D[:, :, 0]), 5*X3D[:, :, 1], 5*X3D[:, :, 2], 5*X3D[:, :, 3]],
+        [5*X3D[:, :, 4], X3D[:, :, 5], 5*X3D[:, :, 6], 5*X3D[:, :, 7]],
+        [5*X3D[:, :, 8], 5*X3D[:, :, 9], X3D[:, :, 10], 5*X3D[:, :, 11]],
+        [5*X3D[:, :, 12], 5*X3D[:, :, 13], 5*X3D[:, :, 14], X3D[:, :, 15]]
+        ])
     
     cmap, norm = get_cmap(parameter='MM', instrument = instrument, mm_processing = mm_processing)
     cbar_min, cbar_max, cbar_step = -1, 1, 0.5
     X_montage = np.clip(X_montage, cbar_min, cbar_max)
     
-    fig, ax = plt.subplots(figsize=(20, 15))
+    _, ax = plt.subplots(figsize=(20, 15))
     ax.imshow(X_montage, cmap=cmap)
 
     # Constants
-    cell_width, cell_height = 516, 388  # Base dimensions
+    cell_width, cell_height = X3D[:,:,0].shape[1], X3D[:,:,0].shape[0]  # Base dimensions
     last_col_adjust, last_row_adjust = 8, 2  # Adjustments for last column/row
 
     # Line widths

@@ -23,16 +23,15 @@ from mmpt.addons.polarpred.mm.models import init_mm_model
 import mmpt
 
 class MuellerMatrixProcessor:
-    def __init__(self, data_source, wavelengths = [], input_dirs = '', calib_dir = '', visualization_preset='default', PDDN_mode='both', 
+    def __init__(self, data_source, wavelengths = [], input_dirs = '', calib_dir = '', PDDN_mode='both', 
                  PDDN_models_path=None, instrument='IMP', remove_reflection=True, workflow_mode='default',
                  force_reprocess=True, save_pdf_figs=True, align_wls=True, denoise_patch=False, binning_factor = 1,
-                 mm_computation_backend='c',
-                 lu_chipman_backend = 'processing', folder_eu_time={}):
+                 mm_computation_backend='c', lu_chipman_backend = 'processing', prediction_mode = 'MM', folder_eu_time={}):
         self.data_source = data_source
         self.input_dirs = input_dirs
         self.calib_dir = calib_dir
         self.wavelengths = wavelengths
-        self.visualization_preset = visualization_preset
+        self.visualization_preset = 'default'
         self.PDDN_mode = PDDN_mode
         self.PDDN_models_path = PDDN_models_path
         self.instrument = instrument
@@ -45,6 +44,7 @@ class MuellerMatrixProcessor:
         self.binning_factor = binning_factor
         self.mm_computation_backend = mm_computation_backend
         self.lu_chipman_backend = lu_chipman_backend
+        self.prediction_mode = prediction_mode
         self.folder_eu_time = folder_eu_time
         self.test_mode = False
         
@@ -223,7 +223,11 @@ class MuellerMatrixProcessor:
     def load_prediction_model(self):
         cfg = OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/train_local.yml'))
         cfg = OmegaConf.merge(cfg, OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/test.yml')))
-        cfg.MM = False
+        
+        if self.prediction_mode not in {'MM', 'LuChipman'}:
+            raise ValueError('prediction_mode must be "MM" or "LuChipman".')
+        
+        cfg.MM = self.prediction_mode == 'MM'
         # model selection
         self.mm_model_prediction = init_mm_model(cfg, train_opt=False)
         self.prediction_model, self.model_path = utils.load_model(self.mm_model_prediction, cfg)
@@ -300,7 +304,10 @@ class MuellerMatrixProcessor:
         self.to_process, _ = utils.get_measurements_to_process(self.get_parameters(), PDDN=PDDN)
         
         if PDDN:
-            denoise_intensities.denoise_intensities(self.get_parameters(), self.PDDN_models, self.to_process)
+            print(' [info] Denoising intensities live.')
+            for folder in self.to_process:
+                folder['polarimetry_fname'] = 'polarimetry_PDDN'
+            # denoise_intensities.denoise_intensities(self.get_parameters(), self.PDDN_models, self.to_process)
         else:
             for folder in self.to_process:
                 folder['polarimetry_fname'] = 'polarimetry'
@@ -318,16 +325,30 @@ class MuellerMatrixProcessor:
         for folder in tqdm(self.to_process):
 
             print('Processing:', folder['folder_name'])
-        
+
+            try:
+                torch.cuda.empty_cache()
+            except:
+                pass
+
             # Step 1: Organize the folders    
             # utils.move_folder_for_processing(parameters, folder)
             utils.reorganize_folders(folder, self.instrument)
             
             measurement, time_data_loading = self.load_input_data(folder)
-            
+            if PDDN:
+                times_denoising = {}
+                for wavelength, model in self.PDDN_models.items():
+                    if folder['wavelength'].replace('nm', '') == str(wavelength):
+                        measurement['I'], denoise_times = model.Denoise(measurement['I'])
+                        times_denoising[wavelength] = denoise_times[1]
+                        continue
+            else:
+                times_denoising = {}
+                            
             # regorganize the output folder, for the test mode
             if self.test_mode:
-                path_save_test_mode = measurement['path_save'].replace(f'{os.sep}polarimetry{os.sep}', f'{os.sep}test_backends{os.sep}')
+                path_save_test_mode = measurement['path_save'].replace(f'{os.sep}{measurement['polarimetry_fname']}{os.sep}', f'{os.sep}test_backends{os.sep}')
                 os.makedirs(os.sep.join(path_save_test_mode.split(os.sep)[:-1]), exist_ok = True)
                 os.makedirs(path_save_test_mode, exist_ok = True)
                 path_save_test_mode = os.path.join(path_save_test_mode, f"{self.mm_computation_backend}_{self.lu_chipman_backend}")
@@ -357,7 +378,7 @@ class MuellerMatrixProcessor:
             end_viz = time.time()
             time_viz = end_viz - start_viz
             
-            times = {'data_loading': time_data_loading, 'processing_and_curation': times_compute_mm,
+            times = {'data_loading': time_data_loading, 'times_denoising': times_denoising, 'processing_and_curation': times_compute_mm,
                      'save_npz_file': time_save_npz, 'visualization': time_viz}
             
             log_path = os.path.join(folder['folder_name'], 'MMProcessing.txt')
@@ -382,8 +403,10 @@ class MuellerMatrixProcessor:
             }
 
             try:
+                parameters_reconstruction_save = parameters_reconstruction.copy()
+                parameters_reconstruction_save[folder['wavelength']]['parameters'].pop("folder_eu_time", None)
                 with open(log_path, 'w') as logbook:
-                    json.dump(parameters_reconstruction, logbook, indent=3)
+                    json.dump(parameters_reconstruction_save, logbook, indent=3)
             except Exception as e:
                 traceback.print_exc()
                 
@@ -490,7 +513,7 @@ class MuellerMatrixProcessor:
         
         start_denoising = time.time()
         if PDDN:
-            I, _ = self.PDDN_models[550].Denoise(I)
+            I, _ = self.PDDN_models[self.wavelengths[0]].Denoise(I)
         time_denoising = time.time() - start_denoising
         
         MM, time_processing = compute_mm(I, A, W, self.mm_computation_backend, self.lu_chipman_backend, 
@@ -538,6 +561,23 @@ class MuellerMatrixProcessor:
             
         plot_polarimetry.visualize_comparison(self, mm_computation_backends, lu_chipman_backends)
         
+    def get_online_test_data(self):
+        """Get the online test data."""
+        # example with a test case
+        if self.instrument == 'IMP':
+            path_data = os.path.join(utils.getTestPath(), 'data_IMP', '2022-11-02_T_HORAO-59-AF_FR_S1_1/raw_data/550nm/550_Intensite.cod')
+            I = libmpMuelMat.read_cod_data_X3D(path_data, isRawFlag=1)
+            path_calib = os.path.join(utils.getTestPath(), 'calib', '2022-11-08_C_1', '550nm')
+            A = libmpMuelMat.read_cod_data_X3D(os.path.join(path_calib, '550_A.cod'), isRawFlag=0)
+            W = libmpMuelMat.read_cod_data_X3D(os.path.join(path_calib, '550_W.cod'), isRawFlag=0)
+        else:
+            path_data = os.path.join(utils.getTestPath(), 'data_IMPv2', '2025-03-24_152306_F_FF_HORAO_0005_003', 'to_process')
+            I = np.load(os.path.join(path_data, '630_Image_Number_1.npy'))
+            A = np.load(os.path.join(path_data, 'A.npy'))
+            W = np.load(os.path.join(path_data, 'W.npy'))
+        
+        return I, A, W
+            
 def compute_and_curate_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'processing', 
                           mm_model = None, lu_chipman_model = None, remove_reflection = False, path_save = None,
                           instrument = 'IMP', workflow_mode = 'default', angle_correction = 0):
@@ -578,6 +618,7 @@ def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correc
     try:
         MM['M11_normalized'] = utils.normalize_M11(MM['M11'], instrument)
     except:
+        traceback.print_exc()
         pass
     time_azimuth_curation = time.time() - start_processing
     
@@ -597,7 +638,7 @@ def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correc
     
     # Remove keys from MM that are not in parameter_names
     MM = {key: value for key, value in MM.items() if key in parameter_names}
-
+    
     start_rotation = time.time()
     if angle_correction != 0:
         MM = rotate_MM.apply_angle_correction(MM, angle_correction)

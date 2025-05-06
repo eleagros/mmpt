@@ -344,6 +344,7 @@ class MPI_PDDN_Unet(nn.Module):
         self.channels = channels
 
         init_dim = default(init_dim, dim)
+        print(init_dim, dim)
         self.init_conv = nn.Conv2d(channels, init_dim, 7, padding = 3)
 
         dims = [init_dim, *map(lambda m: dim * m, dim_mults)]
@@ -714,7 +715,7 @@ class MPI_PDDN_GaussianDiffusion(nn.Module):
 
         # Necessary Rescale to set the range of Values within [-1,1]
         imgIN_pad = normalize_to_neg_one_to_one(imgIN_pad)
-
+        
         # NEW (FASTER)
         hopLen = wlen - ov
         Rmax = int(np.ceil(imgIN_pad.shape[0] / hopLen) - 1)
@@ -741,7 +742,8 @@ class MPI_PDDN_GaussianDiffusion(nn.Module):
                                           [1, imgIN.shape[-1], wlen, wlen])),
                                      dim=0)
         # Pre-processing ENDS here
-
+        
+        
         imgBTC_T = imgBTC_T.cuda().type(torch.float32) # allocation to gpu memory as float32
 
         # Step-wise Performance Analysis
@@ -765,27 +767,33 @@ class MPI_PDDN_GaussianDiffusion(nn.Module):
 
         # Initialising output
         imgOUT_pad = np.zeros(imgIN_pad.shape)
+        h3d_pad = np.zeros(imgIN_pad.shape, dtype=np.double)
 
         STEPsTime_elaps.append(time.time() - inioutput_t)
         overlapadd_t = time.time()
-
+        
         # Integration of the denoised filtered responses into a polarimetric image:
         # This block-wise process compactly implements the sliding window overlap-add.
         for blk in range(0, Rmax * Cmax):  # OverLap-Add (OLA)
             r, c = np.unravel_index(blk, (Rmax, Cmax))
             imgOUT_sel = np.moveaxis(np.array(imgBTC_T[blk, :, :, :].cpu().squeeze(),dtype=np.double), 0, 2)
+            h3d_pad[int(r * hopLen): int(wlen + r * hopLen),
+                       int(c * hopLen): int(wlen + c * hopLen), :] += h3D
             imgOUT_pad[int(r * hopLen): int(wlen + r * hopLen),
                        int(c * hopLen): int(wlen + c * hopLen), :] = \
                 imgOUT_pad[int(r * hopLen): int(wlen + r * hopLen),
                            int(c * hopLen): int(wlen + c * hopLen), :] + np.multiply(h3D, imgOUT_sel)
-
+                
+        h3d_pad[h3d_pad == 0] = 1 # Avoiding division by zero
+        imgOUT_pad /= h3d_pad # Final multiplication with the Hann window
+        
         # Step-wise Performance Analysis
         STEPsTime_elaps.append(time.time() - overlapadd_t)
         postprocess_t = time.time()
 
         # Removing padding
         imgOUT = imgOUT_pad[int(Rpadsmpls):-int(Rpadsmpls), int(Cpadsmpls):-int(Cpadsmpls), :]
-
+        
         # Restoring Original Input Values Range (min,max)
         imgOUT = (imgOUT * (imgIN_maxVal - imgIN_minVal)) + imgIN_minVal
 
@@ -1381,7 +1389,7 @@ def myUtils_padImg3D(Img3D, wlen): # REF
         raise Exception(' <!> padImg: ODD samples to pad (Rows)! - WIP')
     if int(Cpadsmpls)!=Cpadsmpls:
         raise Exception(' <!> padImg: ODD samples to pad (Cols)! - WIP')
-
+        
     Img3D_pad = np.pad(Img3D, ((int(Rpadsmpls), int(Rpadsmpls)),
                                (int(Cpadsmpls), int(Cpadsmpls)),
                                (0, 0)), 'reflect')
@@ -1394,7 +1402,7 @@ def myUtils_getHannWin2D(wlen): #REF
     hwin2 = np.kron(hwin, np.transpose(hwin))
     return hwin2
 
-def myUtils_getHannWin2Dov(wlen, hop=0.5): #REF
+def myUtils_getHannWin2Dov(wlen, hop=0.25): #REF
     # Generation of a 1D Hann (weighting) Window for the perfect-reconstruction overlap-add
     # NOTE: the hop parameter can be changed, but it is recommended: 0.5 (slower processing) or 0.25 (faster processing)
     # NOTE: experiment OTHER values of hop at your OWN RISK
@@ -1413,7 +1421,15 @@ def myUtils_getHannWin2Dov(wlen, hop=0.5): #REF
 
     elif hop<0.5:
         if wlen % 2 == 0:
-            hsmpls = np.round(2*wlen*hop)
+            # Define the flat region size as a fraction of the total window length
+            flat_fraction = 0.8  # 50% of the window will be flat in the center
+
+            # Calculate the number of samples for the flat region
+            flat_size = int(wlen * flat_fraction)
+
+            hsmpls = np.round(2*wlen*0.25)
+            # hsmpls = wlen - flat_size
+
             if hsmpls % 2 == 1:
                 hsmpls = hsmpls + 1
             h_tmp = scipy.signal.windows.hann(int(hsmpls),

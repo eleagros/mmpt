@@ -19,33 +19,25 @@ from mmpt.libmpMuelMat import _isNumStable
 from mmpt import utils
 
 
-def batch_visualization(parameters, run_all = True):
+def batch_visualization(mmProcessor):
     """"""
-    if parameters["instrument"] == "IMPv2":
-        print(" [wrn] Visualization was not optimized to support IMPv2.")
-        
     start = time.time()
-    parameters['run_all'] = True
-    to_process, wls = utils.get_measurements_to_process(parameters)
-    to_process = [item['folder_name'] for item in to_process]
         
-    for wl in wls:
-        if parameters['PDDN'] in {'no', 'both'}:
-            _ = visualization_auto(to_process, parameters, parameters['parameter_set'], run_all = run_all,
-                                                        batch_processing = False, PDDN = False, wavelengths = [wl], 
-                                                        save_pdf_figs = parameters['save_pdf_figs'])
-        if parameters['PDDN'] in {'pddn', 'both'}:
-            _ = visualization_auto(to_process, parameters, parameters['parameter_set'], run_all = run_all,
-                                                        batch_processing = False, PDDN = True, wavelengths = [wl], 
-                                                        save_pdf_figs = parameters['save_pdf_figs'])
+    for wl in mmProcessor.wavelengths:
+        if mmProcessor.PDDN_mode in {'no', 'both'}:
+            _ = visualization_auto(mmProcessor, run_all = mmProcessor.force_reprocess,
+                                                        batch_processing = False, PDDN = False, wavelengths = [wl])
+        if mmProcessor.PDDN_mode in {'pddn', 'both'}:
+            _ = visualization_auto(mmProcessor, run_all = mmProcessor.force_reprocess,
+                                                        batch_processing = False, PDDN = True, wavelengths = [wl])
     
     end = time.time()
     time_plotting = end - start
-    return time_plotting/len(to_process) if len(to_process) > 0 else 0
+    return time_plotting
 
 
-def visualization_auto(to_process: list, parameters, parameters_set: str, batch_processing = False,
-                       run_all = True, PDDN = False, wavelengths = [], save_pdf_figs: bool = False):
+def visualization_auto(mmProcessor, run_all = True, batch_processing = False,
+                       PDDN = False, wavelengths = []):
     """
     master function calling line_visualization_routine for each of the folders in the measurements_directory
     
@@ -64,12 +56,14 @@ def visualization_auto(to_process: list, parameters, parameters_set: str, batch_
     PDDN : boolean
         indicates if we are using denoising
     """
-
-    to_compute = remove_computed_folders_viz(to_process, parameters, run_all = run_all, PDDN = PDDN, wavelengths = wavelengths)
-        
+    to_process, _ = utils.get_measurements_to_process(mmProcessor.get_parameters(), PDDN = PDDN, line_visualization = True)
+    
+    # to_compute = remove_computed_folders_viz(to_process, mmProcessor.get_parameters(), run_all = run_all, PDDN = PDDN, wavelengths = wavelengths)
+    to_compute = to_process
     for path in tqdm(to_compute) if batch_processing else to_compute:
-        perform_visualisation(path, parameters, run_all = run_all, PDDN = PDDN,
-                                  wavelength = wavelengths, save_pdf_figs = save_pdf_figs)
+        path['path_MM'] = os.path.join(path['folder_name'], 'polarimetry_PDDN' if PDDN else 'polarimetry', path['path_intensite'].split('/')[-1].replace('.npy', ''))
+        perform_visualisation(path, mmProcessor, run_all = run_all, PDDN = PDDN,
+                                  wavelength = wavelengths)
 
 
 def remove_computed_folders_viz(folders: list, parameters: dict, run_all: bool = False, PDDN=False, wavelengths=[]):
@@ -132,8 +126,8 @@ def remove_computed_folders_viz(folders: list, parameters: dict, run_all: bool =
     return to_compute
 
 
-def perform_visualisation(path: str, parameters, run_all: bool = False, PDDN = False,
-                          wavelength = None, save_pdf_figs: bool = False):
+def perform_visualisation(path: str, mmProcessor, run_all: bool = False, PDDN = False,
+                          wavelength = None):
     """
     master function running the visualization script for one folder
     
@@ -149,7 +143,7 @@ def perform_visualisation(path: str, parameters, run_all: bool = False, PDDN = F
         indicates if we are using denoising
     """
     mask = get_mask(path)
-    path_PDDN_model = os.path.join(parameters['PDDN_models_path'], 'PDDN_mode', 'PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
+    path_PDDN_model = os.path.join(mmProcessor.PDDN_models_path, 'PDDN_mode', 'PDDN_model_' + str(wavelength[0]) + '_Fresh_HB.pt')
 
     if PDDN and os.path.exists(path_PDDN_model):
         polarimetry_path = 'polarimetry_PDDN'
@@ -157,7 +151,7 @@ def perform_visualisation(path: str, parameters, run_all: bool = False, PDDN = F
         polarimetry_path = 'polarimetry'
 
     # get wavelength and call line_visualization_routine  
-    line_visualization(path, parameters, polarimetry_path, wavelength, mask, PDDN = PDDN, save_pdf_figs = save_pdf_figs)
+    line_visualization(path, mmProcessor, polarimetry_path, wavelength, mask, PDDN = PDDN)
 
 
 def get_mask(path: str):
@@ -188,7 +182,7 @@ def get_mask(path: str):
     return mask
 
 
-def line_visualization(path: str, parameters, polarimetry_path, wavelength, mask: np.ndarray, title: str = 'Azimuth of optical axis', PDDN = False, save_pdf_figs = False):
+def line_visualization(path: str, mmProcessor, polarimetry_path, wavelength, mask: np.ndarray, title: str = 'Azimuth of optical axis', PDDN = False):
     """
     apply the visualization routine to a folder (i.e. load MM, plot M11, generate the masks, get the arrows and plot them)
 
@@ -203,8 +197,8 @@ def line_visualization(path: str, parameters, polarimetry_path, wavelength, mask
     title : str
         the title of the graph
     """
-    parameters_set = parameters['parameter_set']
-    
+    parameters_set = mmProcessor.visualization_preset
+  
     parameters_visualizations = utils.load_parameters_visualization()
 
     # 1. deplarization and retardance are higher than the tresholds
@@ -228,9 +222,9 @@ def line_visualization(path: str, parameters, polarimetry_path, wavelength, mask
     scale = parameters_visualizations[parameters_set]['scale']
 
     # load the MM and creates, if necessary, the results folder
-    orientation = utils.load_MM(os.path.join(path, polarimetry_path, wavelength[0], 'MM.npz'))
+    orientation = utils.load_MM(os.path.join(path['path_MM'], str(wavelength[0]) + 'nm', 'MM.npz'))
     
-    path_results = os.path.join(path, polarimetry_path, wavelength[0])
+    path_results = os.path.join(os.path.join(path['path_MM'], str(wavelength[0]) + 'nm'))
     if PDDN:
         path_results = path_results.replace(f"{os.sep}polarimetry{os.sep}", "{os.sep}polarimetry_PDDN{os.sep}")
     if os.path.exists(os.path.join(path_results, 'results')):
@@ -264,9 +258,9 @@ def line_visualization(path: str, parameters, polarimetry_path, wavelength, mask
     new_mask_M11 = np.logical_not(binary_dilation(M11<(1/grey_scale_parameter*np.mean(M11)), iterations = 3))
         
     plot_azimuth(retardance, M11, azimuth_unwrapped, n, widths, scale, title, path_results,
-                 new_mask_M11, mask, normalized = False, save_pdf_figs = save_pdf_figs)
+                 new_mask_M11, mask, normalized = False, save_pdf_figs = mmProcessor.save_pdf_figs)
     plot_azimuth(retardance, M11, azimuth_unwrapped, n, widths, scale, title, path_results,
-                 new_mask, mask, normalized = True, save_pdf_figs = save_pdf_figs)
+                 new_mask, mask, normalized = True, save_pdf_figs = mmProcessor.save_pdf_figs)
     
 
 def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.ndarray, n: int, widths: int, length: int, 
