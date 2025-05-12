@@ -118,6 +118,10 @@ class MuellerMatrixProcessor:
         if self.PDDN_models_path is None:
             self.PDDN_models_path = os.path.join(mmpt.__file__.split('__init__')[0], 'PDDN_model')
         
+        if self.instrument == 'IMP':
+            self.binning_factor = 1
+            print(' [info] The binning factor is set to 1 for IMP.')
+            
         if self.PDDN_mode in {'pddn', 'both'}:
             try:
                 import torchvision

@@ -339,13 +339,13 @@ def plot_azimuth(retardance: np.ndarray, M11: np.ndarray, azimuth_unwrapped: np.
             
             norm_vector = np.linalg.norm([u,v])
             
-            angle = np.arctan(u/v)*180/math.pi
+            angle = np.arctan2(u, v) * 180 / math.pi
             if angle < 0 :
                 angle += 180
             if angle > 180:
                 angle -= 180
 
-            angle_color = np.arctan(v/u)*180/math.pi
+            angle_color = np.arctan2(v, u) * 180 / math.pi
             if angle_color < 0 :
                 angle_color += 180
             if angle_color > 180:
@@ -472,8 +472,12 @@ def get_u_v(u_plot: np.ndarray, v_plot: np.ndarray, normalized: bool = True):
             # normalize the lines
             if normalized:
                 norm = np.sqrt(u_plot[idx_x][idx_y]*u_plot[idx_x][idx_y] + v_plot[idx_x][idx_y]*v_plot[idx_x][idx_y])
-                u_plot_line.append(u_plot[idx_x][idx_y]/norm)
-                v_plot_line.append(v_plot[idx_x][idx_y]/norm)
+                if norm > 0: 
+                    u_plot_line.append(u_plot[idx_x][idx_y] / norm)
+                    v_plot_line.append(v_plot[idx_x][idx_y] / norm)
+                else:
+                    u_plot_line.append(0.0)
+                    v_plot_line.append(0.0)
             else:
                 u_plot_line.append(u_plot[idx_x][idx_y])
                 v_plot_line.append(v_plot[idx_x][idx_y])
