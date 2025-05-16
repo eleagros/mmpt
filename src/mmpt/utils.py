@@ -7,10 +7,13 @@ import math
 from datetime import datetime
 import warnings
 
+from sklearn.preprocessing import MinMaxScaler
+
+import cv2
+
 import re
 
 import matplotlib.colors as clr
-
 
 from mmpt import libmpMuelMat
 
@@ -738,7 +741,9 @@ def get_pathCod(directory: str, wavelength: int, align_wls=False, PDDN=False):
 def normalize_M11(M11: np.ndarray, instrument: str) -> np.ndarray:
     if os.path.exists(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy')):
         gaussian_fit = np.load(os.path.join(get_data_folder_path(), f'gaussian_fit_{instrument}.npy'))
-        return M11 / np.max(M11) * (1 / gaussian_fit) * np.max(M11)
+        M11_norm = M11 / gaussian_fit
+        M11_norm[M11_norm > 65535] = 65535
+        return M11_norm
     else:
         print(' [wrn] No Gaussian fit found for normalization. Returning unnormalized M11.')
         return M11
@@ -847,7 +852,6 @@ def process_mm(I, remove_reflection: bool, A, W, lu_chipman_backend, lu_chipman_
         times_processing[key] = value
         
     start = time.time()
-    print(lu_chipman_backend)
     if lu_chipman_backend == 'prediction':
         MM = predict_lu_chipman(processed[0], lu_chipman_model)
         MM['nM'] = processed[0]

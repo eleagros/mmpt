@@ -192,6 +192,7 @@ def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str =
         path_save = os.path.join(folder, f"{param_name}.png".capitalize())
         
         cmap, norm = get_cmap(key, instrument, mm_processing=mm_processing)
+        
         plot_polarimetric_parameter(MM[key], cmap, norm, key, param['title'], path_save, save_pdf_figs, instrument, mm_processing)
         
     if save_batch:
