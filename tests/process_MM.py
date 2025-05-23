@@ -33,13 +33,26 @@ def main():
     denoise_patch = True
     align_wls = False
     remove_reflection = False
+    binning_factor = 1 if instrument == 'IMP' else 2
 
-    mmProcessor = processingmm.MuellerMatrixProcessor(data_source = data_source, wavelengths = wavelengths, input_dirs = input_dirs,
-                                    calib_dir = calib_dir, visualization_preset = visualization_preset, 
-                                    PDDN_mode = PDDN_mode, instrument = instrument, remove_reflection = remove_reflection,
-                                    workflow_mode = workflow_mode, force_reprocess = force_reprocess, save_pdf_figs = save_pdf_figs, 
-                                    align_wls = align_wls, denoise_patch = denoise_patch, mm_computation_backend = mm_computation_backend,
-                                    lu_chipman_backend = lu_chipman_backend)
+
+    mmProcessor = processingmm.MuellerMatrixProcessor(
+        data_source = data_source,
+        wavelengths = wavelengths,
+        input_dirs = input_dirs,
+        calib_dir = calib_dir,
+        PDDN_mode = PDDN_mode,
+        instrument = instrument,
+        remove_reflection = remove_reflection,
+        workflow_mode = workflow_mode,
+        force_reprocess = force_reprocess,
+        save_pdf_figs = save_pdf_figs, 
+        denoise_patch = denoise_patch,
+        binning_factor = binning_factor,
+        mm_computation_backend = mm_computation_backend,
+        lu_chipman_backend = lu_chipman_backend,
+        align_wls = align_wls,
+    )
     
     mmProcessor.batch_process_master()
 

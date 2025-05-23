@@ -17,8 +17,10 @@ from packaging.version import Version
 from omegaconf import OmegaConf
 
 from mmpt import utils, libmpMuelMat, libmpMPIdenoisePDDN
-from mmpt.addons import denoise_intensities, align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
+from mmpt.addons import align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
 from mmpt.addons.polarpred.mm.models import init_mm_model
+# align the measurements captured at different wavelengths - could cause issue when using masks obtained
+# at 550nm as the images are slightly shifted 
 
 import mmpt
 
@@ -59,17 +61,20 @@ class MuellerMatrixProcessor:
         else:
             self.mm_model = None
 
-        print(' [info] Loading tumor prediction model...')
-        self.load_prediction_model()
-        print(' [info] Loading tumor prediction model done.')
+        if self.prediction_mode is None:
+            print(' [info] No prediction model selected.')
+        else:
+            print(' [info] Loading tumor prediction model...')
+            self.load_prediction_model()
+            print(' [info] Loading tumor prediction model done.')
         
-        print(' [info] Loading lu-chipman prediction model...')
         if self.lu_chipman_backend == 'prediction':
+            print(' [info] Loading lu-chipman prediction model...')
             self.load_lu_chipman_prediction_model()
+            print(' [info] Loading lu-chipman prediction model done.')
         else:
             self.lu_chipman_model = None
-        print(' [info] Loading lu-chipman prediction model done.')
-            
+        
         self.get_calib_dates()
         
     def validate_inputs(self):
@@ -261,6 +266,7 @@ class MuellerMatrixProcessor:
         ------
         None
         """
+
         if self.data_source == 'online':
             raise ValueError('The data_source is set to "online". The function to process the data online is online_processing.')
             
@@ -323,7 +329,7 @@ class MuellerMatrixProcessor:
                     folder['path_intensite'] = folder['path_intensite'].replace('.cod', '_aligned.cod')
                 else:
                     assert folder['wavelength'] != '600nm', "The wavelength 600nm is not aligned."        
-        
+
         start = time.time()
         
         for folder in tqdm(self.to_process):
@@ -365,7 +371,7 @@ class MuellerMatrixProcessor:
             measurement['MM'], times_compute_mm = compute_and_curate_mm(measurement['I'], measurement['A'], measurement['W'],
                                   self.mm_computation_backend, self.lu_chipman_backend, self.mm_model, self.lu_chipman_model,
                                   self.remove_reflection, measurement['path_save'], self.instrument, self.workflow_mode,
-                                  self.angle_correction)
+                                  self.angle_correction, measurement['folder_name'])
                         
             # Step 3: Save the MM
             start_save_npz = time.time()
@@ -584,10 +590,10 @@ class MuellerMatrixProcessor:
             
 def compute_and_curate_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'processing', 
                           mm_model = None, lu_chipman_model = None, remove_reflection = False, path_save = None,
-                          instrument = 'IMP', workflow_mode = 'default', angle_correction = 0):
+                          instrument = 'IMP', workflow_mode = 'default', angle_correction = 0, folder_name = None):
     MM, time_MM_processing = compute_mm(I, A, W, mm_computation_backend, lu_chipman_backend, mm_model, lu_chipman_model, 
                                         remove_reflection)
-    MM, times_curate_mm = curate_mm(MM, path_save, instrument, workflow_mode, angle_correction)
+    MM, times_curate_mm = curate_mm(MM, path_save, instrument, workflow_mode, angle_correction, folder_name = folder_name)
     return MM, {'mm_processing': time_MM_processing, 'mm_curation': times_curate_mm,}
 
 def compute_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'processing', mm_model = None, lu_chipman_model = None,
@@ -612,12 +618,12 @@ def compute_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'proc
         
     return MM, {'time_data_loading_GPU': time_data_loading_GPU, 'time_MM_processing': times_MM_computation}
 
-def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correction = 0):
+def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correction = 0, folder_name = None):
     """curate_mm is a function that curates the MM for the folders"""
     start_processing = time.time()  
     
     # remove the NaNs from the atzimuth measurements
-    MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'])
+    MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'], folder_name = folder_name)
     MM['M11'] = utils.correct_M11(MM['M11'], instrument)
     try:
         MM['M11_normalized'] = utils.normalize_M11(MM['M11'], instrument)

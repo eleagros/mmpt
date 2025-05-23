@@ -756,7 +756,7 @@ def correct_M11(M11: np.ndarray, instrument: str) -> np.ndarray:
         
     return M11
 
-def curate_azimuth(azimuth: np.ndarray, folder=None) -> np.ndarray:
+def curate_azimuth(azimuth: np.ndarray, folder_name=None) -> np.ndarray:
     """
     Curates the azimuth array by filling NaN values with the mean of neighboring pixels.
 
@@ -784,21 +784,21 @@ def curate_azimuth(azimuth: np.ndarray, folder=None) -> np.ndarray:
             if math.isnan(azimuth[idx, idy]):
                 # Obtain the neighboring pixels and compute the mean
                 azi_neighbors = select_region(azimuth.shape, azimuth, idx, idy)
-                mean_azi = np.nanmean(azi_neighbors)
                 
-                if not math.isnan(mean_azi):
+                if np.any(~np.isnan(azi_neighbors)):
+                    mean_azi = np.nanmean(azi_neighbors)
                     azimuth[idx, idy] = mean_azi
                     counter += 1
                 else:
                     azimuth[idx, idy] = 0
 
     # Optional: debug check for stability after modification
-    if not libmpMuelMat._isNumStable(azimuth) and folder:
-        print(f"Azimuth not stable in folder: {folder}")
+    if not libmpMuelMat._isNumStable(azimuth) and folder_name:
+        print(f"Azimuth not stable in folder: {folder_name}")
 
     # Optionally, handle cases where too many pixels were modified
     if counter > 1 / 100 * azimuth.size:
-        print(f"More than 1% of the pixels were modified in folder: {folder}.")
+        print(f"More than 1% of the pixels were modified in folder: {folder_name}.")
 
     return azimuth, unstable_azimuth
 

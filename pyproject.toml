@@ -1,7 +1,7 @@
 # https://peps.python.org/pep-0517/
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
 
 # https://peps.python.org/pep-0621/
 [project]
@@ -14,7 +14,7 @@ maintainers = [
     { name = "Elea Gros", email = "elearomy.gros@unibe.ch" },
 ]
 dynamic = ["version"]
-dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "imageio", "Pillow", "simpleITK", "omegaconf", "scikit-learn"]
+dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "imageio", "Pillow", "simpleITK", "omegaconf", "scikit-learn", "ema_pytorch"]
 # dependencies for machine learning "tensorboard", "torch", "torchsummary", "torchvision", "ema_pytorch",
 
 [tool.hatch.version]
