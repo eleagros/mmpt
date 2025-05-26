@@ -14,7 +14,7 @@ maintainers = [
     { name = "Elea Gros", email = "elearomy.gros@unibe.ch" },
 ]
 dynamic = ["version"]
-dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "imageio", "Pillow", "simpleITK", "omegaconf", "scikit-learn", "ema_pytorch"]
+dependencies = ["numpy", "numba", "matplotlib", "scipy", "tqdm", "opencv-python", "scikit-image", "cmocean", "pandas", "einops", "imageio", "Pillow", "simpleITK", "omegaconf", "scikit-learn"]
 # dependencies for machine learning "tensorboard", "torch", "torchsummary", "torchvision", "ema_pytorch",
 
 [tool.hatch.version]

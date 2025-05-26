@@ -501,21 +501,37 @@ def get_calibration_dates(parameters: dict):
     calib_directory_dates = os.listdir(calib_directory)
     wavelengths = parameters['wavelengths']
      
-    calib_directory_dates_cleaned = [
+    if parameters['instrument'] == 'IMP':
+        calib_directory_dates_cleaned = [
         c for c in calib_directory_dates
         if any(os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.mat"))
-               or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.cod" if parameters['instrument'] == 'IMP' else f"W.npy"))
-               or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_B0.cod" if parameters['instrument'] == 'IMP' else f"W.npy"))
+               or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_W.cod"))
+               or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_B0.cod"))
                for wl in wavelengths)
-    ]
+        ]
+        return [datetime.strptime(c.split('_')[0], '%Y-%m-%d') for c in calib_directory_dates_cleaned]
+    elif parameters['instrument'] == 'IMPv2':
+        calib_directory_dates_cleaned = [
+            c for c in calib_directory_dates
+            if any(os.path.exists(os.path.join(calib_directory, c, "Processed_images", f"{str(wl)}nm", f"A.npy"))
+                   and os.path.exists(os.path.join(calib_directory, c, "Processed_images", f"{str(wl)}nm", f"W.npy"))
+                   for wl in wavelengths)
+        ]
+        return [datetime.strptime(c, '%Y-%m-%d_%H%M%S') for c in calib_directory_dates_cleaned]
+    else:
+        raise ValueError(f"Unsupported instrument: {parameters['instrument']}. Supported instruments are 'IMP' and 'IMPv2'.")
 
-    # Convert folder names to datetime objects
-    return [datetime.strptime(c.split('_')[0], '%Y-%m-%d') for c in calib_directory_dates_cleaned]
 
-
-
-def get_calibration_directory(parameters:dict, calib_directory_dates_num: list, path: str,
-                              wavelength: str, folder_eu_time: dict = {}, Flag=False, idx=-1):
+def get_calibration_directory(
+    instrument: str,
+    parameters:dict,
+    calib_directory_dates_num: list,
+    path: str,
+    wavelength: str,
+    folder_eu_time: dict = {},
+    Flag=False,
+    idx=-1
+):
     """
     Gets the calibration directory with the date closest to the folder given as input.
 
@@ -544,15 +560,34 @@ def get_calibration_directory(parameters:dict, calib_directory_dates_num: list, 
     calib_directory = parameters['calib_dir']
     
     # Get the date of the measurement folder
-    date_measurement = folder_eu_time.get(path.split(os.sep)[-1], get_date_measurement(path, idx))
+    date_measurement = folder_eu_time.get(
+        path.split(os.sep)[-1], 
+        get_date_measurement(path, idx, instrument=instrument)
+    )
 
     # Find the closest date in the calibration directory
-    closest_date = find_closest_date(parameters, date_measurement, calib_directory_dates_num, wavelength, calib_directory, Flag)
+    closest_date = find_closest_date(
+        instrument,
+        parameters,
+        date_measurement,
+        calib_directory_dates_num,
+        wavelength,
+        calib_directory,
+        Flag
+    )
     
     return os.path.join(calib_directory, closest_date)
 
 
-def find_closest_date(parameters: dict, date_measurement: datetime, calib_dates_complete: list, wavelength: str, calib_directory: str, Flag=False):
+def find_closest_date(
+    instrument: str,
+    parameters: dict,
+    date_measurement: datetime,
+    calib_dates_complete: list,
+    wavelength: str,
+    calib_directory: str,
+    Flag=False
+) -> str:
     """
     Finds the directory with the closest date to the measurement date.
 
@@ -576,30 +611,53 @@ def find_closest_date(parameters: dict, date_measurement: datetime, calib_dates_
     """
     calib_dates = copy.deepcopy(calib_dates_complete)
     directories_calib = os.listdir(calib_directory)
-
+        
     # Calculate time differences between measurement and calibration dates
-    durations = [abs((calib - date_measurement).days) for calib in calib_dates]
+    if instrument == 'IMP':
+        durations = [abs((calib - date_measurement).days) for calib in calib_dates]
+    elif instrument == 'IMPv2':
+        durations = np.array([(date_measurement - calib).total_seconds() for calib in calib_dates])
+        durations[durations < 0] = np.inf
+    else:
+        raise ValueError(f"Unsupported instrument: {instrument}. Supported instruments are 'IMP' and 'IMPv2'.")
     
     # Find the index of the closest date
     min_idx_distance = np.argmin(durations)
-    closest_date = calib_dates[min_idx_distance].strftime('%Y-%m-%d')
+    if instrument == 'IMP':
+        closest_date = calib_dates[min_idx_distance].strftime('%Y-%m-%d')
+    elif instrument == 'IMPv2':
+        closest_date = calib_dates[min_idx_distance].strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        raise ValueError(f"Unsupported instrument: {instrument}. Supported instruments are 'IMP' and 'IMPv2'.")
 
-    # Find calibration directories for the closest date
-    dates_calibrated = [d for d in directories_calib if closest_date in d]
+    if instrument == 'IMP':
+        # Find calibration directories for the closest date
+        dates_calibrated = [d for d in directories_calib if closest_date in d]
 
-    # Check for valid calibration data
-    while dates_calibrated:
-        idx_last_calib = get_last_calibration_idx(dates_calibrated)
-        last_calibration = dates_calibrated[idx_last_calib]
+        # Check for valid calibration data
+        while dates_calibrated:
+            idx_last_calib = get_last_calibration_idx(dates_calibrated)
+            last_calibration = dates_calibrated[idx_last_calib]
 
-        # Check if all required calibration files exist
-        if all_calibration_files_exist(parameters, last_calibration, calib_directory, wavelength):
-            return last_calibration
-        else:
-            # Remove invalid calibration and check the previous one
-            del dates_calibrated[idx_last_calib]
+            # Check if all required calibration files exist
+            if all_calibration_files_exist(parameters, last_calibration, calib_directory, wavelength):
+                return last_calibration
+            else:
+                # Remove invalid calibration and check the previous one
+                del dates_calibrated[idx_last_calib]
 
-    raise FileNotFoundError('No valid calibration found for the closest 1000 days.')
+        raise FileNotFoundError('No valid calibration found for the closest 1000 days.')
+    
+    elif instrument == 'IMPv2':
+        # Check if the closest date is within the last 1000 days
+        if durations[min_idx_distance] > 1000 * 86000:  # 1000 days in seconds
+            raise FileNotFoundError('No valid calibration found for the closest 1000 days.')
+
+        # Return the closest date as a string
+        return directories_calib[min_idx_distance]
+    
+    else:
+        raise ValueError(f"Unsupported instrument: {instrument}. Supported instruments are 'IMP' and 'IMPv2'.")
 
 def all_calibration_files_exist(parameters: dict, calibration_folder: str, calib_directory: str, wavelength: str) -> bool:
     """Checks if all required calibration files exist for a given calibration folder and wavelength."""
@@ -618,15 +676,38 @@ def get_last_calibration_idx(dates_calibrated: list) -> int:
     return np.argmax(calibration_idxs)
 
 
-def get_date_measurement(path: str, idx=-1) -> datetime:
+def get_date_measurement(path: str, idx=-1, instrument = 'IMP') -> datetime:
     """Returns the date of the measured folder."""
-    return datetime.strptime(path.split(os.sep)[idx].split('_')[0], '%Y-%m-%d')
+    if instrument == 'IMPv2':
+        return datetime.strptime(path.split(os.sep)[-1][:17], '%Y-%m-%d_%H%M%S')
+    else:
+        return datetime.strptime(path.split(os.sep)[idx].split('_')[0], '%Y-%m-%d')
 
 
 def incorrect_date(closest: int):
     """Raises a warning indicating that no calibration was found for the exact date of the measurement."""
     warnings.warn(f'No calibration found for the exact date; the one used was {closest} day(s) ago.', UserWarning, stacklevel=2)
     
+import tkinter as tk
+from tkinter import filedialog
+
+def choose_folder(initialdir):
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = filedialog.askdirectory(initialdir=initialdir, title="Select Calibration Directory")
+    return folder_path
+    
+def check_file_existence(
+    calib_dir: str,
+    wavelength: str,
+) -> bool:
+    """Function to check if the calibration directory exists and contains the necessary files."""
+    calib_dir_wl = os.path.join(
+        calib_dir,
+        'Processed_images',
+        wavelength
+    )
+    return os.path.exists(os.path.join(calib_dir_wl, f"A.npy")) and os.path.exists(os.path.join(calib_dir_wl, f"W.npy"))
     
 ####################################################################################################################################
 ####################################################################################################################################
@@ -884,9 +965,9 @@ def load_calibration_data_IMP(calibration_directory_wl: str, wavelength: str):
     return A, W
 
 def load_calibration_data_IMPv2(measurement: dict):
-    path_folder = os.path.join(measurement['folder_name'], 'to_process')
-    A = np.load(os.path.join(path_folder, 'A.npy'))
-    W = np.load(os.path.join(path_folder, 'W.npy'))
+    print(f" [info] Loading calibration data for {measurement['calibration_directory']}")
+    A = np.load(os.path.join(measurement['calibration_directory_wl'], 'A.npy'))
+    W = np.load(os.path.join(measurement['calibration_directory_wl'], 'W.npy'))
     return A, W
     
 def get_angle_correction(path: str) -> int:
