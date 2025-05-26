@@ -17,8 +17,10 @@ from packaging.version import Version
 from omegaconf import OmegaConf
 
 from mmpt import utils, libmpMuelMat, libmpMPIdenoisePDDN
-from mmpt.addons import denoise_intensities, align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
+from mmpt.addons import align_wavelengths, plot_polarimetry, azimuth_local_var, rotate_MM
 from mmpt.addons.polarpred.mm.models import init_mm_model
+# align the measurements captured at different wavelengths - could cause issue when using masks obtained
+# at 550nm as the images are slightly shifted 
 
 import mmpt
 
@@ -47,6 +49,7 @@ class MuellerMatrixProcessor:
         self.prediction_mode = prediction_mode
         self.folder_eu_time = folder_eu_time
         self.test_mode = False
+        self.previous_calib = None
         
         self.validate_inputs()
         self.prepare_parameters()
@@ -59,18 +62,22 @@ class MuellerMatrixProcessor:
         else:
             self.mm_model = None
 
-        print(' [info] Loading tumor prediction model...')
-        self.load_prediction_model()
-        print(' [info] Loading tumor prediction model done.')
+        if self.prediction_mode is None:
+            print(' [info] No prediction model selected.')
+        else:
+            print(' [info] Loading tumor prediction model...')
+            self.load_prediction_model()
+            print(' [info] Loading tumor prediction model done.')
         
-        print(' [info] Loading lu-chipman prediction model...')
         if self.lu_chipman_backend == 'prediction':
+            print(' [info] Loading lu-chipman prediction model...')
             self.load_lu_chipman_prediction_model()
+            print(' [info] Loading lu-chipman prediction model done.')
         else:
             self.lu_chipman_model = None
-        print(' [info] Loading lu-chipman prediction model done.')
-            
-        self.get_calib_dates()
+        
+        if not self.calib_dir_browse:
+            self.get_calib_dates()
         
     def validate_inputs(self):
         """Validates input parameters."""
@@ -81,12 +88,19 @@ class MuellerMatrixProcessor:
             for directory in self.input_dirs:
                 if not os.path.isdir(directory):
                     raise ValueError(f'The folder {directory} does not exist.')
-
+            
+            if not isinstance(self.calib_dir, str):
+                self.calib_dir = ''
+            
+            self.calib_dir_browse = False
+            
             if not os.path.isdir(self.calib_dir) and self.instrument == 'IMP':
                 raise ValueError(f'The calib_directory parameter {self.calib_dir} should be an existing folder.')
             elif self.instrument == 'IMPv2':
-                print(f' [info] Calibration directory {self.calib_dir} will not be used.')
-
+                if not os.path.isdir(self.calib_dir):
+                    self.calib_dir_browse = True
+                    print(f' [info] Calibration directory does not exist. Using browsing calibration directory selection.')
+            
         if self.instrument not in {'IMP', 'IMPv2'}:
             raise ValueError('Supported instruments: ["IMP", "IMPv2"].')
 
@@ -118,6 +132,10 @@ class MuellerMatrixProcessor:
         if self.PDDN_models_path is None:
             self.PDDN_models_path = os.path.join(mmpt.__file__.split('__init__')[0], 'PDDN_model')
         
+        if self.instrument == 'IMP':
+            self.binning_factor = 1
+            print(' [info] The binning factor is set to 1 for IMP.')
+            
         if self.PDDN_mode in {'pddn', 'both'}:
             try:
                 import torchvision
@@ -215,11 +233,8 @@ class MuellerMatrixProcessor:
         print(' [info] Loading MM model done.')
         
     def get_calib_dates(self):
-        if self.instrument == 'IMP':
-            self.calib_directory_dates_num = utils.get_calibration_dates(self.get_parameters())
-        else:
-            self.calib_directory_dates_num = []
-            
+        self.calib_directory_dates_num = utils.get_calibration_dates(self.get_parameters())
+
     def load_prediction_model(self):
         cfg = OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/train_local.yml'))
         cfg = OmegaConf.merge(cfg, OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/test.yml')))
@@ -257,6 +272,7 @@ class MuellerMatrixProcessor:
         ------
         None
         """
+
         if self.data_source == 'online':
             raise ValueError('The data_source is set to "online". The function to process the data online is online_processing.')
             
@@ -319,7 +335,7 @@ class MuellerMatrixProcessor:
                     folder['path_intensite'] = folder['path_intensite'].replace('.cod', '_aligned.cod')
                 else:
                     assert folder['wavelength'] != '600nm', "The wavelength 600nm is not aligned."        
-        
+
         start = time.time()
         
         for folder in tqdm(self.to_process):
@@ -358,10 +374,20 @@ class MuellerMatrixProcessor:
             
             # Step 2: Compute the MM
             # only required inputs (I, A, W)
-            measurement['MM'], times_compute_mm = compute_and_curate_mm(measurement['I'], measurement['A'], measurement['W'],
-                                  self.mm_computation_backend, self.lu_chipman_backend, self.mm_model, self.lu_chipman_model,
-                                  self.remove_reflection, measurement['path_save'], self.instrument, self.workflow_mode,
-                                  self.angle_correction)
+            measurement['MM'], times_compute_mm = compute_and_curate_mm(
+                measurement['I'],
+                measurement['A'],
+                measurement['W'],
+                self.mm_computation_backend,
+                self.lu_chipman_backend,
+                self.mm_model,
+                self.lu_chipman_model,
+                self.remove_reflection, 
+                measurement['path_save'],
+                self.instrument,
+                self.workflow_mode,
+                self.angle_correction, measurement['folder_name']
+            )
                         
             # Step 3: Save the MM
             start_save_npz = time.time()
@@ -410,6 +436,10 @@ class MuellerMatrixProcessor:
             except Exception as e:
                 traceback.print_exc()
                 
+            del measurement
+            import gc
+            gc.collect()
+                
         end = time.time()
         if len(self.to_process) == 0:
             time_complete = 0
@@ -426,32 +456,76 @@ class MuellerMatrixProcessor:
         path = measurement['folder_name']
         wavelength = measurement['wavelength']
         if self.instrument == 'IMP':
-            measurement['path_save'] = os.path.join(path, measurement['polarimetry_fname'], f"{wavelength}")
+            measurement['path_save'] = os.path.join(
+                path,
+                measurement['polarimetry_fname'],
+                f"{wavelength}"
+            )
         else:
-            measurement['path_save'] = os.path.join(path, measurement['polarimetry_fname'], 
-                    measurement['path_intensite'].split(os.sep)[-1].replace('.npy', '').replace('PDDN_', ''), f"{wavelength}")
+            measurement['path_save'] = os.path.join(
+                path,
+                measurement['polarimetry_fname'], 
+                measurement['path_intensite'].split(os.sep)[-1].replace('.npy', '').replace('PDDN_', ''),
+                f"{wavelength}"
+            )
         
         self.angle_correction = utils.get_angle_correction(measurement['folder_name'])
         
-        # Find the closest calibration directory based on the wavelength
-        if self.instrument == 'IMP':
-            calibration_directory_closest = utils.get_calibration_directory(self.get_parameters(), self.calib_directory_dates_num, 
-                                                                            path, wavelength, self.folder_eu_time, Flag = False)
-            calibration_directory_wl = os.path.join(calibration_directory_closest, wavelength)
+        if self.calib_dir_browse:
+            
+            found_calib_directory = False
+            while not found_calib_directory:
+                inititaldir = self.previous_calib if self.previous_calib else self.input_dirs[0]
+                calibration_directory_closest = utils.choose_folder(initialdir = inititaldir)
+                found_calib_directory = utils.check_file_existence(calibration_directory_closest, wavelength)
+                if not found_calib_directory:
+                    print(f' [error] The calibration directory {calibration_directory_closest} does not contain the wavelength {wavelength}. Please select another directory.')
+            
+            self.previous_calib = os.path.dirname(calibration_directory_closest)
+            
         else:
-            calibration_directory_closest, calibration_directory_wl = None, None
+            # Find the closest calibration directory based on the wavelength
+            calibration_directory_closest = utils.get_calibration_directory(
+                self.instrument,
+                self.get_parameters(),
+                self.calib_directory_dates_num, 
+                path, wavelength,
+                self.folder_eu_time,
+                Flag = False
+            )
+                
+        if self.instrument == 'IMP':
+            calibration_directory_wl = os.path.join(
+                calibration_directory_closest,
+                wavelength
+            )
+        elif self.instrument == 'IMPv2':
+            calibration_directory_wl = os.path.join(
+                calibration_directory_closest,
+                'Processed_images',
+                wavelength
+            )
                 
         measurement['calibration_directory'] = calibration_directory_closest
         measurement['calibration_directory_wl'] = calibration_directory_wl
         
         start_data_loading = time.time()
         # Load calibration & intensity data
-        A, W = utils.load_calibration_data(self.get_parameters(), measurement, calibration_directory_wl, wavelength)
+        A, W = utils.load_calibration_data(
+            self.get_parameters(),
+            measurement,
+            calibration_directory_wl,
+            wavelength
+        )
+        
         measurement['A'] = A
         measurement['W'] = W
         
         # I, polarimetry_fname = utils.get_intensity(path, wavelength, align_wls, PDDN)
-        I = utils.get_intensity(self.get_parameters(), measurement['path_intensite'])
+        I = utils.get_intensity(
+            self.get_parameters(),
+            measurement['path_intensite']
+        )
         measurement['I'] = I
         time_data_loading = time.time() - start_data_loading
 
@@ -580,10 +654,26 @@ class MuellerMatrixProcessor:
             
 def compute_and_curate_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'processing', 
                           mm_model = None, lu_chipman_model = None, remove_reflection = False, path_save = None,
-                          instrument = 'IMP', workflow_mode = 'default', angle_correction = 0):
+                          instrument = 'IMP', workflow_mode = 'default', angle_correction = 0, folder_name = None):
     MM, time_MM_processing = compute_mm(I, A, W, mm_computation_backend, lu_chipman_backend, mm_model, lu_chipman_model, 
                                         remove_reflection)
-    MM, times_curate_mm = curate_mm(MM, path_save, instrument, workflow_mode, angle_correction)
+    MM, times_curate_mm = curate_mm(MM, path_save, instrument, workflow_mode, angle_correction, folder_name = folder_name)
+    
+    # Remove parameters not needed for the IMPv2
+    if instrument == 'IMPv2':
+        parameters_IMPv2 = [
+            'nM',
+            'M11',
+            'Msk',
+            'linR',
+            'totP',
+            'totD',
+            'azimuth',
+            'dilated_mask',
+            'azimuth_local_var',
+        ]
+        MM = {k: v for k, v in MM.items() if k in parameters_IMPv2}
+            
     return MM, {'mm_processing': time_MM_processing, 'mm_curation': times_curate_mm,}
 
 def compute_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'processing', mm_model = None, lu_chipman_model = None,
@@ -608,12 +698,12 @@ def compute_mm(I, A, W, mm_computation_backend = 'c', lu_chipman_backend = 'proc
         
     return MM, {'time_data_loading_GPU': time_data_loading_GPU, 'time_MM_processing': times_MM_computation}
 
-def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correction = 0):
+def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correction = 0, folder_name = None):
     """curate_mm is a function that curates the MM for the folders"""
     start_processing = time.time()  
     
     # remove the NaNs from the atzimuth measurements
-    MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'])
+    MM['azimuth'], MM['azimuth_curation'] = utils.curate_azimuth(MM['azimuth'], folder_name = folder_name)
     MM['M11'] = utils.correct_M11(MM['M11'], instrument)
     try:
         MM['M11_normalized'] = utils.normalize_M11(MM['M11'], instrument)
@@ -629,11 +719,11 @@ def curate_mm(MM, path_save, instrument, workflow_mode = 'default', angle_correc
 
     start_save_MM = time.time()
     parameter_names = utils.load_parameter_names(workflow_mode)
-    if path_save is None:
+    """if path_save is None:
         pass
     else:
         if os.path.isdir(path_save):
-            utils.save_file_as_npy(MM['nM'], os.path.join(path_save, "nM.npy"))
+            utils.save_file_as_npy(MM['nM'], os.path.join(path_save, "nM.npy"))"""
     time_save_nM = time.time() - start_save_MM
     
     # Remove keys from MM that are not in parameter_names

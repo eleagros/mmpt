@@ -192,11 +192,12 @@ def generate_plots(MM: dict, folder: str, save_pdf_figs=False, instrument: str =
         path_save = os.path.join(folder, f"{param_name}.png".capitalize())
         
         cmap, norm = get_cmap(key, instrument, mm_processing=mm_processing)
+        
         plot_polarimetric_parameter(MM[key], cmap, norm, key, param['title'], path_save, save_pdf_figs, instrument, mm_processing)
         
     if save_batch:
         parameters = ['M11', 'totP', 'linR', 'azimuth']
-        path_save = os.path.join(folder, f"combined.png".capitalize())
+        path_save = os.path.join(folder, f"combined_img.png")
         plot_2x2_montage(MM, parameters, parameters_map, path_save, instrument, mm_processing)
 
 
@@ -312,7 +313,10 @@ def plot_polarimetric_parameter(X2D: np.ndarray, cmap, norm, parameter: str, tit
             ax.text(500, -10, "x10\u2074", fontsize=40, fontweight="bold")
         
     # Set title
-    ax.set_title(title, fontsize=35, fontweight="bold", pad=14)
+    if instrument == 'IMPv2':
+        ax.set_title(title, fontsize=35, fontweight="bold", pad=14)
+    else:
+        ax.set_title(title, fontsize=22, fontweight="bold", pad=5)
     ax.set_xticks([])
     ax.set_yticks([])
 

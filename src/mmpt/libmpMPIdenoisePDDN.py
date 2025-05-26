@@ -344,7 +344,6 @@ class MPI_PDDN_Unet(nn.Module):
         self.channels = channels
 
         init_dim = default(init_dim, dim)
-        print(init_dim, dim)
         self.init_conv = nn.Conv2d(channels, init_dim, 7, padding = 3)
 
         dims = [init_dim, *map(lambda m: dim * m, dim_mults)]
