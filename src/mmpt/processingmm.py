@@ -233,7 +233,7 @@ class MuellerMatrixProcessor:
         print(' [info] Loading MM model done.')
         
     def get_calib_dates(self):
-        self.calib_directory_dates_num = utils.get_calibration_dates(self.get_parameters())
+        self.calib_directory_dates_num, self.calib_directory_names = utils.get_calibration_dates(self.get_parameters())
 
     def load_prediction_model(self):
         cfg = OmegaConf.load(os.path.join(utils.getPolarPredPath(), 'configs/train_local.yml'))
@@ -489,6 +489,7 @@ class MuellerMatrixProcessor:
                 self.instrument,
                 self.get_parameters(),
                 self.calib_directory_dates_num, 
+                self.calib_directory_names,
                 path, wavelength,
                 self.folder_eu_time,
                 Flag = False

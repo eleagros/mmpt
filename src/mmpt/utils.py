@@ -509,7 +509,7 @@ def get_calibration_dates(parameters: dict):
                or os.path.exists(os.path.join(calib_directory, c, f"{str(wl)}nm", f"{str(wl)}_B0.cod"))
                for wl in wavelengths)
         ]
-        return [datetime.strptime(c.split('_')[0], '%Y-%m-%d') for c in calib_directory_dates_cleaned]
+        return [datetime.strptime(c.split('_')[0], '%Y-%m-%d') for c in calib_directory_dates_cleaned], calib_directory_dates_cleaned
     elif parameters['instrument'] == 'IMPv2':
         calib_directory_dates_cleaned = [
             c for c in calib_directory_dates
@@ -517,7 +517,8 @@ def get_calibration_dates(parameters: dict):
                    and os.path.exists(os.path.join(calib_directory, c, "Processed_images", f"{str(wl)}nm", f"W.npy"))
                    for wl in wavelengths)
         ]
-        return [datetime.strptime(c, '%Y-%m-%d_%H%M%S') for c in calib_directory_dates_cleaned]
+        print(calib_directory_dates_cleaned)
+        return [datetime.strptime(c, '%Y-%m-%d_%H%M%S') for c in calib_directory_dates_cleaned], calib_directory_dates_cleaned
     else:
         raise ValueError(f"Unsupported instrument: {parameters['instrument']}. Supported instruments are 'IMP' and 'IMPv2'.")
 
@@ -526,6 +527,7 @@ def get_calibration_directory(
     instrument: str,
     parameters:dict,
     calib_directory_dates_num: list,
+    calib_directory_names: list,
     path: str,
     wavelength: str,
     folder_eu_time: dict = {},
@@ -571,6 +573,7 @@ def get_calibration_directory(
         parameters,
         date_measurement,
         calib_directory_dates_num,
+        calib_directory_names,
         wavelength,
         calib_directory,
         Flag
@@ -584,6 +587,7 @@ def find_closest_date(
     parameters: dict,
     date_measurement: datetime,
     calib_dates_complete: list,
+    calib_directory_names: list,
     wavelength: str,
     calib_directory: str,
     Flag=False
@@ -610,7 +614,7 @@ def find_closest_date(
         The folder name with the closest calibration date.
     """
     calib_dates = copy.deepcopy(calib_dates_complete)
-    directories_calib = os.listdir(calib_directory)
+    directories_calib = calib_directory_names
         
     # Calculate time differences between measurement and calibration dates
     if instrument == 'IMP':
